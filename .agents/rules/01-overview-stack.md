@@ -77,11 +77,13 @@ suatu saat ADA plugin yang butuh lebih tinggi dari ini, itu sinyal untuk mengece
 apakah plugin tersebut benar-benar diperlukan SEKARANG (lihat aturan dependency di bawah)
 sebelum menaikkan angka lagi.
 
-## JANGAN tambah dependency sebelum fasenya
-Setiap package di `pubspec.yaml` harus sesuai dengan Fase yang sedang dikerjakan — lihat
-`.agents/workflows/`. Contoh: model embedding (mis. `tflite_flutter`) baru dibutuhkan di
-Fase 4 (Memory/RAG), BUKAN di Fase 1-2. Menambah dependency lebih awal dari fasenya cuma
-menambah kompleksitas build (konflik compileSdk/NDK antar plugin) tanpa manfaat langsung.
-Kalau sedang mengerjakan Fase 1-2 dan menemukan dependency yang tidak relevan dengan fase
-itu di `pubspec.yaml`, hapus dulu — tambahkan lagi persis saat fase yang membutuhkannya
-dimulai.
+## Dependency & urutan fase — BOLEH maju cepat, ini keputusan sadar
+Update: user secara eksplisit memutuskan Antigravity BOLEH mengerjakan bagian dari fase
+yang lebih jauh (mis. Fase 4 Memory) sambil fase sebelumnya belum 100% selesai, demi
+kecepatan — dan menerima risiko build jadi lebih kompleks lebih cepat sebagai
+konsekuensinya. JANGAN lagi menahan diri hanya karena "belum waktunya sesuai fase".
+Yang tetap berlaku: JANGAN tinggalkan dependency yang benar-benar tidak terpakai di
+`pubspec.yaml` (dead weight) — kalau suatu package memang dipakai di kode (seperti
+`tflite_flutter` di `embedding_service.dart`), itu sah ada meski fase resminya belum tiba.
+Tetap catat progres lintas-fase ini di komentar/README supaya jelas bagian mana yang sudah
+jalan duluan, supaya tidak membingungkan saat sampai ke workflow fase terkait nanti.
