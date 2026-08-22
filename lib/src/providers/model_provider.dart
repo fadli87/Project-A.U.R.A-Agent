@@ -112,7 +112,20 @@ class ModelNotifier extends _$ModelNotifier {
       }
       searchDirs.add(appModelsDir);
 
-      // 2. Android Common Download Directories
+      // 2. App External Storage Directories
+      try {
+        final extDir = await getExternalStorageDirectory();
+        if (extDir != null) {
+          final extModelsDir = Directory(path_lib.join(extDir.path, 'models'));
+          if (!await extModelsDir.exists()) {
+            await extModelsDir.create(recursive: true);
+          }
+          searchDirs.add(extModelsDir);
+          searchDirs.add(extDir);
+        }
+      } catch (_) {}
+
+      // 3. Android Common Download Directories
       if (Platform.isAndroid) {
         final downloadModels = Directory('/sdcard/Download/models');
         if (await downloadModels.exists()) {
