@@ -239,13 +239,28 @@ class ModelNotifier extends _$ModelNotifier {
 
     try {
       if (Platform.isAndroid) {
+        String resolvedPath = model.path;
+        try {
+          resolvedPath = File(model.path).resolveSymbolicLinksSync();
+        } catch (_) {}
+
         final gpu = await controller.detectGpu();
-        await controller.loadModel(
-          modelPath: model.path,
-          threads: 4,
-          contextSize: 2048,
-          gpuLayers: gpu.recommendedGpuLayers,
-        );
+        try {
+          await controller.loadModel(
+            modelPath: resolvedPath,
+            threads: 4,
+            contextSize: 2048,
+            gpuLayers: gpu.recommendedGpuLayers,
+          );
+        } catch (gpuErr) {
+          // Fallback to CPU-only if GPU Vulkan offloading fails on this device
+          await controller.loadModel(
+            modelPath: resolvedPath,
+            threads: 4,
+            contextSize: 2048,
+            gpuLayers: 0,
+          );
+        }
       } else {
         // Simulate load delay for UI testing/design on non-Android
         await Future<void>.delayed(const Duration(milliseconds: 500));

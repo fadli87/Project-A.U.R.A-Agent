@@ -74,7 +74,10 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
                       _buildRamSection(modelState),
                       const SizedBox(height: 28),
                       _buildModelTiers(modelState),
-                      const SizedBox(height: 28),
+                      if (modelState.errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        _buildErrorBanner(modelState.errorMessage!),
+                      ],
                       if (modelState.availableModels.isNotEmpty)
                         _buildDetectedModels(modelState),
                     ],
@@ -85,6 +88,30 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.statusError.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.statusError.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: AppTheme.statusError, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: AppTheme.statusError, fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
