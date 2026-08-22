@@ -4,6 +4,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../providers/chat_provider.dart';
 import '../../providers/model_provider.dart';
+import '../../providers/inference_provider.dart';
 import '../../storage/chat_models.dart';
 // ignore: unused_import — akan digunakan di Fase 5 untuk tool permission dialog
 import '../widgets/permission_approval_card.dart';
@@ -296,29 +297,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _sendMessage(String text) async {
     final chatNotifier = ref.read(chatProvider.notifier);
+    final modelState = ref.read(modelProvider);
 
     // Ensure session exists
     if (!ref.read(chatProvider).hasSession) {
       await chatNotifier.startNewSession(
-        modelName: ref.read(modelProvider).activeModel?.name,
+        modelName: modelState.activeModel?.name,
       );
     }
 
     await chatNotifier.addUserMessage(text);
-
-    // TODO: Trigger inference via InferenceWorker (Fase 2)
-    // For now, show a placeholder response
     chatNotifier.beginAssistantResponse();
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    // Simulated streaming (will be replaced by real token stream in Fase 2)
-    const mockResponse =
-        'Saya siap membantu! Saat ini sistem inferensi sedang dalam proses setup (Fase 2). '
-        'Model GGUF akan segera dapat dijalankan secara lokal di perangkat Anda.';
-    for (final char in mockResponse.split('')) {
-      chatNotifier.appendToken(char);
-      await Future<void>.delayed(const Duration(milliseconds: 15));
+
+    if (!modelState.isReady || modelState.activeModel == null) {
+      chatNotifier.appendToken(
+        'Peringatan: Belum ada model GGUF yang dimuat. Silakan kembali ke layar utama dan pilih serta muat model terlebih dahulu.',
+      );
+      await chatNotifier.finalizeAssistantResponse();
+      return;
     }
-    await chatNotifier.finalizeAssistantResponse();
+
+    final inferenceNotifier = ref.read(inferenceProvider.notifier);
+    final formattedPrompt = inferenceNotifier.formatPrompt(text);
+    final controller = ref.read(modelProvider.notifier).controller;
+
+    try {
+      final stream = controller.generate(
+        prompt: formattedPrompt,
+        maxTokens: 512,
+      );
+
+      await for (final token in stream) {
+        chatNotifier.appendToken(token);
+      }
+    } catch (e) {
+      chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
+    } finally {
+      await chatNotifier.finalizeAssistantResponse();
+    }
   }
 
   void _scrollToBottom() {

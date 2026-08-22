@@ -99,51 +99,109 @@ class ModelNotifier extends _$ModelNotifier {
     return 6 * 1024; // Default for non-Android platforms (e.g. testing)
   }
 
-  /// Scan the app's model directory for .gguf files
+  /// Scan the app's model directory and external download folders for .gguf files
   Future<void> scanForModels() async {
     try {
+      final List<Directory> searchDirs = [];
+
+      // 1. App Documents Directory
       final appDir = await getApplicationDocumentsDirectory();
-      final modelsDirPath = path_lib.join(appDir.path, 'models');
-      final modelsDir = Directory(modelsDirPath);
-
-      if (!await modelsDir.exists()) {
-        await modelsDir.create(recursive: true);
+      final appModelsDir = Directory(path_lib.join(appDir.path, 'models'));
+      if (!await appModelsDir.exists()) {
+        await appModelsDir.create(recursive: true);
       }
+      searchDirs.add(appModelsDir);
 
-      final List<GgufModel> models = [];
-      final List<FileSystemEntity> entities = await modelsDir.list().toList();
-
-      for (final entity in entities) {
-        if (entity is File && entity.path.endsWith('.gguf')) {
-          final stat = await entity.stat();
-          final sizeBytes = stat.size;
-          final filename = path_lib.basename(entity.path);
-
-          // Determine tier based on size
-          ModelTier tier;
-          if (sizeBytes < 1.0 * 1024 * 1024 * 1024) {
-            tier = ModelTier.light;
-          } else if (sizeBytes < 2.0 * 1024 * 1024 * 1024) {
-            tier = ModelTier.standard;
-          } else {
-            tier = ModelTier.advanced;
-          }
-
-          models.add(
-            GgufModel(
-              path: entity.path,
-              name: filename,
-              sizeBytes: sizeBytes,
-              tier: tier,
-            ),
-          );
+      // 2. Android Common Download Directories
+      if (Platform.isAndroid) {
+        final downloadModels = Directory('/sdcard/Download/models');
+        if (await downloadModels.exists()) {
+          searchDirs.add(downloadModels);
+        }
+        final downloadDir = Directory('/sdcard/Download');
+        if (await downloadDir.exists()) {
+          searchDirs.add(downloadDir);
+        }
+        final rootModels = Directory('/sdcard/models');
+        if (await rootModels.exists()) {
+          searchDirs.add(rootModels);
         }
       }
 
-      state = state.copyWith(availableModels: models);
+      final Map<String, GgufModel> modelsMap = {};
+
+      for (final dir in searchDirs) {
+        try {
+          final List<FileSystemEntity> entities = await dir.list().toList();
+          for (final entity in entities) {
+            if (entity is File && entity.path.toLowerCase().endsWith('.gguf')) {
+              final stat = await entity.stat();
+              final sizeBytes = stat.size;
+              final filename = path_lib.basename(entity.path);
+
+              // Determine tier based on size
+              ModelTier tier;
+              if (sizeBytes < 1.0 * 1024 * 1024 * 1024) {
+                tier = ModelTier.light;
+              } else if (sizeBytes < 2.0 * 1024 * 1024 * 1024) {
+                tier = ModelTier.standard;
+              } else {
+                tier = ModelTier.advanced;
+              }
+
+              // Use filename as key to prevent duplicate listings
+              modelsMap[filename] = GgufModel(
+                path: entity.path,
+                name: filename,
+                sizeBytes: sizeBytes,
+                tier: tier,
+              );
+            }
+          }
+        } catch (_) {
+          // Ignore directory read errors for non-existent or restricted paths
+        }
+      }
+
+      state = state.copyWith(availableModels: modelsMap.values.toList());
     } catch (e) {
       setError('Gagal memindai model: ${e.toString()}');
     }
+  }
+
+  /// Manually register a model from a specific file path
+  Future<void> addModelFromPath(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      setError('File model tidak ditemukan di: $filePath');
+      return;
+    }
+
+    final stat = await file.stat();
+    final sizeBytes = stat.size;
+    final filename = path_lib.basename(file.path);
+
+    ModelTier tier;
+    if (sizeBytes < 1.0 * 1024 * 1024 * 1024) {
+      tier = ModelTier.light;
+    } else if (sizeBytes < 2.0 * 1024 * 1024 * 1024) {
+      tier = ModelTier.standard;
+    } else {
+      tier = ModelTier.advanced;
+    }
+
+    final newModel = GgufModel(
+      path: file.path,
+      name: filename,
+      sizeBytes: sizeBytes,
+      tier: tier,
+    );
+
+    final currentModels = List<GgufModel>.from(state.availableModels);
+    currentModels.removeWhere((m) => m.name == filename);
+    currentModels.add(newModel);
+
+    state = state.copyWith(availableModels: currentModels);
   }
 
   /// Load a GGUF model into memory.
