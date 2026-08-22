@@ -8,6 +8,11 @@ rendering.
 
 1. Buat `ModelProvider` (Riverpod) — mengelola path GGUF aktif, status loading, dan info
    RAM yang dibutuhkan per model (referensi tier di `.agents/rules/02-architecture.md`).
+   Untuk import model, JANGAN andalkan path hardcode/ADB push seperti saat testing di
+   Fase 1 — pakai package `file_picker` (Storage Access Framework) supaya user bisa pilih
+   file `.gguf` dari mana saja (Download folder, penyimpanan lokal Drive, dll) lewat file
+   browser bawaan Android, lalu app menyalin/mereferensikan file itu ke folder
+   app-specific external storage.
 2. Buat `ChatProvider` — mengelola daftar `ChatMessage` untuk sesi aktif.
 3. Buat `ChatScreen` dengan `ListView.builder` untuk daftar pesan + text input field.
 4. Hubungkan `StreamProvider` ke output token dari worker isolate (Fase 2) — pastikan UI

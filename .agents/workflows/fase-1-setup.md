@@ -24,7 +24,13 @@ crash, dengan Foreground Service aktif otomatis.
    dukungan Vulkan, info memori, rekomendasi layer count) — ini validasi awal bahwa
    plugin native-nya termuat dengan benar di device fisik.
 5. Download satu model tier ringan (`gemma-3-1b-it-Q4_K_M.gguf`) ke storage device untuk
-   pengujian.
+   pengujian. Taruh di folder app-specific external storage
+   (`/sdcard/Android/data/<applicationId>/files/models/`) via `adb push` — JANGAN taruh di
+   folder publik (`Download/`, dll), karena itu butuh permission storage tambahan yang
+   ribet di Android modern. Ambil path folder ini secara dinamis di kode lewat
+   `path_provider` → `getExternalStorageDirectory()`, jangan hardcode. Cek dulu apakah
+   `llama_flutter_android` punya konvensi path default sendiri di README/contoh
+   mereka — kalau ada, ikuti itu.
 6. Panggil `controller.loadModel(modelPath: ..., threads: 4, contextSize: 2048)` — pastikan
    berhasil tanpa crash dan notification Foreground Service muncul.
 7. Jalankan di device fisik (bukan emulator) untuk validasi paling awal.
