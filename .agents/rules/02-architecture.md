@@ -26,10 +26,26 @@ manual oleh user.
 | Standar (default) | 6 GB | Qwen 3 1.7B / SmolLM 2 1.7B | ~1.1 GB | Titik seimbang mayoritas HP kelas menengah |
 | Lanjut | 8 GB+ | Phi-4-mini 3.8B / Llama 3.2 3B | ~2.2–2.7 GB | HP flagship, reasoning & tool-calling lebih andal |
 
-Model uji untuk development:
-- `gemma-3-1b-it-Q4_K_M.gguf` (tier ringan)
-- `qwen3-1.7b-instruct-Q4_K_M.gguf` (tier standar, default)
-- `phi-4-mini-instruct-Q4_K_M.gguf` (tier lanjut)
+Model uji untuk development (link resmi Hugging Face, sudah dicek ukurannya):
+
+| Tier | Model | File | Ukuran | Sumber |
+|---|---|---|---|---|
+| Ringan | Gemma 3 1B | `gemma-3-1b-it-Q4_K_M.gguf` | 806 MB | https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF |
+| Standar (default) | Qwen3 1.7B | `Qwen3-1.7B-Q4_K_M.gguf` | ~1,1–1,3 GB | https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF |
+| Lanjut | Qwen3 4B | `Qwen3-4B-Q4_K_M.gguf` | 2,5 GB | https://huggingface.co/Qwen/Qwen3-4B-GGUF |
+
+Catatan: tier Lanjut sengaja dipilih Qwen3 4B (bukan Phi-4-mini seperti draft awal) supaya
+satu keluarga model dipakai di semua tier — perilaku tool-calling dan format output lebih
+konsisten lintas tier dibanding mencampur Gemma/Qwen/Phi. Phi-4-mini boleh dicoba di Fase 6
+sebagai pembanding opsional, bukan wajib.
+
+Cara download (butuh `pip install -U "huggingface_hub[cli]"` dulu):
+```
+huggingface-cli download ggml-org/gemma-3-1b-it-GGUF --include "gemma-3-1b-it-Q4_K_M.gguf" --local-dir ./models
+huggingface-cli download ggml-org/Qwen3-1.7B-GGUF --include "Qwen3-1.7B-Q4_K_M.gguf" --local-dir ./models
+huggingface-cli download Qwen/Qwen3-4B-GGUF --include "Qwen3-4B-Q4_K_M.gguf" --local-dir ./models
+```
+Total unduhan ketiga tier: ±4,4 GB.
 
 ## Risiko yang harus diantisipasi di kode (bukan hanya dokumentasi)
 
