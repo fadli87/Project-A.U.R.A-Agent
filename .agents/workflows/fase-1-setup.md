@@ -1,29 +1,41 @@
-# Workflow: Fase 1 — Environment Setup & Foundation
+# Workflow: Fase 1 — Environment Setup & Foundation (REVISI: pakai package)
 
-**Tujuan:** Siapkan project Flutter, NDK, dan compile `llama.cpp` untuk Android ARM64.
-**Deliverable akhir:** shell app Flutter yang bisa load `.so` library via FFI, tanpa crash.
+> **Update:** Fase ini direvisi untuk memakai package `llama_flutter_android` (^0.2.6),
+> BUKAN compile llama.cpp custom manual. Lihat `.agents/rules/01-overview-stack.md` untuk
+> alasan keputusan ini. Langkah CMakeLists/JNI manual di versi lama workflow ini sudah
+> deprecated — jangan dikerjakan kecuali plugin terbukti tidak cukup nanti di Fase 6.
+
+**Tujuan:** Siapkan project Flutter dan integrasikan `llama_flutter_android` sebagai
+inference engine.
+**Deliverable akhir:** shell app Flutter yang bisa memuat model GGUF via plugin ini, tanpa
+crash, dengan Foreground Service aktif otomatis.
 
 ## Langkah
 
-1. Inisialisasi project Flutter baru (`flutter create`) dengan nama package yang jelas
-   untuk project ini.
-2. Setup Android NDK dan CMake di `android/app/build.gradle` — pastikan target ABI
-   `arm64-v8a` diaktifkan.
-3. Clone `llama.cpp` ke dalam `src/cpp` sebagai submodule atau vendored copy — catat versi
-   commit yang dipakai di README project untuk reproducibility.
-4. Tulis `CMakeLists.txt` yang meng-compile `llama.cpp` jadi `libllama_bridge.so` untuk
-   `arm64-v8a`.
-5. Build project dan verifikasi `.so` berhasil dihasilkan.
-6. Buat shell app Flutter minimal yang memuat `.so` tersebut lewat `dart:ffi` — cukup
-   verifikasi library termuat tanpa error, belum perlu memanggil fungsi inference apa pun.
-7. Jalankan di device fisik (bukan emulator) untuk validasi paling awal — cek log untuk
-   error linking/ABI mismatch.
+1. Pastikan `llama_flutter_android: ^0.2.6` ada di `pubspec.yaml` (versi PIN, jangan pakai
+   `any` atau range terbuka), lalu `flutter pub get`.
+2. Baca source `InferenceService.kt` dan `jni_wrapper.cpp` di repo plugin
+   (github.com/dragneel2074/Llama-Flutter) — minimal sekali baca sebelum lanjut, supaya
+   familiar dengan cara kerja internalnya.
+3. Cek `AndroidManifest.xml` — pastikan permission dan `<service>` untuk Foreground
+   Service dari plugin sudah otomatis ter-merge (biasanya otomatis lewat manifest
+   merger Android, tapi tetap verifikasi manual).
+4. Panggil `LlamaController().detectGpu()` di kode minimal, log hasilnya (device name,
+   dukungan Vulkan, info memori, rekomendasi layer count) — ini validasi awal bahwa
+   plugin native-nya termuat dengan benar di device fisik.
+5. Download satu model tier ringan (`gemma-3-1b-it-Q4_K_M.gguf`) ke storage device untuk
+   pengujian.
+6. Panggil `controller.loadModel(modelPath: ..., threads: 4, contextSize: 2048)` — pastikan
+   berhasil tanpa crash dan notification Foreground Service muncul.
+7. Jalankan di device fisik (bukan emulator) untuk validasi paling awal.
 
 ## Referensi jika stuck
-Cek `.agents/rules/04-reference-projects.md` — terutama Llama-Flutter untuk pola
-CMakeLists dan struktur folder native.
+`.agents/rules/04-reference-projects.md` — plugin ini SEKARANG jadi dependency langsung,
+bukan cuma referensi. Kalau ada bug plugin, cek issue tracker repo-nya dulu sebelum patch
+sendiri.
 
 ## Definition of Done
-- [ ] `libllama_bridge.so` ter-build untuk arm64-v8a
-- [ ] App Flutter berhasil load `.so` via FFI tanpa crash di device fisik
-- [ ] Versi commit llama.cpp yang dipakai tercatat
+- [ ] `llama_flutter_android` ter-install dengan versi ter-pin
+- [ ] `detectGpu()` berhasil dipanggil dan hasilnya masuk akal (bukan error/null)
+- [ ] Model tier ringan berhasil dimuat via `loadModel()` di device fisik tanpa crash
+- [ ] Notification Foreground Service muncul saat model dimuat

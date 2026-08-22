@@ -1,32 +1,34 @@
-# Workflow: Fase 2 — FFI Bridge & Isolate + Foreground Service
+# Workflow: Fase 2 — Integrasi Streaming & Concurrency (REVISI: plugin sudah handle FFI+Foreground Service)
 
-**Tujuan:** Komunikasi aman dan non-blocking antara Dart dan C++, dengan proses inferensi
-yang tidak dibunuh OS saat app di-background.
-**Deliverable akhir:** model GGUF berhasil dimuat, status "ready" dikirim ke UI tanpa freeze,
-proses tetap hidup saat app di-background.
+> **Update:** Karena `llama_flutter_android` sudah membungkus FFI bridge dan Foreground
+> Service secara internal (lihat Fase 1 revisi), fase ini TIDAK LAGI tentang menulis
+> `llama_bridge.cpp` atau isolate manual dari nol. Fokus fase ini bergeser ke: memverifikasi
+> plugin sudah non-blocking terhadap UI thread, dan menyiapkan lapisan Riverpod di atasnya.
+
+**Tujuan:** Pastikan komunikasi ke plugin non-blocking terhadap UI, dan siapkan
+`StreamProvider` yang akan dipakai Fase 3.
+**Deliverable akhir:** stream token dari `llama_flutter_android` sudah bisa dikonsumsi
+lewat Riverpod tanpa freeze UI, proses tetap hidup saat app di-background.
 
 ## Langkah
 
-1. Tulis C-wrapper `llama_bridge.cpp` dengan fungsi: `load_model`, `generate_tokens`,
-   `free_model`, `unload_model`.
-2. Tulis binding Dart FFI yang sesuai dengan signature fungsi C di atas.
-3. Implementasikan `Isolate.spawn` untuk membungkus panggilan inferensi — inferensi TIDAK
-   BOLEH berjalan di main isolate (akan freeze UI).
-4. Implementasikan komunikasi dua arah lewat SendPort/ReceivePort: kirim prompt dari main
-   isolate ke worker isolate, terima stream token kembali.
-5. Tambahkan Android Foreground Service dengan notification persisten ("Agent aktif") yang
-   menjaga isolate/proses tetap hidup saat app di-background. Ini WAJIB — lihat
-   `.agents/rules/01-overview-stack.md` soal kenapa Isolate saja tidak cukup.
-6. Uji: load salah satu model tier ringan (`gemma-3-1b-it-Q4_K_M.gguf`), pastikan status
-   "ready" terkirim ke UI tanpa membekukan frame rate.
-7. Uji skenario background: mulai generate, minimize app, pastikan proses tidak terputus
-   dan notification foreground service muncul.
-
-## Referensi jika stuck
-`.agents/rules/04-reference-projects.md` — Llama-Flutter punya arsitektur Foreground
-Service yang bisa dicontek langsung.
+1. Baca API streaming plugin ini (`generate()` dengan `StreamSubscription` — lihat contoh
+   di README repo-nya) — pastikan API ini sudah berjalan di isolate/thread terpisah secara
+   internal oleh plugin (cek `LlamaFlutterAndroidPlugin.kt`, bagian Kotlin coroutines).
+2. JANGAN panggil `generate()` langsung dari widget tree tanpa provider — bungkus dalam
+   satu service/notifier class agar gampang ditest dan diganti nanti.
+3. Buat `StreamProvider<String>` (Riverpod) yang membungkus stream token dari plugin.
+4. Uji: mulai generate dengan model tier ringan, minimize app — pastikan Foreground
+   Service bawaan plugin tetap menjaga proses hidup (notification harus tetap muncul).
+5. Uji beban UI: pastikan frame rate tidak drop saat token sedang di-generate (buka
+   DevTools performance overlay Flutter untuk cek).
+6. Kalau di langkah manapun ternyata plugin BLOCKING UI thread (tidak seperti yang
+   diklaim), catat sebagai bug ke `.agents/rules/01-overview-stack.md` dan pertimbangkan
+   fallback ke Opsi B (native custom) HANYA untuk bagian yang bermasalah — jangan langsung
+   buang seluruh plugin.
 
 ## Definition of Done
-- [ ] Model GGUF tier ringan berhasil dimuat via isolate tanpa freeze UI
-- [ ] Foreground Service aktif dengan notification saat inferensi berjalan
-- [ ] Proses tidak terputus saat app di-minimize selama generate berlangsung
+- [ ] Stream token dari plugin berhasil dikonsumsi lewat `StreamProvider`
+- [ ] UI tidak freeze/drop frame saat generate berlangsung
+- [ ] Notification Foreground Service tetap muncul saat app di-background selama generate
+- [ ] Tidak ada bug blocking yang ditemukan dari plugin (atau sudah didokumentasikan kalau ada)
