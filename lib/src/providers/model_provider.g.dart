@@ -47,7 +47,7 @@ final class ModelNotifierProvider
   }
 }
 
-String _$modelNotifierHash() => r'1c41e8d11919b56b8665714cc56bd5aedfed81ce';
+String _$modelNotifierHash() => r'bfb29e07d36badf30d2fdc175dad8381df00457c';
 
 /// Manages GGUF model discovery, loading, and unloading.
 /// This provider is the bridge between UI and the native inference engine.
@@ -56,7 +56,7 @@ abstract class _$ModelNotifier extends $Notifier<ModelState> {
   ModelState build();
   @$mustCallSuper
   @override
-  WhenComplete runBuild() {
+  void runBuild() {
     final ref = this.ref as $Ref<ModelState, ModelState>;
     final element =
         ref.element
@@ -66,6 +66,6 @@ abstract class _$ModelNotifier extends $Notifier<ModelState> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, build);
+    element.handleCreate(ref, build);
   }
 }

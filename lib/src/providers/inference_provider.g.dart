@@ -44,7 +44,7 @@ final class InferenceNotifierProvider
   }
 }
 
-String _$inferenceNotifierHash() => r'cc5d0060f6304c66ba38dad10ff2c2e511447692';
+String _$inferenceNotifierHash() => r'9f9e6b39a194c2eae7bbb4c6f220943de5e3853f';
 
 /// Manages local LLM inference, streaming tokens, metrics, and cancellation.
 
@@ -52,7 +52,7 @@ abstract class _$InferenceNotifier extends $Notifier<InferenceState> {
   InferenceState build();
   @$mustCallSuper
   @override
-  WhenComplete runBuild() {
+  void runBuild() {
     final ref = this.ref as $Ref<InferenceState, InferenceState>;
     final element =
         ref.element
@@ -62,6 +62,6 @@ abstract class _$InferenceNotifier extends $Notifier<InferenceState> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, build);
+    element.handleCreate(ref, build);
   }
 }

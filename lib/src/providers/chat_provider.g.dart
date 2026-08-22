@@ -47,7 +47,7 @@ final class ChatNotifierProvider
   }
 }
 
-String _$chatNotifierHash() => r'de754495e4473c9bf11544e61af51ecfea1d36ca';
+String _$chatNotifierHash() => r'93ed315a9693462fe31c760026227e1d10ffb89e';
 
 /// Manages the active chat session and message list.
 /// Bridges the UI with the database and inference worker.
@@ -56,7 +56,7 @@ abstract class _$ChatNotifier extends $Notifier<ChatState> {
   ChatState build();
   @$mustCallSuper
   @override
-  WhenComplete runBuild() {
+  void runBuild() {
     final ref = this.ref as $Ref<ChatState, ChatState>;
     final element =
         ref.element
@@ -66,7 +66,7 @@ abstract class _$ChatNotifier extends $Notifier<ChatState> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, build);
+    element.handleCreate(ref, build);
   }
 }
 

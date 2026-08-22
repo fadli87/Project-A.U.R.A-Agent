@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'model_provider.dart';
+import 'memory_provider.dart';
 
 part 'inference_provider.g.dart';
 
@@ -132,7 +133,8 @@ class InferenceNotifier extends _$InferenceNotifier {
     return buffer.toString();
   }
 
-  /// Start streaming inference for a given prompt
+  /// Start streaming inference for a given prompt.
+  /// Automatically recalls relevant memories and injects them into context.
   Future<void> generate({
     required String prompt,
     String? systemPrompt,
@@ -154,7 +156,20 @@ class InferenceNotifier extends _$InferenceNotifier {
     // Cancel any previous stream
     await stop();
 
-    final formattedPrompt = formatPrompt(prompt, systemPrompt: systemPrompt);
+    // Recall relevant semantic memories for this prompt
+    final memories = await ref.read(memoryProvider.notifier).recall(prompt, topK: 3);
+    final memoryContext = MemoryNotifier.formatMemoriesForPrompt(memories);
+
+    // Inject memories into system prompt if available
+    String effectiveSystemPrompt = systemPrompt ?? '';
+    if (memoryContext.isNotEmpty) {
+      effectiveSystemPrompt = memoryContext + (effectiveSystemPrompt.isNotEmpty ? '\n$effectiveSystemPrompt' : '');
+    }
+
+    final formattedPrompt = formatPrompt(
+      prompt,
+      systemPrompt: effectiveSystemPrompt.isNotEmpty ? effectiveSystemPrompt : null,
+    );
 
     state = InferenceState(
       status: InferenceStatus.generating,

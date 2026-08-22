@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../storage/chat_database.dart';
 import '../storage/chat_models.dart';
+import 'memory_provider.dart';
 
 part 'chat_provider.g.dart';
 
@@ -94,6 +95,10 @@ class ChatNotifier extends _$ChatNotifier {
     }
 
     state = state.copyWith(messages: [...state.messages, saved]);
+
+    // Store in semantic memory (non-blocking)
+    ref.read(memoryProvider.notifier).storeMessage(saved).ignore();
+
     return saved;
   }
 
@@ -134,6 +139,10 @@ class ChatNotifier extends _$ChatNotifier {
     final savedId = await _db.saveMessage(finalized);
     messages[lastIdx] = finalized.copyWith(id: savedId);
     state = state.copyWith(messages: messages);
+
+    // Store completed assistant response in semantic memory (non-blocking)
+    ref.read(memoryProvider.notifier)
+        .storeMessage(messages[lastIdx]).ignore();
   }
 
   /// Add a tool observation message (result fed back to model)
@@ -160,6 +169,15 @@ class ChatNotifier extends _$ChatNotifier {
   /// Stop the current generating assistant response and finalize it in the database
   Future<void> stopGeneration() async {
     await finalizeAssistantResponse();
+  }
+
+  /// Delete a session and all its messages
+  Future<void> deleteSession(int sessionId) async {
+    await _db.deleteSession(sessionId);
+    // If we deleted the active session, clear state
+    if (state.sessionId == sessionId) {
+      state = const ChatState();
+    }
   }
 }
 

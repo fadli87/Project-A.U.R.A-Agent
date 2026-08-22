@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'src/memory/objectbox_store.dart';
+import 'src/memory/embedding_service.dart';
 import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/model_manager_screen.dart';
 import 'src/ui/theme/app_theme.dart';
@@ -24,6 +26,12 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
+
+  // Initialize ObjectBox persistent memory store
+  await ObjectBoxStore.open();
+
+  // Pre-warm the embedding service (loads TFLite interpreter)
+  EmbeddingService.instance.init().ignore();
 
   runApp(
     // ProviderScope is the Riverpod root — all providers are scoped here

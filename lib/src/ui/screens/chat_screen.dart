@@ -11,6 +11,7 @@ import '../../storage/chat_models.dart';
 import '../widgets/permission_approval_card.dart';
 import '../theme/app_theme.dart';
 import '../widgets/device_status_bar.dart';
+import '../widgets/session_history_drawer.dart';
 
 /// Main chat interface with real-time token streaming
 class ChatScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
   bool _isComposing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-start a new session if none is active
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final chatState = ref.read(chatProvider);
+      if (!chatState.hasSession) {
+        final modelState = ref.read(modelProvider);
+        await ref.read(chatProvider.notifier).startNewSession(
+              modelName: modelState.activeModel?.name,
+            );
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -48,6 +64,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: _buildAppBar(modelState),
+      drawer: const SessionHistoryDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -97,9 +114,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   PreferredSizeWidget _buildAppBar(ModelState modelState) {
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-        onPressed: () => Navigator.of(context).pop(),
+      leading: Builder(
+        builder: (ctx) => IconButton(
+          icon: const Icon(Icons.history_rounded, size: 20),
+          tooltip: 'Riwayat Chat',
+          onPressed: () => Scaffold.of(ctx).openDrawer(),
+        ),
       ),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,6 +143,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: _GeneratingChip(),
           ),
+        IconButton(
+          icon: const Icon(Icons.add_comment_outlined, size: 20),
+          tooltip: 'Chat Baru',
+          onPressed: () async {
+            final modelState = ref.read(modelProvider);
+            await ref.read(chatProvider.notifier).startNewSession(
+                  modelName: modelState.activeModel?.name,
+                );
+            ref.invalidate(allSessionsProvider);
+          },
+        ),
         IconButton(
           icon: const Icon(Icons.more_vert, size: 20),
           onPressed: _showChatOptions,
