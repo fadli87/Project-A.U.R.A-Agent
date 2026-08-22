@@ -1,0 +1,52 @@
+# Flutter/Dart gitignore
+
+# Dart tool
+.dart_tool/
+.packages
+
+# Flutter build outputs
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Generated files (Riverpod, ObjectBox, etc.)
+# Keep .g.dart untuk reproducibility — hapus baris ini jika ingin exclude
+# *.g.dart
+
+# Android local files
+android/local.properties
+android/.gradle
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/gradle/wrapper/gradle-wrapper.jar
+*.iml
+.idea/
+*.class
+
+# iOS/macOS
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+macos/Flutter/GeneratedPluginRegistrant.swift
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# IntelliJ/Android Studio
+*.iml
+.idea/workspace.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# pubspec.lock — keep untuk reproducible builds di team
+# pubspec.lock
+
+# Model files (GGUF bisa sangat besar — jangan push ke git)
+*.gguf
+*.bin
+*.onnx
+models/
