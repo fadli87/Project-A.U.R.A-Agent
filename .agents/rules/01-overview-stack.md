@@ -77,6 +77,14 @@ suatu saat ADA plugin yang butuh lebih tinggi dari ini, itu sinyal untuk mengece
 apakah plugin tersebut benar-benar diperlukan SEKARANG (lihat aturan dependency di bawah)
 sebelum menaikkan angka lagi.
 
+## Risiko teknis diketahui: KGP deprecation di dua plugin native
+`llama_flutter_android` dan `objectbox_flutter_libs` masih menerapkan Kotlin Gradle Plugin
+dengan cara lama — Flutter versi mendatang akan GAGAL build kalau plugin ini belum migrasi
+ke "Built-in Kotlin". Ini baru warning, belum blocking, tapi WAJIB pin versi Flutter SDK
+project (via file `.fvmrc`/FVM, atau constraint `environment.sdk` di `pubspec.yaml`) supaya
+tidak ke-upgrade otomatis ke versi yang memutus build. Cek changelog kedua plugin ini
+secara berkala untuk update kompatibilitas Built-in Kotlin.
+
 ## Dependency & urutan fase — BOLEH maju cepat, ini keputusan sadar
 Update: user secara eksplisit memutuskan Antigravity BOLEH mengerjakan bagian dari fase
 yang lebih jauh (mis. Fase 4 Memory) sambil fase sebelumnya belum 100% selesai, demi
