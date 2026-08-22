@@ -54,3 +54,34 @@ di `pubspec.yaml`, jangan pakai range terbuka.
   boleh pernah keluar device.
 - Target parsing sukses tool-call JSON ≥ 95% pada model tier menengah ke atas; di bawah
   itu, fallback ke re-prompt otomatis sebelum menyerah ke jawaban teks biasa.
+
+## Konvensi editing — jangan bertele-tele untuk fix mekanis sederhana
+Untuk error konfigurasi yang solusinya sudah eksplisit disebutkan di pesan error (mis.
+"requires Android NDK X.X.X", "minSdkVersion cannot be smaller than Y") — LANGSUNG terapkan
+angka dari pesan error itu ke file yang relevan (`android/app/build.gradle.kts`), tanpa
+menjelaskan panjang lebar dulu atau meminta konfirmasi berulang. Tampilkan diff singkat
+setelah selesai, bukan sebelum mengerjakan. Ini berlaku untuk semua fix mekanis serupa
+(version bump, dependency pin), bukan cuma NDK/minSdk — simpan penjelasan panjang untuk
+keputusan yang benar-benar butuh judgment (mis. pilih arsitektur, ganti library).
+
+## Angka SDK final — SUDAH DIPUTUSKAN, jangan dinegosiasikan ulang tiap ada plugin baru
+```
+compileSdk = 36
+minSdk     = 26
+ndkVersion = "26.1.10909125"
+```
+Set ini SEKALI di `android/app/build.gradle.kts` DAN di blok `subprojects { afterEvaluate }`
+pada `android/build.gradle.kts` (kalau blok force-override itu masih ada). JANGAN naikkan
+angka bertahap (34→35→36→...) tiap kali plugin baru mengeluh — pakai 36 dari awal. Kalau
+suatu saat ADA plugin yang butuh lebih tinggi dari ini, itu sinyal untuk mengecek dulu
+apakah plugin tersebut benar-benar diperlukan SEKARANG (lihat aturan dependency di bawah)
+sebelum menaikkan angka lagi.
+
+## JANGAN tambah dependency sebelum fasenya
+Setiap package di `pubspec.yaml` harus sesuai dengan Fase yang sedang dikerjakan — lihat
+`.agents/workflows/`. Contoh: model embedding (mis. `tflite_flutter`) baru dibutuhkan di
+Fase 4 (Memory/RAG), BUKAN di Fase 1-2. Menambah dependency lebih awal dari fasenya cuma
+menambah kompleksitas build (konflik compileSdk/NDK antar plugin) tanpa manfaat langsung.
+Kalau sedang mengerjakan Fase 1-2 dan menemukan dependency yang tidak relevan dengan fase
+itu di `pubspec.yaml`, hapus dulu — tambahkan lagi persis saat fase yang membutuhkannya
+dimulai.
