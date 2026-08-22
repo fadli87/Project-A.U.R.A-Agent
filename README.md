@@ -44,8 +44,8 @@ lib/
 
 - **Fase 1** ✅ Environment Setup & Foundation (`llama_flutter_android`)
 - **Fase 2** ✅ Integrasi Streaming & Concurrency
-- **Fase 3** 🔄 Riverpod State & Chat UI Polish
-- **Fase 4** ⏳ Persistent Memory (SQLite + ObjectBox)
+- **Fase 3** ✅ Riverpod State & Chat UI Polish
+- **Fase 4** 🔄 Persistent Memory (SQLite + ObjectBox)
 - **Fase 5** ⏳ Agentic Tool-Calling & Permission System
 - **Fase 6** ⏳ Testing, Optimasi Performa & Thermal
 

@@ -78,8 +78,13 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
                         const SizedBox(height: 16),
                         _buildErrorBanner(modelState.errorMessage!),
                       ],
-                      if (modelState.availableModels.isNotEmpty)
-                        _buildDetectedModels(modelState),
+                      if (modelState.isLoading) ...[
+                        const SizedBox(height: 20),
+                        _buildLoadingCard(modelState),
+                      ],
+                      const SizedBox(height: 28),
+                      _buildDetectedModels(modelState),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -264,6 +269,64 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
     );
   }
 
+  Widget _buildLoadingCard(ModelState state) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Sedang Memuat Model ke RAM...',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            state.errorMessage ??
+                'Menginisialisasi konteks inferensi llama.cpp di latar belakang (non-blocking)...',
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: const LinearProgressIndicator(
+              backgroundColor: AppTheme.cardElevated,
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+              minHeight: 4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetectedModels(ModelState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,26 +350,94 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
               ),
               child: Text(
                 '${state.availableModels.length}',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.primary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: state.isLoading ? null : _importModelFile,
+              icon: const Icon(Icons.add_circle_outline, size: 16),
+              label: const Text('Import (.gguf)', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primary,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        ...state.availableModels.map(
-          (model) => _ModelFileCard(
-            model: model,
-            isActive: state.activeModel?.path == model.path,
-            isLoading: state.isLoading,
-            onTap: () => ref.read(modelProvider.notifier).loadModel(model),
+        if (state.availableModels.isEmpty)
+          _buildEmptyModelsCard(state)
+        else
+          ...state.availableModels.map(
+            (model) => _ModelFileCard(
+              model: model,
+              isActive: state.activeModel?.path == model.path,
+              isLoading: state.isLoading,
+              onTap: () => ref.read(modelProvider.notifier).loadModel(model),
+            ),
           ),
-        ),
       ],
     );
+  }
+
+  Widget _buildEmptyModelsCard(ModelState state) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.folder_open, color: AppTheme.textMuted, size: 40),
+          const SizedBox(height: 12),
+          const Text(
+            'Belum Ada Model GGUF',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Impor berkas model .gguf dari penyimpanan HP Anda atau salin ke folder Download.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _importModelFile,
+            icon: const Icon(Icons.file_upload_outlined, size: 18),
+            label: const Text('Pilih Berkas GGUF'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primary,
+              side: const BorderSide(color: AppTheme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importModelFile() async {
+    final success =
+        await ref.read(modelProvider.notifier).importModelWithPicker();
+    if (mounted && success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Model GGUF berhasil diimpor ke penyimpanan AURA!'),
+          backgroundColor: AppTheme.statusReady,
+        ),
+      );
+    }
   }
 
   Widget _buildStartChatButton(ModelState state) {

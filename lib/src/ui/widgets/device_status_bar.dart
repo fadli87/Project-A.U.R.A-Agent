@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_theme.dart';
 
+import '../../providers/device_status_provider.dart';
+
 /// Real-time device status bar showing battery level and thermal state.
 /// Displayed at the top of every screen to inform users of device health
 /// during CPU-intensive inference operations.
@@ -11,8 +13,8 @@ class DeviceStatusBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: Wire up to real battery/thermal platform channels in Fase 3
-    // For now, shows placeholder values
+    final status = ref.watch(deviceStatusProvider);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       decoration: const BoxDecoration(
@@ -21,17 +23,20 @@ class DeviceStatusBar extends ConsumerWidget {
       child: Row(
         children: [
           // Battery indicator
-          _BatteryIndicator(level: 0.78), // placeholder
+          _BatteryIndicator(
+            level: status.batteryLevel,
+            isCharging: status.isCharging,
+          ),
           const SizedBox(width: 16),
 
           // Thermal state
-          _ThermalIndicator(state: ThermalState.nominal), // placeholder
+          _ThermalIndicator(state: status.thermalState),
           const Spacer(),
 
           // Inference status text
-          Text(
+          const Text(
             'Semua data tetap di perangkat',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.lock_outline, color: AppTheme.textMuted, size: 10),
@@ -42,22 +47,32 @@ class DeviceStatusBar extends ConsumerWidget {
 }
 
 class _BatteryIndicator extends StatelessWidget {
-  const _BatteryIndicator({required this.level});
+  const _BatteryIndicator({
+    required this.level,
+    this.isCharging = false,
+  });
 
   /// 0.0 to 1.0
   final double level;
+  final bool isCharging;
 
   @override
   Widget build(BuildContext context) {
-    final color = level > 0.5
-        ? AppTheme.statusReady
-        : level > 0.2
-            ? AppTheme.warning
-            : AppTheme.error;
+    final color = isCharging
+        ? AppTheme.secondary
+        : level > 0.5
+            ? AppTheme.statusReady
+            : level > 0.2
+                ? AppTheme.warning
+                : AppTheme.error;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (isCharging) ...[
+          const Icon(Icons.bolt, color: AppTheme.secondary, size: 13),
+          const SizedBox(width: 2),
+        ],
         SizedBox(
           width: 20,
           height: 10,
@@ -113,21 +128,18 @@ class _BatteryPainter extends CustomPainter {
       oldDelegate.level != level || oldDelegate.color != color;
 }
 
-/// Thermal state of the device during inference
-enum ThermalState { nominal, fair, serious, critical }
-
 class _ThermalIndicator extends StatelessWidget {
   const _ThermalIndicator({required this.state});
 
-  final ThermalState state;
+  final DeviceThermalState state;
 
   @override
   Widget build(BuildContext context) {
     final (icon, color, label) = switch (state) {
-      ThermalState.nominal => (Icons.thermostat, AppTheme.statusReady, 'Normal'),
-      ThermalState.fair => (Icons.thermostat, AppTheme.warning, 'Hangat'),
-      ThermalState.serious => (Icons.whatshot, AppTheme.error, 'Panas'),
-      ThermalState.critical => (Icons.warning, AppTheme.error, 'Kritis'),
+      DeviceThermalState.nominal => (Icons.thermostat, AppTheme.statusReady, 'Normal'),
+      DeviceThermalState.fair => (Icons.thermostat, AppTheme.warning, 'Hangat'),
+      DeviceThermalState.serious => (Icons.whatshot, AppTheme.error, 'Panas'),
+      DeviceThermalState.critical => (Icons.warning, AppTheme.error, 'Kritis'),
     };
 
     return Row(

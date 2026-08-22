@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -215,6 +216,73 @@ class ModelNotifier extends _$ModelNotifier {
     currentModels.add(newModel);
 
     state = state.copyWith(availableModels: currentModels);
+  }
+
+  /// Open the system file picker to select and import a .gguf model file
+  Future<bool> importModelWithPicker() async {
+    try {
+      final pickedFiles = await FilePickerPlatform.instance.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['gguf'],
+      );
+
+      if (pickedFiles == null || pickedFiles.isEmpty) {
+        return false;
+      }
+
+      final pickedPath = pickedFiles.first.path;
+      if (pickedPath == null || pickedPath.isEmpty) {
+        return false;
+      }
+
+      final sourceFile = File(pickedPath);
+      if (!await sourceFile.exists()) {
+        setError('Berkas yang dipilih tidak dapat diakses.');
+        return false;
+      }
+
+      // Copy to app external files directory / models or app documents directory
+      Directory targetDir;
+      try {
+        final extDir = await getExternalStorageDirectory();
+        if (extDir != null) {
+          targetDir = Directory(path_lib.join(extDir.path, 'models'));
+        } else {
+          final appDir = await getApplicationDocumentsDirectory();
+          targetDir = Directory(path_lib.join(appDir.path, 'models'));
+        }
+      } catch (_) {
+        final appDir = await getApplicationDocumentsDirectory();
+        targetDir = Directory(path_lib.join(appDir.path, 'models'));
+      }
+
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+
+      final filename = path_lib.basename(sourceFile.path);
+      final destPath = path_lib.join(targetDir.path, filename);
+      final destFile = File(destPath);
+
+      // If source and dest are different, copy the file
+      if (sourceFile.path != destFile.path && !await destFile.exists()) {
+        state = state.copyWith(
+          status: ModelStatus.loading,
+          errorMessage: 'Menyalin berkas model ($filename)...',
+        );
+        await sourceFile.copy(destPath);
+      }
+
+      await scanForModels();
+      state = state.copyWith(
+        status: ModelStatus.none,
+        clearError: true,
+      );
+      return true;
+    } catch (e) {
+      setError('Gagal mengimpor model: ${e.toString()}');
+      return false;
+    }
   }
 
   /// Load a GGUF model into memory.

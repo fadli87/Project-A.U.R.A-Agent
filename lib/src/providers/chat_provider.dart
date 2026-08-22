@@ -156,6 +156,11 @@ class ChatNotifier extends _$ChatNotifier {
   void setError(String error) {
     state = state.copyWith(error: error, isLoading: false);
   }
+
+  /// Stop the current generating assistant response and finalize it in the database
+  Future<void> stopGeneration() async {
+    await finalizeAssistantResponse();
+  }
 }
 
 /// Provider for all chat sessions (sidebar / history list)

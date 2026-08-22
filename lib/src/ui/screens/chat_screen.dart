@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
@@ -37,6 +38,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatProvider);
     final modelState = ref.watch(modelProvider);
+    final isStreaming = chatState.messages.any((m) => m.isStreaming);
 
     // Auto-scroll when new messages arrive or tokens stream in
     ref.listen(chatProvider, (_, next) {
@@ -55,6 +57,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ? _buildEmptyState()
                   : _buildMessageList(chatState),
             ),
+            if (isStreaming)
+              _buildStopButton(),
             if (chatState.hasError)
               _buildErrorBanner(chatState.error!),
             _buildInputBar(chatState, modelState),
@@ -62,6 +66,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildStopButton() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: FilledButton.tonalIcon(
+        onPressed: _stopGenerating,
+        icon: const Icon(Icons.stop_circle_outlined, size: 16, color: AppTheme.error),
+        label: const Text(
+          'Hentikan Generasi',
+          style: TextStyle(color: AppTheme.error, fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTheme.cardElevated,
+          side: BorderSide(color: AppTheme.error.withValues(alpha: 0.4)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _stopGenerating() async {
+    try {
+      await ref.read(modelProvider.notifier).controller.stop();
+      await ref.read(chatProvider.notifier).stopGeneration();
+    } catch (_) {}
   }
 
   PreferredSizeWidget _buildAppBar(ModelState modelState) {
@@ -401,59 +432,75 @@ class _ChatBubble extends StatelessWidget {
 
   final ChatMessage message;
 
+  void _copyToClipboard(BuildContext context) {
+    if (message.content.trim().isEmpty) return;
+    Clipboard.setData(ClipboardData(text: message.content));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Pesan disalin ke clipboard'),
+        duration: Duration(milliseconds: 1200),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (message.isTool) return _buildToolObservation();
-    if (message.isUser) return _buildUserBubble();
-    return _buildAssistantBubble();
+    if (message.isUser) return _buildUserBubble(context);
+    return _buildAssistantBubble(context);
   }
 
-  Widget _buildUserBubble() {
+  Widget _buildUserBubble(BuildContext context) {
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 300),
-        decoration: BoxDecoration(
-          color: AppTheme.bubbleUser,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(4),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(16),
+      child: GestureDetector(
+        onLongPress: () => _copyToClipboard(context),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: const BoxConstraints(maxWidth: 300),
+          decoration: BoxDecoration(
+            color: AppTheme.bubbleUser,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(4),
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+            ),
+            border: Border.all(color: AppTheme.bubbleUserBorder),
           ),
-          border: Border.all(color: AppTheme.bubbleUserBorder),
-        ),
-        child: Text(
-          message.content,
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 15,
-            height: 1.5,
+          child: Text(
+            message.content,
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 15,
+              height: 1.5,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAssistantBubble() {
+  Widget _buildAssistantBubble(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 340),
-        decoration: BoxDecoration(
-          color: AppTheme.bubbleAssistant,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(4),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(16),
+      child: GestureDetector(
+        onLongPress: () => _copyToClipboard(context),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: const BoxConstraints(maxWidth: 340),
+          decoration: BoxDecoration(
+            color: AppTheme.bubbleAssistant,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(4),
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+            ),
+            border: Border.all(color: AppTheme.bubbleAssistantBorder),
           ),
-          border: Border.all(color: AppTheme.bubbleAssistantBorder),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -520,8 +567,9 @@ class _ChatBubble extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildToolObservation() {
     return Container(
