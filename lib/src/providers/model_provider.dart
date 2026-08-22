@@ -286,7 +286,30 @@ class ModelNotifier extends _$ModelNotifier {
   }
 
   /// Load a GGUF model into memory.
+  /// If a model is already loaded, it automatically unloads the previous model first.
   Future<void> loadModel(GgufModel model) async {
+    // If the exact same model is already loaded and ready, do nothing
+    if (state.activeModel?.path == model.path && state.isReady) {
+      return;
+    }
+
+    // Cleanly eject previous model from RAM if loaded
+    if (state.activeModel != null || _controller != null) {
+      state = state.copyWith(
+        status: ModelStatus.unloading,
+        loadingProgress: 0.0,
+        errorMessage: 'Melepas model sebelumnya dari RAM...',
+      );
+      if (Platform.isAndroid) {
+        try {
+          await _controller?.dispose();
+        } catch (_) {}
+        _controller = null;
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    }
+
     // Safety check: warn user if model may exceed device RAM
     final estimatedRam = (model.sizeBytes / (1024 * 1024)).ceil() * 2;
     if (estimatedRam > state.deviceRamMb * 0.8) {
@@ -301,7 +324,7 @@ class ModelNotifier extends _$ModelNotifier {
 
     state = state.copyWith(
       status: ModelStatus.loading,
-      loadingProgress: 0.0,
+      loadingProgress: 0.2,
       clearError: true,
     );
 
@@ -339,6 +362,7 @@ class ModelNotifier extends _$ModelNotifier {
         status: ModelStatus.ready,
         activeModel: loaded,
         loadingProgress: 1.0,
+        clearError: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -350,7 +374,7 @@ class ModelNotifier extends _$ModelNotifier {
 
   /// Unload the active model and free memory
   Future<void> unloadModel() async {
-    if (!state.hasModel) return;
+    if (!state.hasModel && _controller == null) return;
 
     state = state.copyWith(status: ModelStatus.unloading);
     if (Platform.isAndroid) {
@@ -366,7 +390,13 @@ class ModelNotifier extends _$ModelNotifier {
     state = state.copyWith(
       status: ModelStatus.none,
       clearActiveModel: true,
+      clearError: true,
     );
+  }
+
+  /// Explicitly eject/unload the loaded model from memory
+  Future<void> ejectModel() async {
+    await unloadModel();
   }
 
   void updateProgress(double progress) {

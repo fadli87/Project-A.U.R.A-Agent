@@ -379,6 +379,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
               isActive: state.activeModel?.path == model.path,
               isLoading: state.isLoading,
               onTap: () => ref.read(modelProvider.notifier).loadModel(model),
+              onEject: () => ref.read(modelProvider.notifier).ejectModel(),
             ),
           ),
       ],
@@ -637,17 +638,20 @@ class _ModelFileCard extends StatelessWidget {
     required this.isActive,
     required this.isLoading,
     required this.onTap,
+    this.onEject,
+    super.key,
   });
 
   final GgufModel model;
   final bool isActive;
   final bool isLoading;
   final VoidCallback onTap;
+  final VoidCallback? onEject;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: isLoading ? null : onTap,
+      onTap: isLoading || isActive ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 8),
@@ -690,9 +694,19 @@ class _ModelFileCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (isActive)
-              const Icon(Icons.check_circle, color: AppTheme.statusReady, size: 18)
-            else
+            if (isActive) ...[
+              const Icon(Icons.check_circle, color: AppTheme.statusReady, size: 18),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: isLoading ? null : onEject,
+                icon: const Icon(Icons.eject_outlined, size: 14, color: AppTheme.error),
+                label: const Text('Lepas', style: TextStyle(color: AppTheme.error, fontSize: 11)),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
+              ),
+            ] else
               Text(
                 'Muat',
                 style: TextStyle(
