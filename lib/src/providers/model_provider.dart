@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:path/path.dart' as path_lib;
+import 'package:path_provider/path_provider.dart';
+import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../native/gguf_model.dart';
@@ -66,6 +70,10 @@ class ModelState {
 /// This provider is the bridge between UI and the native inference engine.
 @riverpod
 class ModelNotifier extends _$ModelNotifier {
+  LlamaController? _controller;
+
+  LlamaController get controller => _controller ??= LlamaController();
+
   @override
   ModelState build() => const ModelState();
 
@@ -79,25 +87,66 @@ class ModelNotifier extends _$ModelNotifier {
   }
 
   /// Detect device total RAM in MB.
-  /// Reads from /proc/meminfo on Android.
   Future<int> _detectDeviceRam() async {
-    // TODO: Implement via platform channel or llama_flutter_android RAM API
-    // For now returns a placeholder — will be replaced in Fase 2
-    return 6 * 1024; // Default: assume 6 GB until platform channel is implemented
+    if (Platform.isAndroid) {
+      try {
+        final gpu = await controller.detectGpu();
+        return gpu.deviceLocalMemoryBytes ~/ (1024 * 1024);
+      } catch (e) {
+        return 6 * 1024; // Fallback: 6 GB
+      }
+    }
+    return 6 * 1024; // Default for non-Android platforms (e.g. testing)
   }
 
   /// Scan the app's model directory for .gguf files
   Future<void> scanForModels() async {
-    // TODO: Implement file scanning via path_provider + Directory.list()
-    // Will be implemented in Fase 2 once file system access is established
-    state = state.copyWith(availableModels: []);
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final modelsDirPath = path_lib.join(appDir.path, 'models');
+      final modelsDir = Directory(modelsDirPath);
+
+      if (!await modelsDir.exists()) {
+        await modelsDir.create(recursive: true);
+      }
+
+      final List<GgufModel> models = [];
+      final List<FileSystemEntity> entities = await modelsDir.list().toList();
+
+      for (final entity in entities) {
+        if (entity is File && entity.path.endsWith('.gguf')) {
+          final stat = await entity.stat();
+          final sizeBytes = stat.size;
+          final filename = path_lib.basename(entity.path);
+
+          // Determine tier based on size
+          ModelTier tier;
+          if (sizeBytes < 1.0 * 1024 * 1024 * 1024) {
+            tier = ModelTier.light;
+          } else if (sizeBytes < 2.0 * 1024 * 1024 * 1024) {
+            tier = ModelTier.standard;
+          } else {
+            tier = ModelTier.advanced;
+          }
+
+          models.add(
+            GgufModel(
+              path: entity.path,
+              name: filename,
+              sizeBytes: sizeBytes,
+              tier: tier,
+            ),
+          );
+        }
+      }
+
+      state = state.copyWith(availableModels: models);
+    } catch (e) {
+      setError('Gagal memindai model: ${e.toString()}');
+    }
   }
 
   /// Load a GGUF model into memory.
-  ///
-  /// Emits status updates: loading → ready (or error).
-  /// IMPORTANT: This must run on the inference isolate, not the main isolate.
-  /// The actual FFI call is done by InferenceWorker; this method just tracks state.
   Future<void> loadModel(GgufModel model) async {
     // Safety check: warn user if model may exceed device RAM
     final estimatedRam = (model.sizeBytes / (1024 * 1024)).ceil() * 2;
@@ -118,9 +167,18 @@ class ModelNotifier extends _$ModelNotifier {
     );
 
     try {
-      // TODO: Delegate to InferenceWorker (Fase 2)
-      // For now, simulate load delay for UI testing
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      if (Platform.isAndroid) {
+        final gpu = await controller.detectGpu();
+        await controller.loadModel(
+          modelPath: model.path,
+          threads: 4,
+          contextSize: 2048,
+          gpuLayers: gpu.recommendedGpuLayers,
+        );
+      } else {
+        // Simulate load delay for UI testing/design on non-Android
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
 
       final loaded = model.copyWith(isLoaded: true);
       state = state.copyWith(
@@ -141,8 +199,16 @@ class ModelNotifier extends _$ModelNotifier {
     if (!state.hasModel) return;
 
     state = state.copyWith(status: ModelStatus.unloading);
-    // TODO: Call InferenceWorker.unload() (Fase 2)
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (Platform.isAndroid) {
+      try {
+        await _controller?.dispose();
+        _controller = null;
+      } catch (e) {
+        // ignore
+      }
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
     state = state.copyWith(
       status: ModelStatus.none,
       clearActiveModel: true,

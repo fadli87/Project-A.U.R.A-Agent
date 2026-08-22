@@ -42,8 +42,8 @@ lib/
 
 ## Fase Pembangunan
 
-- **Fase 1** ✅ Environment Setup & Foundation
-- **Fase 2** 🔄 FFI Bridge & Foreground Service
+- **Fase 1** ✅ Environment Setup & Foundation (`llama_flutter_android`)
+- **Fase 2** 🔄 Integrasi Streaming & Concurrency
 - **Fase 3** ⏳ Riverpod State & Chat UI Polish
 - **Fase 4** ⏳ Persistent Memory (SQLite + ObjectBox)
 - **Fase 5** ⏳ Agentic Tool-Calling & Permission System
@@ -52,24 +52,24 @@ lib/
 ## Setup Dev Environment
 
 ### Prerequisites
-- Flutter 3.47.1+
-- Android SDK di `L:\SDK\Android` (NDK 28.2 atau 30.0, CMake 3.22.1)
+- Flutter 3.44.6+ / Dart 3.12.2+
+- Android SDK di `D:\Projects\DEV\Android\Sdk` (NDK, Build-tools 37.0.0, CMake)
 - Device fisik Android arm64 untuk testing (emulator tidak akurat untuk performa llama.cpp)
 
 ### Setup
 ```bash
-dart pub get
+flutter pub get
 dart run build_runner build
 ```
 
 ### Accept Android Licenses (satu kali)
 ```powershell
-$env:ANDROID_HOME = "L:\SDK\Android"
+$env:ANDROID_HOME = "D:\Projects\DEV\Android\Sdk"
 flutter doctor --android-licenses
 ```
 
-## llama.cpp Commit Dipakai
-> **TODO (Fase 2):** Catat commit hash llama.cpp yang dipakai setelah integrasi selesai.
+## Engine Inferensi
+Menggunakan `llama_flutter_android: ^0.2.6` (menjalankan llama.cpp native arm64 dengan Vulkan GPU offloading opsional di Android).
 
 ## Catatan Performa
 - Inferensi lokal di HP kelas menengah bisa memakan waktu lebih lama dari API cloud
