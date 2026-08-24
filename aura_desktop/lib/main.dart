@@ -40,7 +40,7 @@ class AuraDesktopApp extends StatelessWidget {
           color: const Color(0xFF1C1B22),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withOpacity(0.08)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
         ),
       ),
@@ -93,7 +93,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
               backgroundColor: const Color(0xFF1E1E26),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
               ),
               title: Row(
                 children: [
@@ -111,7 +111,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                     children: [
                       // Direct Server Toggle
                       SwitchListTile(
-                        activeColor: const Color(0xFF7C4DFF),
+                        activeThumbColor: const Color(0xFF7C4DFF),
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Run In-App Server (Direct GGUF)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                         subtitle: const Text('Jalankan model .gguf langsung tanpa Ollama / LM Studio', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -140,7 +140,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                                   ),
                                 ),
                               ),
@@ -148,7 +148,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             const SizedBox(width: 8),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF7C4DFF).withOpacity(0.2),
+                                backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
                                 foregroundColor: Colors.white,
                               ),
                               onPressed: () async {
@@ -182,7 +182,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                                   ),
                                 ),
                               ),
@@ -190,7 +190,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             const SizedBox(width: 8),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF7C4DFF).withOpacity(0.2),
+                                backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
                                 foregroundColor: Colors.white,
                               ),
                               onPressed: () async {
@@ -217,8 +217,8 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: dialogIsInAppServerRunning 
-                                    ? Colors.redAccent.withOpacity(0.2) 
-                                    : const Color(0xFF00BFA5).withOpacity(0.2),
+                                    ? Colors.redAccent.withValues(alpha: 0.2) 
+                                    : const Color(0xFF00BFA5).withValues(alpha: 0.2),
                                 foregroundColor: dialogIsInAppServerRunning ? Colors.redAccent : const Color(0xFF00BFA5),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
@@ -294,7 +294,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF13131A),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
@@ -334,7 +334,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                             ),
                           ),
                         ),
@@ -349,7 +349,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF13131A),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
@@ -379,7 +379,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                               ),
                             ),
                           ),
@@ -391,7 +391,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           children: [
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white.withOpacity(0.08),
+                                backgroundColor: Colors.white.withValues(alpha: 0.08),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
@@ -556,9 +556,9 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.3)),
+                        border: Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.3)),
                         gradient: LinearGradient(
-                          colors: [const Color(0xFF7C4DFF).withOpacity(0.15), Colors.transparent],
+                          colors: [const Color(0xFF7C4DFF).withValues(alpha: 0.15), Colors.transparent],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -612,7 +612,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: ListTile(
-                            hoverColor: Colors.white.withOpacity(0.03),
+                            hoverColor: Colors.white.withValues(alpha: 0.03),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             leading: Icon(
                               Icons.chat_bubble_outline,
@@ -664,7 +664,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                               color: chatState.isServerConnected ? Colors.green : Colors.grey,
                               boxShadow: chatState.isServerConnected ? [
                                 BoxShadow(
-                                  color: Colors.green.withOpacity(0.5),
+                                  color: Colors.green.withValues(alpha: 0.5),
                                   blurRadius: 6,
                                   spreadRadius: 2,
                                 )
@@ -723,7 +723,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     decoration: BoxDecoration(
                       color: const Color(0xFF1A1A24),
-                      border: Border.all(color: Colors.white.withOpacity(0.03)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -751,13 +751,13 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: chatState.isServerConnected 
-                              ? const Color(0xFF00BFA5).withOpacity(0.1) 
-                              : Colors.white.withOpacity(0.04),
+                              ? const Color(0xFF00BFA5).withValues(alpha: 0.1) 
+                              : Colors.white.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: chatState.isServerConnected 
-                                ? const Color(0xFF00BFA5).withOpacity(0.3) 
-                                : Colors.white.withOpacity(0.1),
+                                ? const Color(0xFF00BFA5).withValues(alpha: 0.3) 
+                                : Colors.white.withValues(alpha: 0.1),
                             ),
                           ),
                           child: Row(
@@ -790,16 +790,16 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.forum_outlined, size: 48, color: Colors.white.withOpacity(0.15)),
+                                Icon(Icons.forum_outlined, size: 48, color: Colors.white.withValues(alpha: 0.15)),
                                 const SizedBox(height: 16),
                                 Text(
                                   'Belum ada obrolan.',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 15),
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 15),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Hubungkan local LLM server di settings dan mulailah mengobrol!',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.25), fontSize: 12),
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 12),
                                 ),
                               ],
                             ),
@@ -851,7 +851,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.05),
+                                                color: Colors.black.withValues(alpha: 0.05),
                                                 blurRadius: 4,
                                                 offset: const Offset(0, 2),
                                               )
@@ -874,7 +874,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                             padding: const EdgeInsets.only(left: 4),
                                             child: Text(
                                               'Speed: ${(chatState.lastCompletionTokens / (chatState.lastDurationMs / 1000.0)).toStringAsFixed(1)} t/s  |  Prompt: ${chatState.lastPromptTokens} t  |  Eval: ${chatState.lastCompletionTokens} t  |  Time: ${(chatState.lastDurationMs / 1000.0).toStringAsFixed(2)}s',
-                                              style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 10),
+                                              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10),
                                             ),
                                           ),
                                         ]
@@ -908,7 +908,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     decoration: BoxDecoration(
                       color: const Color(0xFF1A1A24),
-                      border: Border.all(color: Colors.white.withOpacity(0.03)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
                     ),
                     child: Row(
                       children: [
@@ -917,7 +917,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF13131A),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white.withOpacity(0.08)),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: TextField(
@@ -954,11 +954,11 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: chatState.isLoading ? Colors.white.withOpacity(0.05) : const Color(0xFF7C4DFF),
+                              color: chatState.isLoading ? Colors.white.withValues(alpha: 0.05) : const Color(0xFF7C4DFF),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: chatState.isLoading ? null : [
                                 BoxShadow(
-                                  color: const Color(0xFF7C4DFF).withOpacity(0.4),
+                                  color: const Color(0xFF7C4DFF).withValues(alpha: 0.4),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 )

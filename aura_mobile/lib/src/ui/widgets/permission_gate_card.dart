@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:aura_core/aura_core.dart';
 import 'package:aura/src/ui/theme/app_theme.dart';

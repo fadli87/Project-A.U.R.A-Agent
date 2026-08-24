@@ -251,7 +251,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       type: FileType.any,
     );
 
-    if (pickedFiles == null || pickedFiles.isEmpty) return;
+    if (pickedFiles.isEmpty) return;
     final pickedPath = pickedFiles.first.path;
     if (pickedPath == null || pickedPath.isEmpty) return;
 

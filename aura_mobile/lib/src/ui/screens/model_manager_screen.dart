@@ -667,7 +667,6 @@ class _ModelFileCard extends StatelessWidget {
     required this.isLoading,
     required this.onTap,
     this.onEject,
-    super.key,
   });
 
   final GgufModel model;

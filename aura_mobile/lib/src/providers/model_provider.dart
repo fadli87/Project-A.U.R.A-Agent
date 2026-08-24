@@ -242,7 +242,7 @@ class ModelNotifier extends _$ModelNotifier {
         allowedExtensions: ['gguf'],
       );
 
-      if (pickedFiles == null || pickedFiles.isEmpty) {
+      if (pickedFiles.isEmpty) {
         return false;
       }
 
