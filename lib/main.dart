@@ -60,7 +60,7 @@ void main() async {
     "dailyMaintenance",
     frequency: const Duration(hours: 24),
     constraints: Constraints(
-      networkType: NetworkType.not_required,
+      networkType: NetworkType.notRequired,
       requiresBatteryNotLow: true,
       requiresDeviceIdle: true,
     ),
