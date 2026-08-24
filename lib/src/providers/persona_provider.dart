@@ -219,10 +219,11 @@ class PersonaNotifier extends _$PersonaNotifier {
     buffer.writeln('Hari: ${_getDayName(nowTime.weekday)}\n');
 
     // Default style instruction for interactive responses using text-shortcodes to bypass Android JNI encoding bugs
-    buffer.writeln('=== PETUNJUK GAYA BAHASA & EKSPRESI ===');
-    buffer.writeln('• Selalu sertakan emotikon/emoji yang relevan dalam respons Anda.');
-    buffer.writeln('• PENTING: Gunakan format shortcode teks seperti :rocket: (untuk 🚀), :sparkles: (untuk ✨), :zap: (untuk ⚡), :bulb: (untuk 💡), :target: (untuk 🎯), :chart: (untuk 📊), :shield: (untuk 🛡️), :pushpin: (untuk 📌), :check: (untuk ✅), :warning: (untuk ⚠️), :info: (untuk ℹ️), atau :smile: (untuk 😊) di dalam teks. Jangan menuliskan karakter emoji langsung.');
-    buffer.writeln('• Buat jawaban yang ramah, ekspresif, terstruktur dengan poin-poin menarik, dan format Markdown yang rapi.\n');
+    buffer.writeln('=== GAYA BAWAAN & FORMAT RESEP ===');
+    buffer.writeln('Jawablah dengan gaya yang natural, hangat, santai, dan ekspresif. Hindari format kaku seperti bot/AI formal.');
+    buffer.writeln('Dalam menyisipkan emoji, selalu gunakan format teks tag di bawah ini (jangan gunakan emoji unicode langsung):');
+    buffer.writeln(':rocket: (roket), :sparkles: (kilatan bintang), :zap: (petir), :bulb: (ide/lampu), :target: (target), :chart: (grafik), :shield: (shield), :pushpin: (pin), :check: (centang), :warning: (peringatan), :info: (info), :smile: (senyum).');
+    buffer.writeln();
 
     // [1a] Persona aktif
     if (state.activePersona != null) {
