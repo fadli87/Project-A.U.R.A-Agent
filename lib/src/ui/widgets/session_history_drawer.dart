@@ -1,9 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/chat_provider.dart';
 import '../../providers/model_provider.dart';
 import '../theme/app_theme.dart';
+import '../../utils/emoji_parser.dart';
 
 /// Drawer showing all past chat sessions with swipe-to-delete support.
 class SessionHistoryDrawer extends ConsumerWidget {
@@ -144,7 +145,7 @@ class SessionHistoryDrawer extends ConsumerWidget {
                             size: 18,
                           ),
                           title: Text(
-                            session.title,
+                            EmojiParser.replaceShortcodes(session.title),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

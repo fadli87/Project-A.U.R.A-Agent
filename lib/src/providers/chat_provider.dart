@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../storage/chat_database.dart';
 import '../storage/chat_models.dart';
 import 'memory_provider.dart';
+import '../utils/emoji_parser.dart';
 
 part 'chat_provider.g.dart';
 
@@ -125,8 +126,9 @@ class ChatNotifier extends _$ChatNotifier {
     final lastIdx = messages.lastIndexWhere((m) => m.isAssistant && m.isStreaming);
     if (lastIdx < 0) return;
 
+    final newContent = EmojiParser.replaceShortcodes(messages[lastIdx].content + token);
     messages[lastIdx] = messages[lastIdx].copyWith(
-      content: messages[lastIdx].content + token,
+      content: newContent,
     );
     state = state.copyWith(messages: messages);
   }
@@ -137,7 +139,11 @@ class ChatNotifier extends _$ChatNotifier {
     final lastIdx = messages.lastIndexWhere((m) => m.isAssistant && m.isStreaming);
     if (lastIdx < 0) return;
 
-    final finalized = messages[lastIdx].copyWith(isStreaming: false);
+    final cleanedContent = EmojiParser.replaceShortcodes(messages[lastIdx].content);
+    final finalized = messages[lastIdx].copyWith(
+      content: cleanedContent,
+      isStreaming: false,
+    );
     final savedId = await _db.saveMessage(finalized);
     messages[lastIdx] = finalized.copyWith(id: savedId);
     state = state.copyWith(messages: messages);

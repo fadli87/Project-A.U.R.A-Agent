@@ -10,6 +10,7 @@ import '../../providers/inference_provider.dart';
 import '../../providers/persona_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../storage/chat_models.dart';
+import '../../utils/emoji_parser.dart';
 import '../widgets/permission_approval_card.dart';
 import '../theme/app_theme.dart';
 import '../widgets/device_status_bar.dart';
@@ -755,7 +756,7 @@ class _ChatBubble extends StatelessWidget {
             border: Border.all(color: AppTheme.bubbleUserBorder),
           ),
           child: Text(
-            message.content,
+            EmojiParser.replaceShortcodes(message.content),
             style: const TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 15,
@@ -792,7 +793,7 @@ class _ChatBubble extends StatelessWidget {
             MarkdownBody(
               data: message.content.isEmpty && message.isStreaming
                   ? '▊' // blinking cursor placeholder
-                  : message.content,
+                  : EmojiParser.replaceShortcodes(message.content),
               styleSheet: MarkdownStyleSheet(
                 p: const TextStyle(
                   color: AppTheme.textPrimary,
