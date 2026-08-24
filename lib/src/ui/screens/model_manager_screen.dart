@@ -357,14 +357,32 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
                 ),
               ),
             ),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: state.isLoading ? null : _importModelFile,
-              icon: const Icon(Icons.add_circle_outline, size: 16),
-              label: const Text('Import (.gguf)', style: TextStyle(fontSize: 12)),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primary,
-                visualDensity: VisualDensity.compact,
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: state.isLoading
+                          ? null
+                          : () => ref.read(modelProvider.notifier).scanForModels(),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      color: AppTheme.textMuted,
+                      tooltip: 'Pindai Ulang Storage',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    TextButton.icon(
+                      onPressed: state.isLoading ? null : _importModelFile,
+                      icon: const Icon(Icons.add_circle_outline, size: 16),
+                      label: const Text('Import (.gguf)', style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -465,14 +483,24 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
   }
 
   Future<void> _handleLoadTier(ModelTier tier, ModelState state) async {
-    // For now, show a "coming soon" message until model scanning is implemented
-    // In Fase 2, this will open a file picker or trigger auto-discovery
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Tempatkan file .gguf tier ${tier.displayName} di direktori model app'),
-        action: SnackBarAction(label: 'OK', onPressed: () {}),
-      ),
-    );
+    final matchingModel = state.availableModels.cast<GgufModel?>().firstWhere(
+          (m) => m?.tier == tier,
+          orElse: () => null,
+        );
+
+    if (matchingModel != null) {
+      await ref.read(modelProvider.notifier).loadModel(matchingModel);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Belum ada file .gguf untuk Tier ${tier.displayName}. '
+            'Salin file ke folder Download/Models/ HP Anda.',
+          ),
+          action: SnackBarAction(label: 'OK', onPressed: () {}),
+        ),
+      );
+    }
   }
 
   Future<void> _startChat(ModelState state) async {

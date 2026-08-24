@@ -47,7 +47,7 @@ final class ModelNotifierProvider
   }
 }
 
-String _$modelNotifierHash() => r'bfb29e07d36badf30d2fdc175dad8381df00457c';
+String _$modelNotifierHash() => r'29f678185aaab5ac9dc990ff91704f714a70fea3';
 
 /// Manages GGUF model discovery, loading, and unloading.
 /// This provider is the bridge between UI and the native inference engine.

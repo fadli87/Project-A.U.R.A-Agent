@@ -44,10 +44,12 @@ lib/
 
 - **Fase 1** ✅ Environment Setup & Foundation (`llama_flutter_android`)
 - **Fase 2** ✅ Integrasi Streaming & Concurrency
-- **Fase 3** ✅ Riverpod State & Chat UI Polish
-- **Fase 4** 🔄 Persistent Memory (SQLite + ObjectBox)
-- **Fase 5** ⏳ Agentic Tool-Calling & Permission System
-- **Fase 6** ⏳ Testing, Optimasi Performa & Thermal
+- **Fase 3** ✅ Riverpod State & Chat UI Polish (Model Manager & Smooth UI)
+- **Fase 4** ✅ Persistent Memory (SQLite Chat History + ObjectBox HNSW Vector Store)
+- **Fase 5** ✅ Agentic Tool-Calling & Permission System (Permission Gate Card + Safe/Sensitive Tools)
+- **Fase 6** ✅ Testing & Zero-Error Performance Verification (`flutter analyze` 0 errors)
+- **Fase 7** ✅ Persona, Skills & Memory Snapshot (Pola Hermes Agent System Prompt Assembly)
+- **Fase 8** 🔄 Backup/Restore & Agentic Loop Safety Cap (`.aurabackup` & `MAX_AGENT_ITERATIONS = 8`)
 
 ## Setup Dev Environment
 

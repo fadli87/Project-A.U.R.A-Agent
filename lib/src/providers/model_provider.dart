@@ -126,19 +126,31 @@ class ModelNotifier extends _$ModelNotifier {
         }
       } catch (_) {}
 
-      // 3. Android Common Download Directories
+      // 3. Android Common Storage & Download Directories
       if (Platform.isAndroid) {
-        final downloadModels = Directory('/sdcard/Download/models');
-        if (await downloadModels.exists()) {
-          searchDirs.add(downloadModels);
-        }
-        final downloadDir = Directory('/sdcard/Download');
-        if (await downloadDir.exists()) {
-          searchDirs.add(downloadDir);
-        }
-        final rootModels = Directory('/sdcard/models');
-        if (await rootModels.exists()) {
-          searchDirs.add(rootModels);
+        final List<String> pathsToTry = [
+          '/sdcard/Download',
+          '/sdcard/Download/Models',
+          '/sdcard/Download/models',
+          '/sdcard/Documents',
+          '/sdcard/Documents/Models',
+          '/sdcard/Documents/models',
+          '/sdcard/Models',
+          '/sdcard/models',
+          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Download/Models',
+          '/storage/emulated/0/Download/models',
+          '/storage/emulated/0/Documents',
+          '/storage/emulated/0/Documents/Models',
+          '/storage/emulated/0/Documents/models',
+          '/storage/emulated/0/Models',
+          '/storage/emulated/0/models',
+        ];
+        for (final p in pathsToTry) {
+          final d = Directory(p);
+          if (await d.exists()) {
+            searchDirs.add(d);
+          }
         }
       }
 
@@ -218,8 +230,12 @@ class ModelNotifier extends _$ModelNotifier {
     state = state.copyWith(availableModels: currentModels);
   }
 
+  bool _isPickingFile = false;
+
   /// Open the system file picker to select and import a .gguf model file
   Future<bool> importModelWithPicker() async {
+    if (_isPickingFile) return false;
+    _isPickingFile = true;
     try {
       final pickedFiles = await FilePickerPlatform.instance.pickFiles(
         type: FileType.custom,
@@ -282,6 +298,8 @@ class ModelNotifier extends _$ModelNotifier {
     } catch (e) {
       setError('Gagal mengimpor model: ${e.toString()}');
       return false;
+    } finally {
+      _isPickingFile = false;
     }
   }
 
@@ -293,33 +311,16 @@ class ModelNotifier extends _$ModelNotifier {
       return;
     }
 
-    // Cleanly eject previous model from RAM if loaded
-    if (state.activeModel != null || _controller != null) {
+    // Unload previous model cleanly if active
+    if (state.activeModel != null && _controller != null) {
       state = state.copyWith(
         status: ModelStatus.unloading,
         loadingProgress: 0.0,
-        errorMessage: 'Melepas model sebelumnya dari RAM...',
       );
-      if (Platform.isAndroid) {
-        try {
-          await _controller?.dispose();
-        } catch (_) {}
-        _controller = null;
-      } else {
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-      }
-    }
-
-    // Safety check: warn user if model may exceed device RAM
-    final estimatedRam = (model.sizeBytes / (1024 * 1024)).ceil() * 2;
-    if (estimatedRam > state.deviceRamMb * 0.8) {
-      // More than 80% of device RAM — show warning but allow override
-      state = state.copyWith(
-        errorMessage:
-            'PERINGATAN: Model ini mungkin terlalu besar untuk device Anda '
-            '(${model.sizeFormatted} vs ${state.deviceRamFormatted} RAM). '
-            'Lanjutkan dengan risiko OOM.',
-      );
+      try {
+        await _controller?.dispose();
+      } catch (_) {}
+      _controller = null;
     }
 
     state = state.copyWith(
@@ -330,23 +331,18 @@ class ModelNotifier extends _$ModelNotifier {
 
     try {
       if (Platform.isAndroid) {
-        String resolvedPath = model.path;
-        try {
-          resolvedPath = File(model.path).resolveSymbolicLinksSync();
-        } catch (_) {}
-
         final gpu = await controller.detectGpu();
         try {
           await controller.loadModel(
-            modelPath: resolvedPath,
+            modelPath: model.path,
             threads: 4,
             contextSize: 2048,
             gpuLayers: gpu.recommendedGpuLayers,
           );
-        } catch (gpuErr) {
-          // Fallback to CPU-only if GPU Vulkan offloading fails on this device
+        } catch (_) {
+          // Fallback to CPU-only if GPU offloading fails
           await controller.loadModel(
-            modelPath: resolvedPath,
+            modelPath: model.path,
             threads: 4,
             contextSize: 2048,
             gpuLayers: 0,

@@ -89,6 +89,7 @@ class InferenceState {
 class InferenceNotifier extends _$InferenceNotifier {
   StreamSubscription<String>? _streamSub;
   Stopwatch? _stopwatch;
+  int _manualTokenCount = 0;
 
   @override
   InferenceState build() {
@@ -97,6 +98,47 @@ class InferenceNotifier extends _$InferenceNotifier {
       _stopwatch?.stop();
     });
     return const InferenceState();
+  }
+
+  void startManualMetrics() {
+    _manualTokenCount = 0;
+    _stopwatch = Stopwatch()..start();
+    state = InferenceState(
+      status: InferenceStatus.generating,
+      metrics: const InferenceMetrics(),
+    );
+  }
+
+  void onTokenReceived() {
+    _manualTokenCount++;
+    final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+    final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+    final tps = elapsedSeconds > 0 ? (_manualTokenCount / elapsedSeconds) : 0.0;
+
+    state = state.copyWith(
+      status: InferenceStatus.generating,
+      metrics: InferenceMetrics(
+        tokensGenerated: _manualTokenCount,
+        tokensPerSecond: tps,
+        elapsedDuration: elapsed,
+      ),
+    );
+  }
+
+  void stopManualMetrics() {
+    _stopwatch?.stop();
+    final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+    final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+    final finalTps = elapsedSeconds > 0 ? (_manualTokenCount / elapsedSeconds) : 0.0;
+
+    state = state.copyWith(
+      status: InferenceStatus.completed,
+      metrics: InferenceMetrics(
+        tokensGenerated: _manualTokenCount,
+        tokensPerSecond: finalTps,
+        elapsedDuration: elapsed,
+      ),
+    );
   }
 
   /// Format prompt according to model architecture (Gemma, Qwen, ChatML)

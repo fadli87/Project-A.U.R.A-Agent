@@ -19,6 +19,29 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    val configureCompileSdk = {
+        (extensions.findByName("android") as? com.android.build.gradle.BaseExtension)?.compileSdkVersion(36)
+    }
+    if (state.executed) {
+        configureCompileSdk()
+    } else {
+        afterEvaluate { configureCompileSdk() }
+    }
+}
+
+subprojects {
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
+    }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

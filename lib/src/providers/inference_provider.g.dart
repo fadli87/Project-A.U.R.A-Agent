@@ -44,7 +44,7 @@ final class InferenceNotifierProvider
   }
 }
 
-String _$inferenceNotifierHash() => r'9f9e6b39a194c2eae7bbb4c6f220943de5e3853f';
+String _$inferenceNotifierHash() => r'0fe7786933c31a30c5996ddf75f8d99a39a5f0a4';
 
 /// Manages local LLM inference, streaming tokens, metrics, and cancellation.
 

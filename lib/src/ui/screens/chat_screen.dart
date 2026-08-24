@@ -3,15 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
+import '../../agent/agent_tools.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/model_provider.dart';
 import '../../providers/inference_provider.dart';
+import '../../providers/persona_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../storage/chat_models.dart';
-// ignore: unused_import — akan digunakan di Fase 5 untuk tool permission dialog
 import '../widgets/permission_approval_card.dart';
 import '../theme/app_theme.dart';
 import '../widgets/device_status_bar.dart';
 import '../widgets/session_history_drawer.dart';
+import 'settings_screen.dart';
 
 /// Main chat interface with real-time token streaming
 class ChatScreen extends ConsumerStatefulWidget {
@@ -26,6 +29,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
   bool _isComposing = false;
+
+  // ── Agentic loop state ─────────────────────────────────────────────────────
+  /// Counter iterasi loop per giliran percakapan (Rule 06-backup-safety-cap.md)
+  int _agentIterationCount = 0;
+  /// True selama loop tool-call sedang berjalan (untuk tampilkan indikator)
+  bool _isAgentLooping = false;
+
+  final AgentToolRegistry _toolRegistry = AgentToolRegistry();
 
   @override
   void initState() {
@@ -74,6 +85,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ? _buildEmptyState()
                   : _buildMessageList(chatState),
             ),
+            if (_isAgentLooping)
+              _buildAgentLoopIndicator(),
             if (isStreaming)
               _buildStopButton(),
             if (chatState.hasError)
@@ -137,12 +150,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ],
       ),
       actions: [
-        // Generating indicator
-        if (ref.watch(chatProvider).messages.any((m) => m.isStreaming))
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _GeneratingChip(),
-          ),
+        // Live token count & speed metrics
+        Consumer(
+          builder: (context, ref, _) {
+            final inferenceState = ref.watch(inferenceProvider);
+            final metrics = inferenceState.metrics;
+            if (inferenceState.isGenerating || metrics.tokensGenerated > 0) {
+              return Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardElevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.speed, size: 13, color: AppTheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${metrics.tokensGenerated} token (${metrics.tokensPerSecond.toStringAsFixed(1)} t/s)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
         IconButton(
           icon: const Icon(Icons.add_comment_outlined, size: 20),
           tooltip: 'Chat Baru',
@@ -369,9 +410,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     await chatNotifier.addUserMessage(text);
-    chatNotifier.beginAssistantResponse();
 
     if (!modelState.isReady || modelState.activeModel == null) {
+      chatNotifier.beginAssistantResponse();
       chatNotifier.appendToken(
         'Peringatan: Belum ada model GGUF yang dimuat. Silakan kembali ke layar utama dan pilih serta muat model terlebih dahulu.',
       );
@@ -379,24 +420,188 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
+    await _executeAgentLoop(text);
+  }
+
+  // ─── Agentic Loop (Rule 06-backup-safety-cap.md) ────────────────────────────
+
+  /// Menjalankan reasoning → tool-call → observasi → loop ulang.
+  /// Berhenti jika: (a) tidak ada tool-call dalam output model (jawaban final),
+  /// (b) counter mencapai maxAgentIterations (safety cap), atau
+  /// (c) tool sensitif ditolak user.
+  Future<void> _executeAgentLoop(String initialUserText) async {
+    final chatNotifier = ref.read(chatProvider.notifier);
     final inferenceNotifier = ref.read(inferenceProvider.notifier);
-    final formattedPrompt = inferenceNotifier.formatPrompt(text);
+    final personaNotifier = ref.read(personaProvider.notifier);
+    final maxIterations =
+        ref.read(settingsProvider).maxAgentIterations;
     final controller = ref.read(modelProvider.notifier).controller;
 
-    try {
-      final stream = controller.generate(
-        prompt: formattedPrompt,
-        maxTokens: 512,
-      );
+    // Reset counter untuk giliran baru
+    _agentIterationCount = 0;
+    if (mounted) setState(() => _isAgentLooping = false);
 
-      await for (final token in stream) {
-        chatNotifier.appendToken(token);
+    // Context akumulasi untuk iterasi selanjutnya
+    // Kita re-build prompt dari conversation history tiap iterasi
+    String currentUserQuery = initialUserText;
+
+    while (_agentIterationCount < maxIterations) {
+      _agentIterationCount++;
+      final isFirstIteration = _agentIterationCount == 1;
+
+      // Tampilkan indikator hanya saat sudah masuk loop ke-2+
+      if (!isFirstIteration && mounted) {
+        setState(() => _isAgentLooping = true);
       }
-    } catch (e) {
-      chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
-    } finally {
+
+      // Bangun system prompt dengan persona + tools + skills
+      final systemPrompt = personaNotifier.assembleSystemPrompt(currentUserQuery);
+
+      // Begin streaming assistant response bubble
+      chatNotifier.beginAssistantResponse();
+      inferenceNotifier.startManualMetrics();
+
+      final buffer = StringBuffer();
+
+      try {
+        final formattedPrompt = inferenceNotifier.formatPrompt(
+          currentUserQuery,
+          systemPrompt: systemPrompt,
+        );
+
+        final stream = controller.generate(
+          prompt: formattedPrompt,
+          maxTokens: 512,
+        );
+
+        await for (final token in stream) {
+          buffer.write(token);
+          chatNotifier.appendToken(token);
+          inferenceNotifier.onTokenReceived();
+        }
+      } catch (e) {
+        chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
+        inferenceNotifier.stopManualMetrics();
+        await chatNotifier.finalizeAssistantResponse();
+        break;
+      }
+
+      inferenceNotifier.stopManualMetrics();
+      await chatNotifier.finalizeAssistantResponse();
+
+      // ── Cek apakah output mengandung tool-call ──────────────────────────────
+      final fullResponse = buffer.toString();
+      final toolCallReq = _toolRegistry.parseToolCall(fullResponse);
+
+      if (toolCallReq == null) {
+        // Tidak ada tool-call → ini jawaban final, loop selesai
+        break;
+      }
+
+      // ── Ada tool-call: handle permission lalu execute ───────────────────────
+      final tool = _toolRegistry.getTool(toolCallReq.name);
+      if (tool == null) {
+        // Tool tidak dikenal → hentikan loop dengan pesan
+        await chatNotifier.addToolObservation(
+          toolCallReq.name,
+          'Error: tool "${toolCallReq.name}" tidak dikenal.',
+        );
+        break;
+      }
+
+      if (tool.isSensitive) {
+        // Sensitive tool: tampilkan PermissionApprovalCard, tunggu user
+        if (!mounted) break;
+        final allowed = await PermissionApprovalCard.show(
+          context,
+          toolName: tool.name,
+          toolDescription: tool.description,
+          parameters: toolCallReq.arguments,
+        );
+
+        if (!allowed) {
+          // User menolak → hentikan loop, tampilkan pesan
+          await chatNotifier.addToolObservation(
+            tool.name,
+            'Aksi dibatalkan oleh pengguna.',
+          );
+          break;
+        }
+      }
+
+      // Execute tool (aman atau sudah diizinkan)
+      String toolResult;
+      try {
+        toolResult = await tool.execute(toolCallReq.arguments);
+      } catch (e) {
+        toolResult = 'Error eksekusi tool: ${e.toString()}';
+      }
+
+      // Tambahkan observasi ke chat dan jadikan konteks untuk iterasi berikutnya
+      await chatNotifier.addToolObservation(tool.name, toolResult);
+      currentUserQuery =
+          'Hasil dari tool ${tool.name}: $toolResult\n\nLanjutkan berdasarkan hasil ini.';
+    }
+
+    // ── Safety cap tercapai ──────────────────────────────────────────────────
+    if (_agentIterationCount >= maxIterations) {
+      chatNotifier.beginAssistantResponse();
+      chatNotifier.appendToken(
+        '⚠️ Saya belum bisa menyelesaikan ini dalam batas $_agentIterationCount langkah '
+        'yang wajar. Ini yang sudah saya temukan sejauh ini — silakan prompt ulang '
+        'dengan konteks yang lebih spesifik jika ingin melanjutkan.',
+      );
       await chatNotifier.finalizeAssistantResponse();
     }
+
+    if (mounted) setState(() => _isAgentLooping = false);
+  }
+
+  // ─── Indikator progres agentic loop ─────────────────────────────────────────
+
+  Widget _buildAgentLoopIndicator() {
+    final maxIterations =
+        ref.read(settingsProvider).maxAgentIterations;
+    final isNearCap = _agentIterationCount >= (maxIterations - 2);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isNearCap
+            ? AppTheme.warning.withValues(alpha: 0.12)
+            : AppTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isNearCap
+              ? AppTheme.warning.withValues(alpha: 0.5)
+              : AppTheme.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: isNearCap ? AppTheme.warning : AppTheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Langkah $_agentIterationCount dari maks $maxIterations',
+            style: TextStyle(
+              color: isNearCap ? AppTheme.warning : AppTheme.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -429,6 +634,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 color: AppTheme.border,
                 borderRadius: BorderRadius.circular(2),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined,
+                  color: AppTheme.textSecondary),
+              title: const Text('Pengaturan'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: AppTheme.error),
@@ -575,24 +793,49 @@ class _ChatBubble extends StatelessWidget {
             ),
             if (message.isStreaming)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _StreamingDot(delay: 0),
-                    const SizedBox(width: 3),
-                    _StreamingDot(delay: 150),
-                    const SizedBox(width: 3),
-                    _StreamingDot(delay: 300),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Generating...',
-                      style: TextStyle(
-                        color: AppTheme.statusGenerating,
-                        fontSize: 10,
+                padding: const EdgeInsets.only(top: 8),
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final metrics = ref.watch(inferenceProvider).metrics;
+                    // Max tokens default is 512, calculate percentage progress
+                    final maxTokens = 512;
+                    final progressRatio = (metrics.tokensGenerated / maxTokens).clamp(0.0, 1.0);
+                    final percentage = (progressRatio * 100).toInt();
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardElevated,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
                       ),
-                    ),
-                  ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Donut Progress Indicator
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              value: progressRatio > 0 ? progressRatio : null,
+                              strokeWidth: 2.8,
+                              backgroundColor: AppTheme.border,
+                              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$percentage% • ${metrics.tokensGenerated} token (${metrics.tokensPerSecond.toStringAsFixed(1)} t/s)',
+                            style: const TextStyle(
+                              color: AppTheme.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
           ],
@@ -700,20 +943,22 @@ class _GeneratingChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 10,
             height: 10,
             child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: AppTheme.statusGenerating,
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                AppTheme.statusGenerating,
+              ),
             ),
           ),
           const SizedBox(width: 6),
-          Text(
-            'Generating',
+          const Text(
+            'Generating...',
             style: TextStyle(
-              color: AppTheme.statusGenerating,
               fontSize: 11,
+              color: AppTheme.statusGenerating,
               fontWeight: FontWeight.w500,
             ),
           ),

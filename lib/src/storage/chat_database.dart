@@ -16,7 +16,7 @@ class ChatDatabase {
   static Database? _db;
 
   static const _dbName = 'aura_chat.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   Future<Database> get database async {
     _db ??= await _initDatabase();
@@ -63,10 +63,69 @@ class ChatDatabase {
     await db.execute('''
       CREATE INDEX idx_messages_session_id ON messages(session_id, timestamp)
     ''');
+
+    await _createFase7Tables(db);
+  }
+
+  Future<void> _createFase7Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS Persona (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        is_active INTEGER DEFAULT 0,
+        is_builtin INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS Skills (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT NOT NULL,
+        body TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1,
+        keywords TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS MemorySnapshot (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        summary TEXT NOT NULL,
+        message_count_at_update INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS UserProfile (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fact TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    // Seed default persona if table is empty
+    final existing = await db.query('Persona');
+    if (existing.isEmpty) {
+      await db.insert('Persona', {
+        'name': 'AURA Interactive Persona',
+        'content': 'Anda adalah AURA, asisten AI personal ekspresif & interaktif yang berjalan 100% offline di perangkat pengguna. Selalu gunakan emotikon yang relevan (seperti 🚀, ✨, ⚡, 💡, 🎯, 📊, 🛡️), simbol menarik (seperti •, ───, 📌, ➔), poin-poin terstruktur, dan format Markdown yang rapi dalam setiap jawaban agar komunikasi terasa hidup, ramah, dan interaktif.',
+        'is_active': 1,
+        'is_builtin': 1,
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Reserved for future schema migrations
+    if (oldVersion < 2) {
+      await _createFase7Tables(db);
+    }
   }
 
   // ─── Sessions ───────────────────────────────────────────────────────────────

@@ -6,8 +6,8 @@ plugins {
 
 android {
     namespace = "com.aura.aura"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -36,6 +36,17 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        resources {
+            pickFirsts += "**/AndroidManifest.xml"
+        }
+    }
+}
+
+configurations.all {
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-gpu")
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
 }
 
 kotlin {

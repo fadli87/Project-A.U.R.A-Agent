@@ -15,6 +15,7 @@ daftar berikut, sebelum reinvent dari nol.
 | Fase 5: arsitektur tool-calling | [Tool-Neuron](https://github.com/Siddhesh2377/llama.cpp-android) | `ToolManager` model-agnostic (JSON+XML+function-call) — acuan desain skema tool |
 | Fase 5: model kecil untuk function-calling | [Octopus V2](https://huggingface.co/NexaAI/Octopus-v2-gguf-awq/blob/main/README.md) | Model 2B khusus function-calling on-device |
 | Fase 5: pola permission-gate | [GGUF Loader — Agentic Mode](https://github.com/GGUFloader/gguf-loader) | Contoh matang agent multi-step dengan tool tersandbox + approval card Allow/Deny |
+| Fase 7: pola persona & skills asli | [Hermes Agent — SOUL.md docs](https://hermes-agent.nousresearch.com/docs/guides/use-soul-with-hermes), [Hermes Agent — Prompt Assembly docs](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly) | Sumber langsung pola SOUL.md (persona) dan skills index progresif yang diadaptasi di `.agents/rules/05-persona-skills.md` |
 
 Strategi: mulai dari Llama-Flutter atau fllama sebagai fondasi Fase 1-2, lalu bangun
 sendiri layer agentic (Fase 5) dengan referensi pola dari Tool-Neuron dan GGUF Loader.

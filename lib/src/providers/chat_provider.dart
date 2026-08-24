@@ -58,7 +58,9 @@ class ChatNotifier extends _$ChatNotifier {
   /// Start a new chat session (or load existing one)
   Future<void> startNewSession({String? modelName}) async {
     final sessionId = await _db.createSession(modelName: modelName);
-    state = ChatState(sessionId: sessionId);
+    if (ref.mounted) {
+      state = ChatState(sessionId: sessionId);
+    }
   }
 
   /// Load an existing session from history
