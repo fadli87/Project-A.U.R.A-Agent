@@ -530,9 +530,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       // Execute tool (aman atau sudah diizinkan)
+      final enrichedArgs = Map<String, dynamic>.from(toolCallReq.arguments);
+      enrichedArgs['sessionId'] = ref.read(chatProvider).sessionId;
+
       String toolResult;
       try {
-        toolResult = await tool.execute(toolCallReq.arguments);
+        toolResult = await tool.execute(enrichedArgs);
       } catch (e) {
         toolResult = 'Error eksekusi tool: ${e.toString()}';
       }
@@ -541,6 +544,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await chatNotifier.addToolObservation(tool.name, toolResult);
       currentUserQuery =
           'Hasil dari tool ${tool.name}: $toolResult\n\nLanjutkan berdasarkan hasil ini.';
+
+      // Jika tool adalah search_web, segera hentikan loop sesuai Rule 07
+      if (tool.name == 'search_web') {
+        break;
+      }
     }
 
     // ── Safety cap tercapai ──────────────────────────────────────────────────

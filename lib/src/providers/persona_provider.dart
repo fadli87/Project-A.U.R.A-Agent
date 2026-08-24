@@ -210,6 +210,12 @@ class PersonaNotifier extends _$PersonaNotifier {
   String assembleSystemPrompt(String userQuery, {List<String>? userFacts, String? memorySnapshot}) {
     final buffer = StringBuffer();
 
+    // System time context injection for exact alarm/reminder calculations
+    final nowTime = DateTime.now();
+    buffer.writeln('=== INFORMASI WAKTU SISTEM ===');
+    buffer.writeln('Tanggal & Waktu Sekarang: ${nowTime.toLocal().toIso8601String()}');
+    buffer.writeln('Hari: ${_getDayName(nowTime.weekday)}\n');
+
     // Default style instruction for interactive responses with emojis and symbols
     buffer.writeln('=== PETUNJUK GAYA BAHASA & EKSPRESI ===');
     buffer.writeln('• Selalu gunakan emotikon/emoji yang relevan (misal: 🚀, ✨, ⚡, 💡, 🎯, 📊, 🛡️, 📌, ➔).');
@@ -266,5 +272,18 @@ class PersonaNotifier extends _$PersonaNotifier {
     }
 
     return buffer.toString().trim();
+  }
+
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Senin';
+      case 2: return 'Selasa';
+      case 3: return 'Rabu';
+      case 4: return 'Kamis';
+      case 5: return 'Jumat';
+      case 6: return 'Sabtu';
+      case 7: return 'Minggu';
+      default: return 'Tidak Diketahui';
+    }
   }
 }

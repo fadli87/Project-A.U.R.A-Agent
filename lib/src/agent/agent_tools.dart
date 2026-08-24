@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'alarm_service.dart';
 
 /// Represents a tool declaration schema that model can invoke
 abstract class AgentTool {
@@ -69,8 +70,16 @@ class CreateNoteTool extends AgentTool {
   Map<String, dynamic> get parametersSchema => {
         'type': 'object',
         'properties': {
-          'title': {'type': 'string', 'description': 'Judul catatan'},
+          'title': {'type': 'string', 'description': 'Judul catatan atau pengingat'},
           'content': {'type': 'string', 'description': 'Isi pengingat atau catatan'},
+          'reminder_time': {
+            'type': 'string',
+            'description': 'Waktu pengingat spesifik dalam format ISO 8601 UTC (misal: "2026-08-24T15:30:00Z"), gunakan ini untuk waktu mutlak.'
+          },
+          'delay_seconds': {
+            'type': 'integer',
+            'description': 'Jeda waktu dalam detik dari sekarang untuk memicu pengingat (misal: 300 untuk 5 menit), gunakan ini untuk waktu relatif.'
+          },
         },
         'required': ['title', 'content'],
       };
@@ -79,9 +88,39 @@ class CreateNoteTool extends AgentTool {
   Future<String> execute(Map<String, dynamic> args) async {
     final title = args['title'] ?? 'Tanpa Judul';
     final content = args['content'] ?? '';
+    final reminderTimeStr = args['reminder_time'] as String?;
+    final delaySeconds = args['delay_seconds'] as int?;
+    final sessionId = args['sessionId'] as int?;
+
+    DateTime? targetTime;
+    if (delaySeconds != null) {
+      targetTime = DateTime.now().add(Duration(seconds: delaySeconds));
+    } else if (reminderTimeStr != null && reminderTimeStr.isNotEmpty) {
+      try {
+        targetTime = DateTime.parse(reminderTimeStr).toLocal();
+      } catch (_) {
+        // Abaikan format tanggal tidak valid
+      }
+    }
+
+    if (targetTime != null && sessionId != null) {
+      final alarmId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      await AlarmService.instance.scheduleReminder(
+        id: alarmId,
+        title: 'AURA Pengingat: $title',
+        content: content,
+        time: targetTime,
+        sessionId: sessionId,
+      );
+      return jsonEncode({
+        'success': true,
+        'message': 'Pengingat "$title" berhasil dijadwalkan pada ${targetTime.toLocal()} (Session ID: $sessionId, Alarm ID: $alarmId).',
+      });
+    }
+
     return jsonEncode({
       'success': true,
-      'message': 'Catatan "$title" berhasil disimpan ke penyimpanan lokal AURA.',
+      'message': 'Catatan "$title" berhasil disimpan ke penyimpanan lokal AURA (tanpa pengingat aktif).',
     });
   }
 }
@@ -116,6 +155,44 @@ class ReadAppFileTool extends AgentTool {
   }
 }
 
+/// Tool 4: Web Search (Safe - Auto-execute)
+class SearchWebTool extends AgentTool {
+  @override
+  String get name => 'search_web';
+
+  @override
+  String get description => 'Mencari informasi online di browser web default pengguna. Gunakan alat ini KETIKA pengguna menanyakan informasi terkini, cuaca hari ini, berita terbaru, atau hal lain yang membutuhkan akses internet.';
+
+  @override
+  bool get isSensitive => false;
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string', 'description': 'Kata kunci pencarian yang dikirim ke browser.'},
+        },
+        'required': ['query'],
+      };
+
+  @override
+  Future<String> execute(Map<String, dynamic> args) async {
+    final query = args['query'] ?? '';
+    if (query.trim().isEmpty) {
+      return jsonEncode({
+        'success': false,
+        'message': 'Query pencarian kosong.',
+      });
+    }
+
+    await AlarmService.instance.searchWeb(query);
+    return jsonEncode({
+      'success': true,
+      'message': 'Pencarian untuk "$query" berhasil dibuka di browser default.',
+    });
+  }
+}
+
 /// Registry & Parser for Agent Tools
 class AgentToolRegistry {
   final Map<String, AgentTool> _tools = {};
@@ -124,6 +201,7 @@ class AgentToolRegistry {
     registerTool(CheckNetworkStatusTool());
     registerTool(CreateNoteTool());
     registerTool(ReadAppFileTool());
+    registerTool(SearchWebTool());
   }
 
   void registerTool(AgentTool tool) {
