@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:aura_core/aura_core.dart';
 import '../services/local_llm_service.dart';
@@ -17,6 +18,12 @@ class DesktopChatState {
   final int lastCompletionTokens;
   final int lastDurationMs;
 
+  // New in-app server settings
+  final bool useInAppServer;
+  final String llamaServerPath;
+  final String ggufModelPath;
+  final bool isInAppServerRunning;
+
   DesktopChatState({
     required this.sessions,
     required this.messages,
@@ -31,6 +38,10 @@ class DesktopChatState {
     this.lastPromptTokens = 0,
     this.lastCompletionTokens = 0,
     this.lastDurationMs = 0,
+    this.useInAppServer = false,
+    this.llamaServerPath = '',
+    this.ggufModelPath = '',
+    this.isInAppServerRunning = false,
   });
 
   DesktopChatState copyWith({
@@ -47,6 +58,10 @@ class DesktopChatState {
     int? lastPromptTokens,
     int? lastCompletionTokens,
     int? lastDurationMs,
+    bool? useInAppServer,
+    String? llamaServerPath,
+    String? ggufModelPath,
+    bool? isInAppServerRunning,
   }) {
     return DesktopChatState(
       sessions: sessions ?? this.sessions,
@@ -62,6 +77,10 @@ class DesktopChatState {
       lastPromptTokens: lastPromptTokens ?? this.lastPromptTokens,
       lastCompletionTokens: lastCompletionTokens ?? this.lastCompletionTokens,
       lastDurationMs: lastDurationMs ?? this.lastDurationMs,
+      useInAppServer: useInAppServer ?? this.useInAppServer,
+      llamaServerPath: llamaServerPath ?? this.llamaServerPath,
+      ggufModelPath: ggufModelPath ?? this.ggufModelPath,
+      isInAppServerRunning: isInAppServerRunning ?? this.isInAppServerRunning,
     );
   }
 }
@@ -78,15 +97,109 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
           availableModels: [],
           statusMessage: 'Disconnected',
           isServerConnected: false,
+          useInAppServer: false,
+          llamaServerPath: '',
+          ggufModelPath: '',
+          isInAppServerRunning: false,
         )) {
     _init();
   }
 
   final ChatDatabase _db = ChatDatabase.instance;
+  Process? _llamaProcess;
 
   Future<void> _init() async {
     await loadSessions();
     await checkConnection();
+  }
+
+  @override
+  void dispose() {
+    _killLlamaProcess();
+    super.dispose();
+  }
+
+  void _killLlamaProcess() {
+    if (_llamaProcess != null) {
+      _llamaProcess!.kill();
+      _llamaProcess = null;
+    }
+  }
+
+  Future<void> stopInAppServer() async {
+    _killLlamaProcess();
+    state = state.copyWith(
+      isInAppServerRunning: false,
+      isServerConnected: false,
+      statusMessage: 'In-App Server Stopped',
+    );
+  }
+
+  Future<bool> startInAppServer({
+    required String serverPath,
+    required String modelPath,
+  }) async {
+    state = state.copyWith(
+      statusMessage: 'Starting In-App LLM Server...',
+      isLoading: true,
+      llamaServerPath: serverPath,
+      ggufModelPath: modelPath,
+    );
+
+    _killLlamaProcess();
+
+    try {
+      // Spawn llama-server subprocess on port 8080
+      _llamaProcess = await Process.start(
+        serverPath,
+        [
+          '-m', modelPath,
+          '-c', '2048',
+          '--port', '8080',
+          '-t', '4',
+        ],
+      );
+
+      // Listen to stdout/stderr for diagnostics
+      _llamaProcess!.stdout.listen((event) {});
+      _llamaProcess!.stderr.listen((event) {});
+
+      // Give it a brief delay to warm up
+      await Future.delayed(const Duration(seconds: 3));
+
+      // Re-configure API settings to connect to the localhost server
+      state = state.copyWith(
+        baseUrl: 'http://localhost:8080/v1',
+        apiType: 'OpenAI-Compatible',
+        activeModel: 'local-model',
+        isInAppServerRunning: true,
+        isLoading: false,
+      );
+
+      // Verify connection to the newly spawned server
+      final isConnected = await checkConnection();
+      if (isConnected) {
+        state = state.copyWith(
+          statusMessage: 'In-App Server Active (Port 8080)',
+        );
+        return true;
+      } else {
+        _killLlamaProcess();
+        state = state.copyWith(
+          isInAppServerRunning: false,
+          statusMessage: 'In-App Server failed to respond',
+        );
+        return false;
+      }
+    } catch (e) {
+      _killLlamaProcess();
+      state = state.copyWith(
+        isInAppServerRunning: false,
+        isLoading: false,
+        statusMessage: 'Error starting server: $e',
+      );
+      return false;
+    }
   }
 
   Future<void> loadSessions() async {
@@ -132,13 +245,32 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     required String baseUrl,
     required String apiType,
     required String activeModel,
+    bool? useInAppServer,
+    String? llamaServerPath,
+    String? ggufModelPath,
   }) async {
     state = state.copyWith(
       baseUrl: baseUrl,
       apiType: apiType,
       activeModel: activeModel,
+      useInAppServer: useInAppServer ?? state.useInAppServer,
+      llamaServerPath: llamaServerPath ?? state.llamaServerPath,
+      ggufModelPath: ggufModelPath ?? state.ggufModelPath,
     );
-    await checkConnection();
+    
+    if (state.useInAppServer) {
+      if (state.llamaServerPath.isNotEmpty && state.ggufModelPath.isNotEmpty && !state.isInAppServerRunning) {
+        await startInAppServer(
+          serverPath: state.llamaServerPath,
+          modelPath: state.ggufModelPath,
+        );
+      }
+    } else {
+      if (state.isInAppServerRunning) {
+        await stopInAppServer();
+      }
+      await checkConnection();
+    }
   }
 
   Future<bool> checkConnection() async {
@@ -156,7 +288,17 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
         availableModels: models,
         activeModel: active,
         isServerConnected: true,
-        statusMessage: 'Connected to ${state.apiType}',
+        statusMessage: state.isInAppServerRunning 
+            ? 'In-App Server Active (Port 8080)' 
+            : 'Connected to ${state.apiType}',
+      );
+      return true;
+    } else if (state.isInAppServerRunning) {
+      state = state.copyWith(
+        availableModels: ['local-model'],
+        activeModel: 'local-model',
+        isServerConnected: true,
+        statusMessage: 'In-App Server Active (Port 8080)',
       );
       return true;
     } else {

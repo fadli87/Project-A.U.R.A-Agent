@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:aura_core/aura_core.dart';
+import 'package:file_picker/file_picker.dart';
 import 'src/providers/desktop_chat_provider.dart';
 
 void main() async {
@@ -74,8 +75,12 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
   void _showSettingsDialog(BuildContext context, DesktopChatState state, DesktopChatNotifier notifier) {
     final urlController = TextEditingController(text: state.baseUrl);
     final modelController = TextEditingController(text: state.activeModel);
+    final serverPathController = TextEditingController(text: state.llamaServerPath);
+    final modelPathController = TextEditingController(text: state.ggufModelPath);
     String selectedApiType = state.apiType;
     String selectedModel = state.activeModel;
+    bool dialogUseInAppServer = state.useInAppServer;
+    bool dialogIsInAppServerRunning = state.isInAppServerRunning;
     bool isTesting = false;
     String testResult = '';
 
@@ -99,75 +104,191 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
               ),
               content: SingleChildScrollView(
                 child: SizedBox(
-                  width: 450,
+                  width: 480,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Pilih API Type & URL sesuai server LLM lokal Anda (Ollama / LM Studio).',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      // Direct Server Toggle
+                      SwitchListTile(
+                        activeColor: const Color(0xFF7C4DFF),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Run In-App Server (Direct GGUF)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('Jalankan model .gguf langsung tanpa Ollama / LM Studio', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        value: dialogUseInAppServer,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            dialogUseInAppServer = val;
+                          });
+                        },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       
-                      // API Type Dropdown
-                      const Text('API Type', style: TextStyle(fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF13131A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      if (dialogUseInAppServer) ...[
+                        // In-App Server Fields
+                        const Text('llama-server Executable Path', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: serverPathController,
+                                decoration: InputDecoration(
+                                  hintText: 'e.g. C:\\path\\to\\llama-server.exe',
+                                  fillColor: const Color(0xFF13131A),
+                                  filled: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7C4DFF).withOpacity(0.2),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () async {
+                                final result = await FilePicker.pickFile(
+                                  dialogTitle: 'Select llama-server executable',
+                                  type: FileType.any,
+                                );
+                                if (result != null && result.path != null) {
+                                  setDialogState(() {
+                                    serverPathController.text = result.path!;
+                                  });
+                                }
+                              },
+                              child: const Text('Browse'),
+                            ),
+                          ],
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: selectedApiType,
-                            isExpanded: true,
-                            dropdownColor: const Color(0xFF1E1E26),
-                            items: const [
-                              DropdownMenuItem(value: 'Ollama', child: Text('Ollama')),
-                              DropdownMenuItem(value: 'OpenAI-Compatible', child: Text('OpenAI-Compatible (LM Studio / llama-server)')),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setDialogState(() {
-                                  selectedApiType = val;
-                                  if (val == 'Ollama' && urlController.text.contains('1234')) {
-                                    urlController.text = 'http://localhost:11434';
-                                  } else if (val == 'OpenAI-Compatible' && urlController.text.contains('11434')) {
-                                    urlController.text = 'http://localhost:1234/v1';
+                        const SizedBox(height: 12),
+                        
+                        const Text('GGUF Model File Path', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: modelPathController,
+                                decoration: InputDecoration(
+                                  hintText: 'e.g. C:\\path\\to\\model.gguf',
+                                  fillColor: const Color(0xFF13131A),
+                                  filled: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7C4DFF).withOpacity(0.2),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () async {
+                                final result = await FilePicker.pickFile(
+                                  dialogTitle: 'Select GGUF model file',
+                                  type: FileType.custom,
+                                  allowedExtensions: ['gguf'],
+                                );
+                                if (result != null && result.path != null) {
+                                  setDialogState(() {
+                                    modelPathController.text = result.path!;
+                                  });
+                                }
+                              },
+                              child: const Text('Browse'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Server Action Controller
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: dialogIsInAppServerRunning 
+                                    ? Colors.redAccent.withOpacity(0.2) 
+                                    : const Color(0xFF00BFA5).withOpacity(0.2),
+                                foregroundColor: dialogIsInAppServerRunning ? Colors.redAccent : const Color(0xFF00BFA5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: isTesting 
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                                : Icon(dialogIsInAppServerRunning ? Icons.stop : Icons.play_arrow, size: 18),
+                              label: Text(dialogIsInAppServerRunning ? 'Stop Server' : 'Start Server'),
+                              onPressed: isTesting ? null : () async {
+                                if (dialogIsInAppServerRunning) {
+                                  setDialogState(() {
+                                    isTesting = true;
+                                    testResult = 'Stopping server...';
+                                  });
+                                  await notifier.stopInAppServer();
+                                  setDialogState(() {
+                                    isTesting = false;
+                                    dialogIsInAppServerRunning = false;
+                                    testResult = 'Server stopped.';
+                                  });
+                                } else {
+                                  if (serverPathController.text.trim().isEmpty || modelPathController.text.trim().isEmpty) {
+                                    setDialogState(() {
+                                      testResult = 'Error: Paths cannot be empty!';
+                                    });
+                                    return;
                                   }
-                                });
-                              }
-                            },
-                          ),
+                                  setDialogState(() {
+                                    isTesting = true;
+                                    testResult = 'Starting llama-server...';
+                                  });
+                                  final success = await notifier.startInAppServer(
+                                    serverPath: serverPathController.text.trim(),
+                                    modelPath: modelPathController.text.trim(),
+                                  );
+                                  setDialogState(() {
+                                    isTesting = false;
+                                    dialogIsInAppServerRunning = success;
+                                    testResult = success 
+                                        ? 'Server connected successfully!' 
+                                        : 'Failed to connect. Check paths.';
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                testResult.isEmpty 
+                                    ? (dialogIsInAppServerRunning ? 'Running on http://localhost:8080/v1' : 'Ready to start') 
+                                    : testResult,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: dialogIsInAppServerRunning ? Colors.greenAccent : Colors.grey,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Base URL
-                      const Text('Base URL', style: TextStyle(fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: urlController,
-                        decoration: InputDecoration(
-                          hintText: 'e.g. http://localhost:11434',
-                          fillColor: const Color(0xFF13131A),
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                          ),
+                      ] else ...[
+                        const Text(
+                          'Pilih API Type & URL sesuai server LLM lokal Anda (Ollama / LM Studio).',
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Model selection
-                      const Text('Active Model', style: TextStyle(fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 6),
-                      if (state.availableModels.isNotEmpty)
+                        const SizedBox(height: 16),
+                        
+                        // API Type Dropdown
+                        const Text('API Type', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
@@ -177,27 +298,37 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
-                              value: state.availableModels.contains(selectedModel) ? selectedModel : state.availableModels.first,
+                              value: selectedApiType,
                               isExpanded: true,
                               dropdownColor: const Color(0xFF1E1E26),
-                              items: state.availableModels.map((modelName) {
-                                return DropdownMenuItem(value: modelName, child: Text(modelName));
-                              }).toList(),
+                              items: const [
+                                DropdownMenuItem(value: 'Ollama', child: Text('Ollama')),
+                                DropdownMenuItem(value: 'OpenAI-Compatible', child: Text('OpenAI-Compatible (LM Studio / llama-server)')),
+                              ],
                               onChanged: (val) {
                                 if (val != null) {
                                   setDialogState(() {
-                                    selectedModel = val;
+                                    selectedApiType = val;
+                                    if (val == 'Ollama' && urlController.text.contains('1234')) {
+                                      urlController.text = 'http://localhost:11434';
+                                    } else if (val == 'OpenAI-Compatible' && urlController.text.contains('11434')) {
+                                      urlController.text = 'http://localhost:1234/v1';
+                                    }
                                   });
                                 }
                               },
                             ),
                           ),
-                        )
-                      else
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Base URL
+                        const Text('Base URL', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
                         TextField(
-                          controller: modelController,
+                          controller: urlController,
                           decoration: InputDecoration(
-                            hintText: 'e.g. gemma:2b',
+                            hintText: 'e.g. http://localhost:11434',
                             fillColor: const Color(0xFF13131A),
                             filled: true,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -207,62 +338,108 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             ),
                           ),
                         ),
-                      
-                      const SizedBox(height: 20),
-                      
-                      // Test Connection Button & Result
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.08),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        const SizedBox(height: 16),
+
+                        // Model selection
+                        const Text('Active Model', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
+                        if (state.availableModels.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF13131A),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
                             ),
-                            icon: isTesting 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                              : const Icon(Icons.bolt, size: 18),
-                            label: const Text('Test & Discover Models'),
-                            onPressed: isTesting ? null : () async {
-                              setDialogState(() {
-                                isTesting = true;
-                                testResult = 'Connecting...';
-                              });
-                              
-                              await notifier.updateSettings(
-                                baseUrl: urlController.text.trim(),
-                                apiType: selectedApiType,
-                                activeModel: state.availableModels.isNotEmpty ? selectedModel : modelController.text.trim(),
-                              );
-                              
-                              final currentChatState = ref.read(desktopChatProvider);
-                              setDialogState(() {
-                                isTesting = false;
-                                if (currentChatState.isServerConnected) {
-                                  testResult = 'Success! Found ${currentChatState.availableModels.length} models.';
-                                  if (currentChatState.availableModels.isNotEmpty) {
-                                    selectedModel = currentChatState.activeModel;
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: state.availableModels.contains(selectedModel) ? selectedModel : state.availableModels.first,
+                                isExpanded: true,
+                                dropdownColor: const Color(0xFF1E1E26),
+                                items: state.availableModels.map((modelName) {
+                                  return DropdownMenuItem(value: modelName, child: Text(modelName));
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setDialogState(() {
+                                      selectedModel = val;
+                                    });
                                   }
-                                } else {
-                                  testResult = 'Connection Failed. Check URL & server.';
-                                }
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              testResult,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: testResult.contains('Success') ? Colors.greenAccent : (testResult.contains('Failed') ? Colors.redAccent : Colors.grey),
+                                },
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )
+                        else
+                          TextField(
+                            controller: modelController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. gemma:2b',
+                              fillColor: const Color(0xFF13131A),
+                              filled: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Test Connection Button & Result
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white.withOpacity(0.08),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: isTesting 
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                                : const Icon(Icons.bolt, size: 18),
+                              label: const Text('Test & Discover Models'),
+                              onPressed: isTesting ? null : () async {
+                                setDialogState(() {
+                                  isTesting = true;
+                                  testResult = 'Connecting...';
+                                });
+                                
+                                await notifier.updateSettings(
+                                  baseUrl: urlController.text.trim(),
+                                  apiType: selectedApiType,
+                                  activeModel: state.availableModels.isNotEmpty ? selectedModel : modelController.text.trim(),
+                                );
+                                
+                                final currentChatState = ref.read(desktopChatProvider);
+                                setDialogState(() {
+                                  isTesting = false;
+                                  if (currentChatState.isServerConnected) {
+                                    testResult = 'Success! Found ${currentChatState.availableModels.length} models.';
+                                    if (currentChatState.availableModels.isNotEmpty) {
+                                      selectedModel = currentChatState.activeModel;
+                                    }
+                                  } else {
+                                    testResult = 'Connection Failed. Check URL & server.';
+                                  }
+                                });
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                testResult,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: testResult.contains('Success') ? Colors.greenAccent : (testResult.contains('Failed') ? Colors.redAccent : Colors.grey),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -280,11 +457,23 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                   ),
                   onPressed: () async {
                     final navigator = Navigator.of(context);
-                    await notifier.updateSettings(
-                      baseUrl: urlController.text.trim(),
-                      apiType: selectedApiType,
-                      activeModel: state.availableModels.isNotEmpty ? selectedModel : modelController.text.trim(),
-                    );
+                    if (dialogUseInAppServer) {
+                      await notifier.updateSettings(
+                        baseUrl: 'http://localhost:8080/v1',
+                        apiType: 'OpenAI-Compatible',
+                        activeModel: 'local-model',
+                        useInAppServer: true,
+                        llamaServerPath: serverPathController.text.trim(),
+                        ggufModelPath: modelPathController.text.trim(),
+                      );
+                    } else {
+                      await notifier.updateSettings(
+                        baseUrl: urlController.text.trim(),
+                        apiType: selectedApiType,
+                        activeModel: state.availableModels.isNotEmpty ? selectedModel : modelController.text.trim(),
+                        useInAppServer: false,
+                      );
+                    }
                     navigator.pop();
                   },
                   child: const Text('Save & Apply'),

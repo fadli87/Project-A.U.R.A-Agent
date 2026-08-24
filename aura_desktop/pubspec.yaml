@@ -39,6 +39,7 @@ dependencies:
   path: ^1.9.1
   http: ^1.2.0
   sqlite3_flutter_libs: ^0.5.24
+  file_picker: ^12.0.0
   aura_core:
     path: ../aura_core
 
