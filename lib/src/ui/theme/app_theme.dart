@@ -38,7 +38,6 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: _surfaceBackground,
-      fontFamily: 'Inter',
 
       // AppBar
       appBarTheme: const AppBarTheme(

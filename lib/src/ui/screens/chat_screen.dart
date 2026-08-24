@@ -67,9 +67,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final modelState = ref.watch(modelProvider);
     final isStreaming = chatState.messages.any((m) => m.isStreaming);
 
-    // Auto-scroll when new messages arrive or tokens stream in
-    ref.listen(chatProvider, (_, next) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    // Scroll handling: force scroll on new messages, conditional scroll on streaming tokens
+    ref.listen(chatProvider, (prev, next) {
+      final prevCount = prev?.messages.length ?? 0;
+      final nextCount = next.messages.length;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (nextCount > prevCount) {
+          _scrollToBottom();
+        } else if (next.messages.isNotEmpty && next.messages.last.isStreaming) {
+          _scrollToBottomIfNeeded();
+        }
+      });
     });
 
     return Scaffold(
@@ -205,44 +214,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primary, AppTheme.secondary],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.primary, AppTheme.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(20),
+              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
             ),
-            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Halo! Saya AURA',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 20),
+            const Text(
+              'Halo! Saya AURA',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'AI pribadi yang berjalan 100% offline\ndi perangkat Anda',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14,
-              height: 1.5,
+            const SizedBox(height: 8),
+            const Text(
+              'AI pribadi yang berjalan 100% offline\ndi perangkat Anda',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
-          _buildSuggestedPrompts(),
-        ],
+            const SizedBox(height: 32),
+            _buildSuggestedPrompts(),
+          ],
+        ),
       ),
     );
   }
@@ -619,6 +632,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
+    }
+  }
+
+  void _scrollToBottomIfNeeded() {
+    if (_scrollController.hasClients) {
+      final position = _scrollController.position;
+      final maxScroll = position.maxScrollExtent;
+      final currentScroll = position.pixels;
+      if (maxScroll - currentScroll < 150) {
+        _scrollController.animateTo(
+          maxScroll,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+        );
+      }
     }
   }
 
