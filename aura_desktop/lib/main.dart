@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -440,10 +442,129 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           ],
                         ),
                       ],
-                    ],
-                  ),
+                    const Divider(color: Colors.white12, height: 32),
+                    const Text(
+                      'Backup & Restore',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5)),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Ekspor atau impor riwayat sesi obrolan, persona, dan memori AURA (.aurabackup).',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.08),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.download, size: 16),
+                          label: const Text('Export Backup'),
+                          onPressed: () async {
+                            try {
+                              final jsonData = await BackupService.instance.exportBackupData();
+                              final bytes = utf8.encode(jsonData);
+                              final result = await FilePicker.saveFile(
+                                dialogTitle: 'Save AURA Backup',
+                                fileName: 'aura_backup_${DateTime.now().toIso8601String().substring(0, 10)}.aurabackup',
+                                bytes: bytes,
+                              );
+                              if (result != null) {
+                                setDialogState(() {
+                                  testResult = '✅ Backup exported successfully!';
+                                });
+                              }
+                            } catch (e) {
+                              setDialogState(() {
+                                testResult = '❌ Export failed: $e';
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.08),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.upload, size: 16),
+                          label: const Text('Import Backup'),
+                          onPressed: () async {
+                            try {
+                              final result = await FilePicker.pickFile(
+                                dialogTitle: 'Select AURA Backup File',
+                                type: FileType.any,
+                              );
+                              if (result != null && result.path != null) {
+                                final fileContent = await File(result.path!).readAsString();
+                                final validation = BackupService.instance.validateBackup(fileContent);
+                                if (!validation.isValid) {
+                                  setDialogState(() {
+                                    testResult = '❌ Invalid backup: ${validation.errorMessage}';
+                                  });
+                                  return;
+                                }
+
+                                // Show confirmation dialog
+                                if (!context.mounted) return;
+                                final restoreConfirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    backgroundColor: const Color(0xFF1E1E26),
+                                    title: const Text('Confirm Restore'),
+                                    content: Text(
+                                      'Apakah Anda yakin ingin me-restore backup ini?\n\n'
+                                      'Peringatan: Seluruh data saat ini (sesi chat, pesan, dll) akan dihapus dan digantikan oleh data backup.\n\n'
+                                      'Detail Backup:\n'
+                                      '- Sesi Chat: ${validation.sessionCount}\n'
+                                      '- Total Pesan: ${validation.messageCount}\n'
+                                      '- Tanggal Ekspor: ${validation.exportedAt?.toLocal() ?? 'Tidak diketahui'}',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Restore Data'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (restoreConfirmed == true) {
+                                  final success = await BackupService.instance.restoreBackupData(fileContent);
+                                  if (success) {
+                                    setDialogState(() {
+                                      testResult = '✅ Restore successful!';
+                                    });
+                                    await notifier.loadSessions();
+                                  } else {
+                                    setDialogState(() {
+                                      testResult = '❌ Restore failed.';
+                                    });
+                                  }
+                                }
+                              }
+                            } catch (e) {
+                              setDialogState(() {
+                                testResult = '❌ Import failed: $e';
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
+            ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
