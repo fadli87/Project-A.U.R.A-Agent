@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'model_provider.dart';
 import 'memory_provider.dart';
+import '../utils/emoji_parser.dart';
 
 part 'inference_provider.g.dart';
 
@@ -250,8 +251,10 @@ class InferenceNotifier extends _$InferenceNotifier {
           final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
           final tps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
 
+          final processedText = EmojiParser.replaceShortcodes(buffer.toString());
+
           state = state.copyWith(
-            text: buffer.toString(),
+            text: processedText,
             metrics: InferenceMetrics(
               tokensGenerated: tokenCount,
               tokensPerSecond: tps,
@@ -268,6 +271,7 @@ class InferenceNotifier extends _$InferenceNotifier {
 
           state = state.copyWith(
             status: InferenceStatus.completed,
+            text: EmojiParser.replaceShortcodes(buffer.toString()),
             metrics: state.metrics.copyWith(
               tokensGenerated: tokenCount,
               tokensPerSecond: finalTps,

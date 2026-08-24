@@ -52,6 +52,7 @@ class DeviceStatusNotifier extends Notifier<DeviceStatusState> {
     try {
       final level = await _battery.batteryLevel;
       final bState = await _battery.batteryState;
+      if (!ref.mounted) return;
       state = state.copyWith(
         batteryLevel: (level / 100.0).clamp(0.0, 1.0),
         batteryState: bState,
@@ -59,6 +60,7 @@ class DeviceStatusNotifier extends Notifier<DeviceStatusState> {
       );
 
       _batteryStateSub = _battery.onBatteryStateChanged.listen((bState) {
+        if (!ref.mounted) return;
         state = state.copyWith(
           batteryState: bState,
           isCharging: bState == BatteryState.charging || bState == BatteryState.full,
@@ -78,6 +80,7 @@ class DeviceStatusNotifier extends Notifier<DeviceStatusState> {
   Future<void> _refreshLevel() async {
     try {
       final level = await _battery.batteryLevel;
+      if (!ref.mounted) return;
       state = state.copyWith(
         batteryLevel: (level / 100.0).clamp(0.0, 1.0),
       );

@@ -155,6 +155,8 @@ class PersonaNotifier extends _$PersonaNotifier {
     }
     active ??= personas.isNotEmpty ? personas.first : null;
 
+    if (!ref.mounted) return;
+
     state = PersonaState(
       personas: personas,
       activePersona: active,
@@ -216,9 +218,10 @@ class PersonaNotifier extends _$PersonaNotifier {
     buffer.writeln('Tanggal & Waktu Sekarang: ${nowTime.toLocal().toIso8601String()}');
     buffer.writeln('Hari: ${_getDayName(nowTime.weekday)}\n');
 
-    // Default style instruction for interactive responses with emojis and symbols
+    // Default style instruction for interactive responses using text-shortcodes to bypass Android JNI encoding bugs
     buffer.writeln('=== PETUNJUK GAYA BAHASA & EKSPRESI ===');
-    buffer.writeln('• Selalu gunakan emotikon/emoji yang relevan (misal: 🚀, ✨, ⚡, 💡, 🎯, 📊, 🛡️, 📌, ➔).');
+    buffer.writeln('• Selalu sertakan emotikon/emoji yang relevan dalam respons Anda.');
+    buffer.writeln('• PENTING: Gunakan format shortcode teks seperti :rocket: (untuk 🚀), :sparkles: (untuk ✨), :zap: (untuk ⚡), :bulb: (untuk 💡), :target: (untuk 🎯), :chart: (untuk 📊), :shield: (untuk 🛡️), :pushpin: (untuk 📌), :check: (untuk ✅), :warning: (untuk ⚠️), :info: (untuk ℹ️), atau :smile: (untuk 😊) di dalam teks. Jangan menuliskan karakter emoji langsung.');
     buffer.writeln('• Buat jawaban yang ramah, ekspresif, terstruktur dengan poin-poin menarik, dan format Markdown yang rapi.\n');
 
     // [1a] Persona aktif
