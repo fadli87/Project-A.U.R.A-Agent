@@ -1,0 +1,64 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:3720395251345096840",
+      "lastPropertyId": "7:2055052728205459968",
+      "name": "MemoryEntry",
+      "properties": [
+        {
+          "id": "1:3083683309147125837",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:2988725068519693053",
+          "name": "content",
+          "type": 9
+        },
+        {
+          "id": "3:1351957932188724839",
+          "name": "role",
+          "type": 9
+        },
+        {
+          "id": "4:7983259504205900269",
+          "name": "sessionId",
+          "type": 6
+        },
+        {
+          "id": "5:4955885141021955787",
+          "name": "messageId",
+          "type": 6
+        },
+        {
+          "id": "6:1300076414354908495",
+          "name": "timestampMs",
+          "type": 6
+        },
+        {
+          "id": "7:2055052728205459968",
+          "name": "embedding",
+          "indexId": "1:4554747815171770076",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "1:3720395251345096840",
+  "lastIndexId": "1:4554747815171770076",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}
