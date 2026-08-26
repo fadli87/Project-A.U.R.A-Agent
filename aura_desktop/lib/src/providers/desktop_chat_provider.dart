@@ -156,7 +156,7 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
         serverPath,
         [
           '-m', modelPath,
-          '-c', '2048',
+          '--ctx-size', '8192',
           '--port', '8080',
           '-t', '4',
           '--alias', 'local-model',
