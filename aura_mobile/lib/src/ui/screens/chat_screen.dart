@@ -1,3 +1,4 @@
+import '../../providers/memory_provider.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -66,6 +67,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatProvider);
     final modelState = ref.watch(modelProvider);
+    ref.watch(personaProvider); // Watch personaState to ensure initialization before prompt assembly
     final isStreaming = chatState.messages.any((m) => m.isStreaming);
 
     // Scroll handling: force scroll on new messages, conditional scroll on streaming tokens
@@ -572,8 +574,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           setState(() => _isAgentLooping = true);
         }
 
+        // Recall relevant semantic memories for this prompt
+        final memories = await ref.read(memoryProvider.notifier).recall(currentUserQuery, topK: 3);
+        final memoryContext = MemoryNotifier.formatMemoriesForPrompt(memories);
+
         // Bangun system prompt dengan persona + tools + skills
-        final systemPrompt = personaNotifier.assembleSystemPrompt(currentUserQuery);
+        var systemPrompt = personaNotifier.assembleSystemPrompt(currentUserQuery);
+        if (memoryContext.isNotEmpty) {
+          systemPrompt = '$memoryContext\n$systemPrompt';
+        }
 
         // Begin streaming assistant response bubble
         chatNotifier.beginAssistantResponse();
