@@ -159,7 +159,6 @@ class AppTheme {
 
       // List tile
       listTileTheme: const ListTileThemeData(
-        tileColor: Colors.transparent,
         textColor: _textPrimary,
         iconColor: _textSecondary,
       ),
