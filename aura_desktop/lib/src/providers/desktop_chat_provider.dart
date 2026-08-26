@@ -379,6 +379,19 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     return sb.toString();
   }
 
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Senin';
+      case 2: return 'Selasa';
+      case 3: return 'Rabu';
+      case 4: return 'Kamis';
+      case 5: return 'Jumat';
+      case 6: return 'Sabtu';
+      case 7: return 'Minggu';
+      default: return '';
+    }
+  }
+
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty || state.activeSession == null) return;
     
@@ -401,61 +414,202 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     // Store user message in vector memory (non-blocking)
     _storeMessageInMemory(userMsgWithId).ignore();
 
-    // Recall relevant memories
-    final memories = await _recallMemories(text);
-    final memoryContext = _formatMemoriesForPrompt(memories);
+    int iteration = 0;
+    final maxIterations = 5;
+    final toolRegistry = AgentToolRegistry();
 
-    // Map messages for the LLM request API
-    final apiMessages = <Map<String, String>>[];
-    
-    final systemPrompt = StringBuffer();
-    systemPrompt.writeln('Anda adalah AURA, asisten AI personal offline yang ekspresif.');
-    if (memoryContext.isNotEmpty) {
-      systemPrompt.writeln(memoryContext);
+    try {
+      // Query active persona and skills from database
+      final db = await _db.database;
+      final personaMaps = await db.query('Persona', where: 'is_active = 1');
+      final activePersonaContent = personaMaps.isNotEmpty ? personaMaps.first['content'] as String? : null;
+
+      final skillMaps = await db.query('Skills', where: 'enabled = 1');
+
+      while (iteration < maxIterations) {
+        iteration++;
+
+        // Recall relevant semantic memories for this prompt (using original text)
+        final memories = await _recallMemories(text);
+        final memoryContext = _formatMemoriesForPrompt(memories);
+
+        // Assemble system prompt with persona, memories, tools, and skills
+        final systemPrompt = StringBuffer();
+        
+        // 1. Time context
+        final nowTime = DateTime.now();
+        systemPrompt.writeln('=== INFORMASI WAKTU SISTEM ===');
+        systemPrompt.writeln('Tanggal & Waktu Sekarang: ${nowTime.toLocal().toIso8601String()}');
+        systemPrompt.writeln('Hari: ${_getDayName(nowTime.weekday)}\n');
+
+        // 2. Style instruction
+        systemPrompt.writeln('=== GAYA BAWAAN & FORMAT RESEP ===');
+        systemPrompt.writeln('Jawablah dengan gaya yang natural, hangat, santai, dan ekspresif. Hindari format kaku seperti bot/AI formal.');
+        systemPrompt.writeln('Dalam menyisipkan emoji, selalu gunakan format teks tag di bawah ini (jangan gunakan emoji unicode langsung):');
+        systemPrompt.writeln(':rocket: (roket), :sparkles: (kilatan bintang), :zap: (petir), :bulb: (ide/lampu), :target: (target), :chart: (grafik), :shield: (shield), :pushpin: (pin), :check: (centang), :warning: (peringatan), :info: (info), :smile: (senyum).\n');
+
+        // 3. Active persona
+        if (activePersonaContent != null && activePersonaContent.isNotEmpty) {
+          systemPrompt.writeln('=== PERSONA & INSTRUKSI UTAMA ===');
+          systemPrompt.writeln(activePersonaContent);
+          systemPrompt.writeln();
+        }
+
+        // 4. Memory context
+        if (memoryContext.isNotEmpty) {
+          systemPrompt.writeln(memoryContext);
+          systemPrompt.writeln();
+        }
+
+        // 5. Tool-calling schema
+        systemPrompt.writeln(toolRegistry.buildToolsPrompt());
+
+        // 6. Skills index
+        if (skillMaps.isNotEmpty) {
+          systemPrompt.writeln('=== SKILLS INDEX ===');
+          for (final skill in skillMaps) {
+            systemPrompt.writeln('- ${skill['name']}: ${skill['description']}');
+          }
+          systemPrompt.writeln();
+
+          // Inject up to 2 matching skills
+          final queryLower = text.toLowerCase();
+          int injectedCount = 0;
+          for (final skill in skillMaps) {
+            if (injectedCount >= 2) break;
+            final kw = (skill['keywords'] as String?)?.toLowerCase() ?? '';
+            final nameLower = (skill['name'] as String).toLowerCase();
+            if ((kw.isNotEmpty && queryLower.contains(kw)) || queryLower.contains(nameLower)) {
+              if (injectedCount == 0) systemPrompt.writeln('=== SKILL DEEP-GUIDE ===');
+              systemPrompt.writeln('[Skill: ${skill['name']}]');
+              systemPrompt.writeln(skill['body']);
+              systemPrompt.writeln();
+              injectedCount++;
+            }
+          }
+        }
+
+        // Format message history
+        final apiMessages = <Map<String, String>>[];
+        apiMessages.add({
+          'role': 'system',
+          'content': systemPrompt.toString().trim(),
+        });
+
+        apiMessages.addAll(state.messages.map((m) {
+          return {
+            'role': m.role.name,
+            'content': m.content,
+          };
+        }));
+
+        // Call Local LLM Service
+        final result = await LocalLlmService.generateChatReply(
+          baseUrl: state.baseUrl,
+          apiType: state.apiType,
+          model: state.activeModel,
+          messages: apiMessages,
+        );
+
+        final responseText = result['content'] as String;
+
+        // Parse tool call
+        final toolCallReq = toolRegistry.parseToolCall(responseText);
+
+        if (toolCallReq == null) {
+          // No tool-call -> final assistant response
+          final assistantMsg = ChatMessage(
+            id: 0,
+            sessionId: state.activeSession!.id,
+            role: MessageRole.assistant,
+            content: EmojiParser.replaceShortcodes(responseText),
+            timestamp: DateTime.now(),
+          );
+
+          final replySavedId = await _db.saveMessage(assistantMsg);
+          final assistantMsgWithId = assistantMsg.copyWith(id: replySavedId);
+
+          _storeMessageInMemory(assistantMsgWithId).ignore();
+
+          state = state.copyWith(
+            messages: [...state.messages, assistantMsgWithId],
+            isLoading: false,
+            lastPromptTokens: result['promptTokens'],
+            lastCompletionTokens: result['completionTokens'],
+            lastDurationMs: result['durationMs'],
+          );
+          break; // Done!
+        }
+
+        // We have a tool call!
+        final tool = toolRegistry.getTool(toolCallReq.name);
+        if (tool == null) {
+          final errText = 'Error: tool "${toolCallReq.name}" tidak dikenal.';
+          final obs = ChatMessage(
+            id: 0,
+            sessionId: state.activeSession!.id,
+            role: MessageRole.tool,
+            content: '[${toolCallReq.name}] $errText',
+            timestamp: DateTime.now(),
+            toolResult: errText,
+          );
+          final savedObsId = await _db.saveMessage(obs);
+          state = state.copyWith(
+            messages: [...state.messages, obs.copyWith(id: savedObsId)],
+            isLoading: false,
+          );
+          break;
+        }
+
+        // Save tool-call call from assistant to history
+        final assistantToolCallMsg = ChatMessage(
+          id: 0,
+          sessionId: state.activeSession!.id,
+          role: MessageRole.assistant,
+          content: responseText,
+          timestamp: DateTime.now(),
+        );
+        final replySavedId = await _db.saveMessage(assistantToolCallMsg);
+        state = state.copyWith(
+          messages: [...state.messages, assistantToolCallMsg.copyWith(id: replySavedId)],
+        );
+
+        // Execute tool
+        final enrichedArgs = Map<String, dynamic>.from(toolCallReq.arguments);
+        enrichedArgs['sessionId'] = state.activeSession!.id;
+
+        String toolResult;
+        if (tool.name == 'clarify' && ClarifyTool.handler == null) {
+          toolResult = 'Permintaan klarifikasi: ${toolCallReq.arguments['question']}. Silakan tanyakan langsung ke pengguna tanpa memanggil tool.';
+        } else {
+          try {
+            toolResult = await tool.execute(enrichedArgs);
+          } catch (e) {
+            toolResult = 'Error eksekusi tool: ${e.toString()}';
+          }
+        }
+
+        // Save tool result observation to history
+        final obs = ChatMessage(
+          id: 0,
+          sessionId: state.activeSession!.id,
+          role: MessageRole.tool,
+          content: '[${tool.name}] $toolResult',
+          timestamp: DateTime.now(),
+          toolResult: toolResult,
+        );
+        final savedObsId = await _db.saveMessage(obs);
+        state = state.copyWith(
+          messages: [...state.messages, obs.copyWith(id: savedObsId)],
+        );
+      }
+    } catch (e) {
+      debugPrint('Error in desktop agent loop: $e');
+      state = state.copyWith(isLoading: false);
     }
-    
-    apiMessages.add({
-      'role': 'system',
-      'content': systemPrompt.toString().trim(),
-    });
-
-    apiMessages.addAll(state.messages.map((m) {
-      return {
-        'role': m.role.name,
-        'content': m.content,
-      };
-    }));
-
-    final result = await LocalLlmService.generateChatReply(
-      baseUrl: state.baseUrl,
-      apiType: state.apiType,
-      model: state.activeModel,
-      messages: apiMessages,
-    );
-
-    final assistantMsg = ChatMessage(
-      id: 0,
-      sessionId: state.activeSession!.id,
-      role: MessageRole.assistant,
-      content: EmojiParser.replaceShortcodes(result['content']),
-      timestamp: DateTime.now(),
-    );
-
-    final replySavedId = await _db.saveMessage(assistantMsg);
-    final assistantMsgWithId = assistantMsg.copyWith(id: replySavedId);
-
-    // Store assistant message in vector memory (non-blocking)
-    _storeMessageInMemory(assistantMsgWithId).ignore();
-
-    state = state.copyWith(
-      messages: [...state.messages, assistantMsgWithId],
-      isLoading: false,
-      lastPromptTokens: result['promptTokens'],
-      lastCompletionTokens: result['completionTokens'],
-      lastDurationMs: result['durationMs'],
-    );
   }
 }
+
 
 final desktopChatProvider = StateNotifierProvider<DesktopChatNotifier, DesktopChatState>((ref) {
   return DesktopChatNotifier();
