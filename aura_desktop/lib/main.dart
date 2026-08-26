@@ -795,36 +795,41 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             color: isSelected ? const Color(0xFF1E1E28) : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: ListTile(
-                            hoverColor: Colors.white.withValues(alpha: 0.03),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            leading: Icon(
-                              Icons.chat_bubble_outline,
-                              color: isSelected ? const Color(0xFF7C4DFF) : Colors.grey,
-                              size: 18,
-                            ),
-                            title: Text(
-                              'Obrolan #${session.id}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? Colors.white : const Color(0xFFE0E0E0),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            clipBehavior: Clip.antiAlias,
+                            child: ListTile(
+                              hoverColor: Colors.white.withValues(alpha: 0.03),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              leading: Icon(
+                                Icons.chat_bubble_outline,
+                                color: isSelected ? const Color(0xFF7C4DFF) : Colors.grey,
+                                size: 18,
                               ),
+                              title: Text(
+                                'Obrolan #${session.id}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? Colors.white : const Color(0xFFE0E0E0),
+                                ),
+                              ),
+                              subtitle: Text(
+                                session.modelName ?? 'gemma:2b',
+                                style: TextStyle(fontSize: 10, color: isSelected ? const Color(0xFF00BFA5) : Colors.grey),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: isSelected 
+                                ? IconButton(
+                                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.grey),
+                                    onPressed: () => chatNotifier.deleteSession(session.id),
+                                    tooltip: 'Hapus Obrolan',
+                                  )
+                                : null,
+                              onTap: () => chatNotifier.selectSession(session),
                             ),
-                            subtitle: Text(
-                              session.modelName ?? 'gemma:2b',
-                              style: TextStyle(fontSize: 10, color: isSelected ? const Color(0xFF00BFA5) : Colors.grey),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: isSelected 
-                              ? IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.grey),
-                                  onPressed: () => chatNotifier.deleteSession(session.id),
-                                  tooltip: 'Hapus Obrolan',
-                                )
-                              : null,
-                            onTap: () => chatNotifier.selectSession(session),
                           ),
                         ),
                       );
