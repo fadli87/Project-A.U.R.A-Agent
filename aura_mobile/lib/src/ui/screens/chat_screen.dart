@@ -524,6 +524,59 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Berhenti jika: (a) tidak ada tool-call dalam output model (jawaban final),
   /// (b) counter mencapai maxAgentIterations (safety cap), atau
   /// (c) tool sensitif ditolak user.
+  String _buildFormattedPrompt(List<ChatMessage> history, String systemPrompt, String modelName) {
+    final buffer = StringBuffer();
+    final isGemma = modelName.toLowerCase().contains('gemma');
+
+    if (isGemma) {
+      if (systemPrompt.isNotEmpty) {
+        buffer.writeln('<start_of_turn>user');
+        buffer.writeln(systemPrompt);
+        buffer.writeln('<end_of_turn>');
+      }
+      for (final msg in history) {
+        if (msg.role == MessageRole.user) {
+          buffer.writeln('<start_of_turn>user');
+          buffer.writeln(msg.content);
+          buffer.writeln('<end_of_turn>');
+        } else if (msg.role == MessageRole.assistant) {
+          buffer.writeln('<start_of_turn>model');
+          buffer.writeln(msg.content);
+          buffer.writeln('<end_of_turn>');
+        } else if (msg.role == MessageRole.tool) {
+          buffer.writeln('<start_of_turn>user');
+          buffer.writeln(msg.content);
+          buffer.writeln('<end_of_turn>');
+        }
+      }
+      buffer.write('<start_of_turn>model\n');
+    } else {
+      if (systemPrompt.isNotEmpty) {
+        buffer.writeln('<|im_start|>system');
+        buffer.writeln(systemPrompt);
+        buffer.writeln('<|im_end|>');
+      }
+      for (final msg in history) {
+        if (msg.role == MessageRole.user) {
+          buffer.writeln('<|im_start|>user');
+          buffer.writeln(msg.content);
+          buffer.writeln('<|im_end|>');
+        } else if (msg.role == MessageRole.assistant) {
+          buffer.writeln('<|im_start|>assistant');
+          buffer.writeln(msg.content);
+          buffer.writeln('<|im_end|>');
+        } else if (msg.role == MessageRole.tool) {
+          buffer.writeln('<|im_start|>user');
+          buffer.writeln(msg.content);
+          buffer.writeln('<|im_end|>');
+        }
+      }
+      buffer.write('<|im_start|>assistant\n');
+    }
+
+    return buffer.toString();
+  }
+
   Future<void> _executeAgentLoop(String initialUserText) async {
     final chatNotifier = ref.read(chatProvider.notifier);
     final inferenceNotifier = ref.read(inferenceProvider.notifier);
@@ -536,9 +589,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _agentIterationCount = 0;
     if (mounted) setState(() => _isAgentLooping = false);
 
-    // Context akumulasi untuk iterasi selanjutnya
-    // Kita re-build prompt dari conversation history tiap iterasi
-    String currentUserQuery = initialUserText;
+
 
     // Register clarify handler
     ClarifyTool.handler = (question, options) async {
@@ -575,11 +626,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
 
         // Recall relevant semantic memories for this prompt
-        final memories = await ref.read(memoryProvider.notifier).recall(currentUserQuery, topK: 3);
+        final memories = await ref.read(memoryProvider.notifier).recall(initialUserText, topK: 3);
         final memoryContext = MemoryNotifier.formatMemoriesForPrompt(memories);
 
         // Bangun system prompt dengan persona + tools + skills
-        var systemPrompt = personaNotifier.assembleSystemPrompt(currentUserQuery);
+        var systemPrompt = personaNotifier.assembleSystemPrompt(initialUserText);
         if (memoryContext.isNotEmpty) {
           systemPrompt = '$memoryContext\n$systemPrompt';
         }
@@ -590,12 +641,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         final buffer = StringBuffer();
 
-        try {
-          final formattedPrompt = inferenceNotifier.formatPrompt(
-            currentUserQuery,
-            systemPrompt: systemPrompt,
-          );
+        // Load completed history
+        final history = ref.read(chatProvider).messages.where((m) => !m.isStreaming).toList();
+        final modelName = ref.read(modelProvider).activeModel?.name ?? '';
+        final formattedPrompt = _buildFormattedPrompt(history, systemPrompt, modelName);
 
+        try {
           final stream = controller.generate(
             prompt: formattedPrompt,
             maxTokens: 512,
@@ -669,8 +720,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         // Tambahkan observasi ke chat dan jadikan konteks untuk iterasi berikutnya
         await chatNotifier.addToolObservation(tool.name, toolResult);
-        currentUserQuery =
-            'Hasil dari tool ${tool.name}: $toolResult\n\nLanjutkan berdasarkan hasil ini.';
 
         // Jika tool adalah search_web, segera hentikan loop sesuai Rule 07
         if (tool.name == 'search_web') {
