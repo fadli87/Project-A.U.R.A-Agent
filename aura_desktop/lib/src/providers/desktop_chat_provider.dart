@@ -496,7 +496,12 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
           'content': systemPrompt.toString().trim(),
         });
 
-        apiMessages.addAll(state.messages.map((m) {
+        // Limit history to the last 8 messages to fit in the context size (2048 tokens limit)
+        final historyMessages = state.messages.length > 8
+            ? state.messages.sublist(state.messages.length - 8)
+            : state.messages;
+
+        apiMessages.addAll(historyMessages.map((m) {
           return {
             'role': m.role.name,
             'content': m.content,

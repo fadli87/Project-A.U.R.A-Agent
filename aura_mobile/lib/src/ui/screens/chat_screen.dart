@@ -641,8 +641,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         final buffer = StringBuffer();
 
-        // Load completed history
-        final history = ref.read(chatProvider).messages.where((m) => !m.isStreaming).toList();
+        // Load completed history (limit to last 8 messages to fit in the context size limit)
+        var history = ref.read(chatProvider).messages.where((m) => !m.isStreaming).toList();
+        if (history.length > 8) {
+          history = history.sublist(history.length - 8);
+        }
         final modelName = ref.read(modelProvider).activeModel?.name ?? '';
         final formattedPrompt = _buildFormattedPrompt(history, systemPrompt, modelName);
 
