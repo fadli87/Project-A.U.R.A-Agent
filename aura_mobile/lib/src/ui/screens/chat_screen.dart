@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
   bool _isComposing = false;
+  ClarifyRequest? _activeClarify;
 
   // ── Agentic loop state ─────────────────────────────────────────────────────
   /// Counter iterasi loop per giliran percakapan (Rule 06-backup-safety-cap.md)
@@ -356,46 +358,125 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         color: AppTheme.background,
         border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _inputController,
-              focusNode: _inputFocusNode,
-              maxLines: 5,
-              minLines: 1,
-              textCapitalization: TextCapitalization.sentences,
-              onChanged: (v) => setState(() => _isComposing = v.trim().isNotEmpty),
-              onSubmitted: canSend ? (_) => _sendCurrentMessage() : null,
-              decoration: InputDecoration(
-                hintText: modelState.isReady
-                    ? 'Ketik pesan...'
-                    : 'Muat model terlebih dahulu',
-                hintStyle: const TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: 14,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+          if (_activeClarify != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.cardElevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.help_outline, color: AppTheme.primary, size: 16),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Klarifikasi Diperlukan',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _activeClarify!.question,
+                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_activeClarify!.options != null && _activeClarify!.options!.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _activeClarify!.options!.map((opt) {
+                        return ActionChip(
+                          backgroundColor: AppTheme.card,
+                          side: BorderSide(color: AppTheme.border),
+                          label: Text(opt, style: const TextStyle(color: AppTheme.primary, fontSize: 12)),
+                          onPressed: () => _activeClarify!.onRespond(opt),
+                        );
+                      }).toList(),
+                    )
+                  else
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.background,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Ketik jawaban klarifikasi Anda...',
+                          hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                        onSubmitted: (val) {
+                          if (val.trim().isNotEmpty) {
+                            _activeClarify!.onRespond(val.trim());
+                          }
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _inputController,
+                  focusNode: _inputFocusNode,
+                  maxLines: 5,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (v) => setState(() => _isComposing = v.trim().isNotEmpty),
+                  onSubmitted: canSend ? (_) => _sendCurrentMessage() : null,
+                  decoration: InputDecoration(
+                    hintText: modelState.isReady
+                        ? 'Ketik pesan...'
+                        : 'Muat model terlebih dahulu',
+                    hintStyle: const TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 14,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
                 ),
               ),
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
-            ),
-          ),
-          const SizedBox(width: 8),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            child: IconButton.filled(
-              onPressed: canSend ? _sendCurrentMessage : null,
-              icon: const Icon(Icons.send_rounded, size: 20),
-              style: IconButton.styleFrom(
-                backgroundColor:
-                    canSend ? AppTheme.primary : AppTheme.border,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(12),
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                child: IconButton.filled(
+                  onPressed: canSend ? _sendCurrentMessage : null,
+                  icon: const Icon(Icons.send_rounded, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor:
+                        canSend ? AppTheme.primary : AppTheme.border,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(12),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -457,124 +538,156 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Kita re-build prompt dari conversation history tiap iterasi
     String currentUserQuery = initialUserText;
 
-    while (_agentIterationCount < maxIterations) {
-      _agentIterationCount++;
-      final isFirstIteration = _agentIterationCount == 1;
-
-      // Tampilkan indikator hanya saat sudah masuk loop ke-2+
-      if (!isFirstIteration && mounted) {
-        setState(() => _isAgentLooping = true);
+    // Register clarify handler
+    ClarifyTool.handler = (question, options) async {
+      final completer = Completer<String>();
+      if (mounted) {
+        setState(() {
+          _activeClarify = ClarifyRequest(
+            question: question,
+            options: options,
+            onRespond: (res) {
+              completer.complete(res);
+              setState(() {
+                _activeClarify = null;
+              });
+            },
+          );
+        });
       }
+      final prevLooping = _isAgentLooping;
+      if (mounted) setState(() => _isAgentLooping = false);
+      final response = await completer.future;
+      if (mounted) setState(() => _isAgentLooping = prevLooping);
+      return response;
+    };
 
-      // Bangun system prompt dengan persona + tools + skills
-      final systemPrompt = personaNotifier.assembleSystemPrompt(currentUserQuery);
+    try {
+      while (_agentIterationCount < maxIterations) {
+        _agentIterationCount++;
+        final isFirstIteration = _agentIterationCount == 1;
 
-      // Begin streaming assistant response bubble
-      chatNotifier.beginAssistantResponse();
-      inferenceNotifier.startManualMetrics();
-
-      final buffer = StringBuffer();
-
-      try {
-        final formattedPrompt = inferenceNotifier.formatPrompt(
-          currentUserQuery,
-          systemPrompt: systemPrompt,
-        );
-
-        final stream = controller.generate(
-          prompt: formattedPrompt,
-          maxTokens: 512,
-        );
-
-        await for (final token in stream) {
-          buffer.write(token);
-          chatNotifier.appendToken(token);
-          inferenceNotifier.onTokenReceived();
+        // Tampilkan indikator hanya saat sudah masuk loop ke-2+
+        if (!isFirstIteration && mounted) {
+          setState(() => _isAgentLooping = true);
         }
-      } catch (e) {
-        chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
+
+        // Bangun system prompt dengan persona + tools + skills
+        final systemPrompt = personaNotifier.assembleSystemPrompt(currentUserQuery);
+
+        // Begin streaming assistant response bubble
+        chatNotifier.beginAssistantResponse();
+        inferenceNotifier.startManualMetrics();
+
+        final buffer = StringBuffer();
+
+        try {
+          final formattedPrompt = inferenceNotifier.formatPrompt(
+            currentUserQuery,
+            systemPrompt: systemPrompt,
+          );
+
+          final stream = controller.generate(
+            prompt: formattedPrompt,
+            maxTokens: 512,
+          );
+
+          await for (final token in stream) {
+            buffer.write(token);
+            chatNotifier.appendToken(token);
+            inferenceNotifier.onTokenReceived();
+          }
+        } catch (e) {
+          chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
+          inferenceNotifier.stopManualMetrics();
+          await chatNotifier.finalizeAssistantResponse();
+          break;
+        }
+
         inferenceNotifier.stopManualMetrics();
         await chatNotifier.finalizeAssistantResponse();
-        break;
-      }
 
-      inferenceNotifier.stopManualMetrics();
-      await chatNotifier.finalizeAssistantResponse();
+        // 🔍🔍 Cek apakah output mengandung tool-call 🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍
+        final fullResponse = buffer.toString();
+        final toolCallReq = _toolRegistry.parseToolCall(fullResponse);
 
-      // ── Cek apakah output mengandung tool-call ──────────────────────────────
-      final fullResponse = buffer.toString();
-      final toolCallReq = _toolRegistry.parseToolCall(fullResponse);
+        if (toolCallReq == null) {
+          // Tidak ada tool-call ➔ ini jawaban final, loop selesai
+          break;
+        }
 
-      if (toolCallReq == null) {
-        // Tidak ada tool-call → ini jawaban final, loop selesai
-        break;
-      }
-
-      // ── Ada tool-call: handle permission lalu execute ───────────────────────
-      final tool = _toolRegistry.getTool(toolCallReq.name);
-      if (tool == null) {
-        // Tool tidak dikenal → hentikan loop dengan pesan
-        await chatNotifier.addToolObservation(
-          toolCallReq.name,
-          'Error: tool "${toolCallReq.name}" tidak dikenal.',
-        );
-        break;
-      }
-
-      if (tool.isSensitive) {
-        // Sensitive tool: tampilkan PermissionApprovalCard, tunggu user
-        if (!mounted) break;
-        final allowed = await PermissionApprovalCard.show(
-          context,
-          toolName: tool.name,
-          toolDescription: tool.description,
-          parameters: toolCallReq.arguments,
-        );
-
-        if (!allowed) {
-          // User menolak → hentikan loop, tampilkan pesan
+        // 🔍🔍 Ada tool-call: handle permission lalu execute 🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍
+        final tool = _toolRegistry.getTool(toolCallReq.name);
+        if (tool == null) {
+          // Tool tidak dikenal ➔ hentikan loop dengan pesan
           await chatNotifier.addToolObservation(
-            tool.name,
-            'Aksi dibatalkan oleh pengguna.',
+            toolCallReq.name,
+            'Error: tool "${toolCallReq.name}" tidak dikenal.',
           );
+          break;
+        }
+
+        if (tool.isSensitive) {
+          // Sensitive tool: tampilkan PermissionApprovalCard, tunggu user
+          if (!mounted) break;
+          final allowed = await PermissionApprovalCard.show(
+            context,
+            toolName: tool.name,
+            toolDescription: tool.description,
+            parameters: toolCallReq.arguments,
+          );
+
+          if (!allowed) {
+            // User menolak ➔ hentikan loop, tampilkan pesan
+            await chatNotifier.addToolObservation(
+              tool.name,
+              'Aksi dibatalkan oleh pengguna.',
+            );
+            break;
+          }
+        }
+
+        // Execute tool (aman atau sudah diizinkan)
+        final enrichedArgs = Map<String, dynamic>.from(toolCallReq.arguments);
+        enrichedArgs['sessionId'] = ref.read(chatProvider).sessionId;
+
+        String toolResult;
+        try {
+          toolResult = await tool.execute(enrichedArgs);
+        } catch (e) {
+          toolResult = 'Error eksekusi tool: ${e.toString()}';
+        }
+
+        // Tambahkan observasi ke chat dan jadikan konteks untuk iterasi berikutnya
+        await chatNotifier.addToolObservation(tool.name, toolResult);
+        currentUserQuery =
+            'Hasil dari tool ${tool.name}: $toolResult\n\nLanjutkan berdasarkan hasil ini.';
+
+        // Jika tool adalah search_web, segera hentikan loop sesuai Rule 07
+        if (tool.name == 'search_web') {
           break;
         }
       }
 
-      // Execute tool (aman atau sudah diizinkan)
-      final enrichedArgs = Map<String, dynamic>.from(toolCallReq.arguments);
-      enrichedArgs['sessionId'] = ref.read(chatProvider).sessionId;
-
-      String toolResult;
-      try {
-        toolResult = await tool.execute(enrichedArgs);
-      } catch (e) {
-        toolResult = 'Error eksekusi tool: ${e.toString()}';
+      // 🔍🔍 Safety cap tercapai 🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍
+      if (_agentIterationCount >= maxIterations) {
+        chatNotifier.beginAssistantResponse();
+        chatNotifier.appendToken(
+          '😭,% Saya belum bisa menyelesaikan ini dalam batas $_agentIterationCount langkah '
+          'yang wajar. Ini yang sudah saya temukan sejauh ini ➔ silakan prompt ulang '
+          'dengan konteks yang lebih spesifik jika ingin melanjutkan.',
+        );
+        await chatNotifier.finalizeAssistantResponse();
       }
-
-      // Tambahkan observasi ke chat dan jadikan konteks untuk iterasi berikutnya
-      await chatNotifier.addToolObservation(tool.name, toolResult);
-      currentUserQuery =
-          'Hasil dari tool ${tool.name}: $toolResult\n\nLanjutkan berdasarkan hasil ini.';
-
-      // Jika tool adalah search_web, segera hentikan loop sesuai Rule 07
-      if (tool.name == 'search_web') {
-        break;
+    } finally {
+      ClarifyTool.handler = null;
+      if (mounted) {
+        setState(() {
+          _activeClarify = null;
+          _isAgentLooping = false;
+        });
       }
     }
-
-    // ── Safety cap tercapai ──────────────────────────────────────────────────
-    if (_agentIterationCount >= maxIterations) {
-      chatNotifier.beginAssistantResponse();
-      chatNotifier.appendToken(
-        '⚠️ Saya belum bisa menyelesaikan ini dalam batas $_agentIterationCount langkah '
-        'yang wajar. Ini yang sudah saya temukan sejauh ini — silakan prompt ulang '
-        'dengan konteks yang lebih spesifik jika ingin melanjutkan.',
-      );
-      await chatNotifier.finalizeAssistantResponse();
-    }
-
-    if (mounted) setState(() => _isAgentLooping = false);
   }
 
   // ─── Indikator progres agentic loop ─────────────────────────────────────────

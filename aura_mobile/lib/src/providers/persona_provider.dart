@@ -68,6 +68,7 @@ class Skill {
   final String body;
   final bool enabled;
   final String? keywords;
+  final bool isAgentCreated;
   final DateTime createdAt;
 
   Skill({
@@ -77,6 +78,7 @@ class Skill {
     required this.body,
     this.enabled = true,
     this.keywords,
+    this.isAgentCreated = false,
     required this.createdAt,
   });
 
@@ -88,6 +90,7 @@ class Skill {
       body: map['body'] as String,
       enabled: (map['enabled'] as int) == 1,
       keywords: map['keywords'] as String?,
+      isAgentCreated: (map['is_agent_created'] as int? ?? 0) == 1,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
     );
   }
@@ -100,6 +103,7 @@ class Skill {
       'body': body,
       'enabled': enabled ? 1 : 0,
       'keywords': keywords,
+      'is_agent_created': isAgentCreated ? 1 : 0,
       'created_at': createdAt.millisecondsSinceEpoch,
     };
   }
@@ -194,6 +198,7 @@ class PersonaNotifier extends _$PersonaNotifier {
     required String description,
     required String body,
     String? keywords,
+    bool isAgentCreated = false,
   }) async {
     final db = await ChatDatabase.instance.database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -203,6 +208,7 @@ class PersonaNotifier extends _$PersonaNotifier {
       'body': body,
       'enabled': 1,
       'keywords': keywords,
+      'is_agent_created': isAgentCreated ? 1 : 0,
       'created_at': now,
     });
     await loadData();

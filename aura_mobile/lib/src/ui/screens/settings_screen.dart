@@ -1,3 +1,4 @@
+import 'skill_manager_screen.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -109,6 +110,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 8),
 
           // ── Advanced Section ──────────────────────────────────────────────
+                    // ─── Customization Section ───
+          _SectionHeader(
+            icon: Icons.palette_outlined,
+            label: 'Kustomisasi (Customization)',
+          ),
+          _InfoCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.extension_outlined, color: AppTheme.primary),
+                  title: const Text(
+                    'Skill Manager',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Aktifkan, nonaktifkan, atau tambahkan kemampuan (skills) baru asisten AURA.',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SkillManagerScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
           _SectionHeader(
             icon: Icons.tune_outlined,
             label: 'Lanjutan (Advanced)',

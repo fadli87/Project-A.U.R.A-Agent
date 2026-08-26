@@ -105,7 +105,7 @@ class ChatDatabase {
   static Sqlite3DatabaseWrapper? _db;
   static String? _dbPath;
 
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   /// Initialize database path before calling [database]
   static void init(String path) {
@@ -166,6 +166,7 @@ class ChatDatabase {
     ''');
 
     await _createFase7Tables(db);
+    await _createTodoTables(db);
   }
 
   Future<void> _createFase7Tables(Sqlite3DatabaseWrapper db) async {
@@ -188,6 +189,7 @@ class ChatDatabase {
         body TEXT NOT NULL,
         enabled INTEGER DEFAULT 1,
         keywords TEXT,
+        is_agent_created INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL
       )
     ''');
@@ -227,6 +229,37 @@ class ChatDatabase {
     if (oldVersion < 2) {
       await _createFase7Tables(db);
     }
+    if (oldVersion < 3) {
+      await _upgradeToVersion3(db);
+    }
+  }
+
+  Future<void> _upgradeToVersion3(Sqlite3DatabaseWrapper db) async {
+    try {
+      await db.execute('ALTER TABLE Skills ADD COLUMN is_agent_created INTEGER DEFAULT 0');
+    } catch (_) {}
+    await _createTodoTables(db);
+  }
+
+  Future<void> _createTodoTables(Sqlite3DatabaseWrapper db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS TodoLists (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT    NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS TodoItems (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        list_id    INTEGER NOT NULL,
+        content    TEXT    NOT NULL,
+        is_done    INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (list_id) REFERENCES TodoLists(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   // ─── Sessions ───────────────────────────────────────────────────────────────
