@@ -64,7 +64,7 @@ class LocalLlmService {
           promptTokens = data['prompt_eval_count'] ?? 0;
           completionTokens = data['eval_count'] ?? 0;
         } else {
-          throw Exception('Status Code ${response.statusCode}');
+          throw Exception(_extractErrorMessage(response.body, response.statusCode));
         }
       } else {
         // OpenAI / LM Studio / llama-server
@@ -84,7 +84,7 @@ class LocalLlmService {
           promptTokens = data['usage']?['prompt_tokens'] ?? 0;
           completionTokens = data['usage']?['completion_tokens'] ?? 0;
         } else {
-          throw Exception('Status Code ${response.statusCode}');
+          throw Exception(_extractErrorMessage(response.body, response.statusCode));
         }
       }
     } catch (e) {
@@ -98,5 +98,21 @@ class LocalLlmService {
       'completionTokens': completionTokens,
       'durationMs': duration.inMilliseconds,
     };
+  }
+
+  static String _extractErrorMessage(String body, int statusCode) {
+    try {
+      final data = jsonDecode(body);
+      if (data is Map) {
+        if (data['error'] is Map && data['error']['message'] != null) {
+          return data['error']['message'].toString();
+        } else if (data['error'] is String) {
+          return data['error'].toString();
+        } else if (data['message'] != null) {
+          return data['message'].toString();
+        }
+      }
+    } catch (_) {}
+    return 'Status Code $statusCode';
   }
 }

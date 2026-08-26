@@ -1,9 +1,11 @@
-# Rule: Roadmap Desktop (Windows/Linux/macOS) — RENCANA MASA DEPAN, BUKAN DIKERJAKAN SEKARANG
+# Rule: Roadmap Desktop (Windows/Linux/macOS) — SEDANG DIKERJAKAN (status diperbarui)
 
-> **Status: FUTURE.** File ini dokumentasi rencana, bukan instruksi untuk dikerjakan
-> sekarang. Jangan mulai implementasi desktop sebelum seluruh Fase 1-9 Android selesai.
-> Tujuannya cuma supaya keputusan arsitektur hari ini tidak mempersulit port ke desktop
-> nanti — lihat "Insurance murah" di bawah untuk satu-satunya hal yang relevan sekarang.
+> **Status: AKTIF DIKERJAKAN** di monorepo (`aura_core` + `aura_mobile` + `aura_desktop`).
+> Opsi A (subprocess + HTTP local) sudah dipilih dan TERBUKTI JALAN di `aura_desktop`
+> (`desktop_chat_provider.dart`, `local_llm_service.dart`) setelah fix timing + alias —
+> lihat Insiden 6 di `.agents/rules/00-checklist-insiden.md` untuk detail bug yang sudah
+> diperbaiki. Bagian roadmap di bawah ini sekarang jadi referensi arsitektur yang sudah
+> divalidasi, bukan lagi rencana teoretis semata.
 
 ## Kenapa desktop realistis untuk project ini
 ~70-80% kode (UI Flutter, Riverpod state, database SQLite/ObjectBox untuk memori/persona/

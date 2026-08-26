@@ -3,9 +3,14 @@
 Baca ini sebelum mengerjakan task apa pun di project ini.
 
 ## Visi
-Membangun Agentic AI pribadi yang berjalan 100% offline di Android — meniru pengalaman
-Hermes Agent (Nous Research: reasoning + tool use + memory) tapi tanpa bergantung pada
-API cloud apa pun. Semua inferensi, memori, dan eksekusi tool terjadi di perangkat.
+Membangun Agentic AI pribadi yang **utamanya berjalan offline** di Android — meniru
+pengalaman Hermes Agent (Nous Research: reasoning + tool use + memory), dengan inferensi,
+memori, dan tool inti tetap 100% di perangkat tanpa API cloud. **Update:** satu
+pengecualian sadar — fitur pencarian internet (Fase 9 Bagian B) BOLEH mengirim query
+pencarian ke luar device saat diaktifkan user, karena tanpa itu agent tidak bisa menjawab
+pertanyaan tentang info terkini. Ini pengecualian eksplisit dan disclosed, bukan
+pelonggaran diam-diam ke seluruh app — inferensi, memori, dan riwayat percakapan TETAP
+tidak pernah keluar device.
 
 Bukan sekadar chatbot: siklus kerja yang benar adalah
 `prompt → reasoning → (opsional) tool call → observasi hasil tool → lanjut reasoning → jawaban final`.
@@ -84,6 +89,17 @@ ke "Built-in Kotlin". Ini baru warning, belum blocking, tapi WAJIB pin versi Flu
 project (via file `.fvmrc`/FVM, atau constraint `environment.sdk` di `pubspec.yaml`) supaya
 tidak ke-upgrade otomatis ke versi yang memutus build. Cek changelog kedua plugin ini
 secara berkala untuk update kompatibilitas Built-in Kotlin.
+
+## Risiko teknis diketahui: reinstall APK menghapus model GGUF yang sudah di-push
+Perubahan besar di native side (NDK version, compileSdk, plugin baru dengan native code)
+sering memaksa Android melakukan uninstall+install ulang (bukan hot-update biasa) saat
+`flutter run`/`flutter build`. Ini MENGHAPUS folder app-specific external storage
+(`Android/data/<package>/files/`) — termasuk model GGUF yang sudah di-push manual via ADB
+sebelumnya. Ini bukan bug, tapi konsekuensi dari cara kerja Android. Setelah build besar
+(nambah plugin native, ganti NDK/compileSdk), SELALU cek dulu apakah model masih terdeteksi
+di app sebelum menganggap ada bug baru — kalau tidak, cukup import ulang lewat tombol
+Import (.gguf) di UI (Fase 3), atau push ulang via ADB kalau file sudah tidak ada lagi di
+HP sama sekali.
 
 ## Dependency & urutan fase — BOLEH maju cepat, ini keputusan sadar
 Update: user secara eksplisit memutuskan Antigravity BOLEH mengerjakan bagian dari fase

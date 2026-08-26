@@ -51,6 +51,26 @@ apakah ini keterbatasan model kecil atau bug kode).
 ✅ Kalau root cause-nya keterbatasan model kecil (bukan bug), pertimbangkan teknik
 reinforcement: ulangi inti instruksi persona di akhir prompt, bukan cuma di awal.
 
+## Insiden 6 (Desktop): `llama-server` lokal gagal connect — dua penyebab sekaligus
+**Yang terjadi:** App Desktop (`aura_desktop`) tidak bisa connect ke `llama-server` lokal
+meski server-nya sendiri terbukti sehat saat dites manual dari terminal.
+**Penyebab #1 — timing:** Loading model 2.2GB di CPU butuh ~2 menit; delay tetap 3 detik di
+kode terlalu pendek, app menganggap gagal dan mematikan/meninggalkan proses.
+**Penyebab #2 — model alias hilang:** `llama-server` default expose model ID sebagai path
+absolut file, bukan nama custom. App kirim request pakai ID `'local-model'`, server tidak
+kenali → `400 Bad Request`.
+**Fix yang diterapkan (lihat `.agents/rules/08-desktop-roadmap.md` untuk detail arsitektur):**
+- Spawn `llama-server` dengan flag `--alias local-model` supaya ID yang dipakai app dan
+  yang dikenali server cocok.
+- Ganti delay tetap dengan dynamic polling (coba tiap 2 detik, sampai 120 detik) langsung
+  ke endpoint HTTP — JANGAN pakai delay tetap untuk deteksi kesiapan server manapun,
+  loading time bervariasi tergantung ukuran model dan kecepatan hardware.
+- Redirect stdout/stderr proses `llama-server` ke `debugPrint` untuk diagnostic logging.
+✅ **Pencegahan untuk implementasi subprocess lain (kalau ada):** selalu (1) set alias/ID
+eksplisit kalau API punya konsep model ID, (2) pakai dynamic polling bukan delay tetap
+untuk deteksi kesiapan proses child, (3) log stdout/stderr proses child sejak awal, jangan
+ditambah belakangan setelah debugging jadi sulit.
+
 ## Checklist umum — jalankan SETIAP KALI habis perubahan besar (native/dependency/plugin)
 Supaya insiden BARU yang sejenis tidak muncul, bukan cuma insiden LAMA yang tidak terulang:
 

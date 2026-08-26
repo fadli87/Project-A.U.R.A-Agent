@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -17,6 +18,18 @@ void main() async {
 
   // Initialize ObjectBox store
   await ObjectBoxStore.open(directoryPath: docsDir.path);
+
+  // Initialize EmbeddingService (Minilm for vector memory)
+  try {
+    final modelBytes = await rootBundle.load('assets/models/minilm_l6_v2.tflite');
+    final tokenizerJson = await rootBundle.loadString('assets/models/minilm_tokenizer.json');
+    await EmbeddingService.instance.init(
+      modelBytes: modelBytes.buffer.asUint8List(),
+      tokenizerJson: tokenizerJson,
+    );
+  } catch (e) {
+    debugPrint('Failed to initialize embedding service: $e');
+  }
 
   runApp(
     const ProviderScope(child: AuraDesktopApp()),
