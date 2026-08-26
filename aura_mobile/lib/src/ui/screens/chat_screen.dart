@@ -31,6 +31,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final FocusNode _inputFocusNode = FocusNode();
   bool _isComposing = false;
   ClarifyRequest? _activeClarify;
+  String? _activeSearchQuery;
 
   // ── Agentic loop state ─────────────────────────────────────────────────────
   /// Counter iterasi loop per giliran percakapan (Rule 06-backup-safety-cap.md)
@@ -99,6 +100,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             if (_isAgentLooping)
               _buildAgentLoopIndicator(),
+            if (_activeSearchQuery != null)
+              _buildSearchIndicator(),
             if (isStreaming)
               _buildStopButton(),
             if (chatState.hasError)
@@ -713,19 +716,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         // Execute tool (aman atau sudah diizinkan)
         final enrichedArgs = Map<String, dynamic>.from(toolCallReq.arguments);
         enrichedArgs['sessionId'] = ref.read(chatProvider).sessionId;
+        enrichedArgs['searxngUrl'] = ref.read(settingsProvider).searxngUrl;
+
+        if (tool.name == 'search_web_deep') {
+          if (mounted) {
+            setState(() {
+              _activeSearchQuery = toolCallReq.arguments['query'] as String?;
+            });
+          }
+        }
 
         String toolResult;
         try {
           toolResult = await tool.execute(enrichedArgs);
         } catch (e) {
           toolResult = 'Error eksekusi tool: ${e.toString()}';
+        } finally {
+          if (tool.name == 'search_web_deep') {
+            if (mounted) {
+              setState(() {
+                _activeSearchQuery = null;
+              });
+            }
+          }
         }
 
         // Tambahkan observasi ke chat dan jadikan konteks untuk iterasi berikutnya
         await chatNotifier.addToolObservation(tool.name, toolResult);
 
-        // Jika tool adalah search_web, segera hentikan loop sesuai Rule 07
-        if (tool.name == 'search_web') {
+        // Jika tool adalah search_web_handoff, segera hentikan loop
+        if (tool.name == 'search_web_handoff') {
           break;
         }
       }
@@ -752,6 +772,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   // ─── Indikator progres agentic loop ─────────────────────────────────────────
+
+  Widget _buildSearchIndicator() {
+    if (_activeSearchQuery == null) return const SizedBox.shrink();
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppTheme.secondary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '🌐 Mencari online: "$_activeSearchQuery"...',
+            style: const TextStyle(
+              color: AppTheme.secondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildAgentLoopIndicator() {
     final maxIterations =

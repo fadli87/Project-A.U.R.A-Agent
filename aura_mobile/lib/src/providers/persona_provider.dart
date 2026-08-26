@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:aura_core/aura_core.dart';
+import 'settings_provider.dart';
 
 part 'persona_provider.g.dart';
 
@@ -238,8 +239,9 @@ class PersonaNotifier extends _$PersonaNotifier {
     }
 
     // [1b] Tool-calling schema (Rule 05-persona-skills.md: urutan wajib)
+    final settings = ref.read(settingsProvider);
     final toolRegistry = AgentToolRegistry();
-    buffer.writeln(toolRegistry.buildToolsPrompt());
+    buffer.writeln(toolRegistry.buildToolsPrompt(isDeepSearchEnabled: settings.isDeepSearchEnabled));
 
     // [1c] Skills index
     final enabledSkills = state.skills.where((s) => s.enabled).toList();

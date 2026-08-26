@@ -47,7 +47,7 @@ final class ChatNotifierProvider
   }
 }
 
-String _$chatNotifierHash() => r'3f08c173547631b04dc1035c1f68c7c0fbc24f98';
+String _$chatNotifierHash() => r'9de475a0d2d16c0b146a0b20b393338e45ef755b';
 
 /// Manages the active chat session and message list.
 /// Bridges the UI with the database and inference worker.

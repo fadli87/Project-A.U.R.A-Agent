@@ -8,10 +8,14 @@ import 'package:path/path.dart' as path_lib;
 import 'package:aura_core/aura_core.dart';
 import 'package:file_picker/file_picker.dart';
 import 'src/providers/desktop_chat_provider.dart';
+import 'src/services/desktop_platform_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Register Desktop Platform Service delegate for AlarmService
+  AlarmService.instance.registerDelegate(DesktopPlatformService.instance);
+
   // Initialize SQLite database
   final docsDir = await getApplicationDocumentsDirectory();
   ChatDatabase.init(path_lib.join(docsDir.path, 'aura_chat_desktop.db'));

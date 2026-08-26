@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'alarm_service.dart';
 import '../storage/chat_database.dart';
@@ -171,13 +173,13 @@ class ReadAppFileTool extends AgentTool {
   }
 }
 
-/// Tool 4: Web Search (Safe - Auto-execute)
-class SearchWebTool extends AgentTool {
+/// Tool 4a: Web Search Handoff (Safe - Auto-execute)
+class SearchWebHandoffTool extends AgentTool {
   @override
-  String get name => 'search_web';
+  String get name => 'search_web_handoff';
 
   @override
-  String get description => 'Mencari informasi online di browser web default pengguna. Gunakan alat ini KETIKA pengguna menanyakan informasi terkini, cuaca hari ini, berita terbaru, atau hal lain yang membutuhkan akses internet.';
+  String get description => 'Mencari informasi online di browser web default pengguna (handoff langsung). Gunakan alat ini KETIKA pengguna secara eksplisit meminta untuk membuka browser atau mencari di web untuk dibaca sendiri.';
 
   @override
   bool get isSensitive => false;
@@ -206,6 +208,163 @@ class SearchWebTool extends AgentTool {
       'success': true,
       'message': 'Pencarian untuk "$query" berhasil dibuka di browser default.',
     });
+  }
+}
+
+/// Tool 4b: Deep Web Search (Sensitive - Fetches snippets and returns to context)
+class SearchWebDeepTool extends AgentTool {
+  @override
+  String get name => 'search_web_deep';
+
+  @override
+  String get description => 'Melakukan pencarian internet mendalam untuk mengambil data terkini, ringkasan berita, atau informasi real-time dari internet secara langsung.';
+
+  @override
+  bool get isSensitive => true;
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string', 'description': 'Kata kunci pencarian internet.'},
+        },
+        'required': ['query'],
+      };
+
+  List<Map<String, String>> _parseDuckDuckGo(String html) {
+    final results = <Map<String, String>>[];
+    
+    // Find result blocks in DDG HTML Lite
+    final resultBlocks = RegExp(r'<div class="result results_links results_links_deep web-result\s*">([\\s\\S]*?)</div>\\s*</div>')
+        .allMatches(html);
+
+    for (final blockMatch in resultBlocks) {
+      final block = blockMatch.group(1) ?? '';
+      
+      // Extract title and URL
+      final titleMatch = RegExp(r'<a class="result__a"[^>]*href="([^"]+)"[^>]*>([\\s\\S]*?)</a>').firstMatch(block);
+      if (titleMatch == null) continue;
+      
+      var url = titleMatch.group(1) ?? '';
+      if (url.startsWith('/l/?')) {
+        final uri = Uri.parse('https://html.duckduckgo.com' + url);
+        final uddg = uri.queryParameters['uddg'];
+        if (uddg != null) {
+          url = Uri.decodeComponent(uddg);
+        }
+      }
+      
+      var title = titleMatch.group(2) ?? '';
+      title = title.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+
+      // Extract snippet
+      final snippetMatch = RegExp(r'<a class="result__snippet"[^>]*>([\\s\\S]*?)</a>').firstMatch(block);
+      var snippet = snippetMatch?.group(1) ?? '';
+      snippet = snippet.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+
+      if (title.isNotEmpty && url.isNotEmpty) {
+        results.add({
+          'title': title,
+          'url': url,
+          'snippet': snippet,
+        });
+      }
+      if (results.length >= 4) break;
+    }
+    return results;
+  }
+
+  Future<List<Map<String, String>>> _fetchSearxng(String query, String baseUrl) async {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 5);
+    try {
+      var searchUrl = baseUrl;
+      if (!searchUrl.endsWith('/')) searchUrl += '/';
+      searchUrl += '?q=' + Uri.encodeComponent(query) + '&format=json';
+
+      final request = await client.getUrl(Uri.parse(searchUrl));
+      request.headers.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        final resultsList = decoded['results'] as List<dynamic>? ?? [];
+        final parsed = <Map<String, String>>[];
+        for (final item in resultsList) {
+          final title = item['title'] as String? ?? '';
+          final url = item['url'] as String? ?? '';
+          final snippet = (item['content'] ?? item['snippet']) as String? ?? '';
+          if (title.isNotEmpty && url.isNotEmpty) {
+            parsed.add({
+              'title': title,
+              'url': url,
+              'snippet': snippet,
+            });
+          }
+          if (parsed.length >= 4) break;
+        }
+        return parsed;
+      }
+    } catch (e) {
+      debugPrint('SearXNG fallback error: ' + e.toString());
+    } finally {
+      client.close();
+    }
+    return [];
+  }
+
+  @override
+  Future<String> execute(Map<String, dynamic> args) async {
+    final query = args['query'] ?? '';
+    final searxngUrl = args['searxngUrl'] ?? 'https://searx.be/';
+    if (query.trim().isEmpty) {
+      return 'Error: query pencarian kosong.';
+    }
+
+    List<Map<String, String>> results = [];
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 5);
+
+    try {
+      final request = await client.getUrl(
+        Uri.parse('https://html.duckduckgo.com/html/?q=' + Uri.encodeComponent(query)),
+      );
+      request.headers.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        results = _parseDuckDuckGo(body);
+      }
+    } catch (e) {
+      debugPrint('DuckDuckGo Lite fetch failed, trying SearXNG: ' + e.toString());
+    } finally {
+      client.close();
+    }
+
+    if (results.isEmpty) {
+      results = await _fetchSearxng(query, searxngUrl);
+    }
+
+    if (results.isEmpty) {
+      return 'Gagal mengambil hasil pencarian online dari DuckDuckGo maupun SearXNG.';
+    }
+
+    final sb = StringBuffer();
+    sb.writeln('Hasil Pencarian Online untuk "' + query + '":');
+    
+    for (final res in results) {
+      final entry = '- [' + (res['title'] ?? '') + '](' + (res['url'] ?? '') + '): ' + (res['snippet'] ?? '') + '\n';
+      if (sb.length + entry.length > 500) {
+        final remainingBudget = 500 - sb.length;
+        if (remainingBudget > 30) {
+          sb.write(entry.substring(0, remainingBudget) + '...\n');
+        }
+        break;
+      }
+      sb.write(entry);
+    }
+
+    return sb.toString().trim();
   }
 }
 
@@ -577,7 +736,8 @@ class AgentToolRegistry {
     registerTool(CheckNetworkStatusTool());
     registerTool(CreateNoteTool());
     registerTool(ReadAppFileTool());
-    registerTool(SearchWebTool());
+    registerTool(SearchWebHandoffTool());
+    registerTool(SearchWebDeepTool());
     registerTool(ClarifyTool());
     registerTool(TodoCreateTool());
     registerTool(TodoUpdateTool());
@@ -598,7 +758,7 @@ class AgentToolRegistry {
   AgentTool? getTool(String name) => _tools[name];
 
   /// Generate JSON Schema instruction for System Prompt
-  String buildToolsPrompt() {
+  String buildToolsPrompt({bool isDeepSearchEnabled = false}) {
     final buffer = StringBuffer();
     buffer.writeln('=== DAFTAR ALAT (TOOL-CALLING) ===');
     buffer.writeln('Anda memiliki akses ke alat-alat berikut. Jika membutuhkan alat, kembalikan HANYA format JSON valid berikut:');
@@ -607,7 +767,15 @@ class AgentToolRegistry {
     buffer.writeln('```\n');
     buffer.writeln('PENTING: Jika permintaan pengguna bersifat ambigu, kurang spesifik, atau memiliki beberapa kemungkinan arti, panggil alat "clarify" untuk bertanya balik kepada pengguna alih-alih menebak keinginan mereka.');
     buffer.writeln();
-    for (final tool in _tools.values) {
+
+    final toolsToExpose = _tools.values.where((tool) {
+      if (tool.name == 'search_web_deep') {
+        return isDeepSearchEnabled;
+      }
+      return true;
+    }).toList();
+
+    for (final tool in toolsToExpose) {
       buffer.writeln('Alat: ${tool.name}');
       buffer.writeln('Deskripsi: ${tool.description}');
       buffer.writeln('Skema Parameter: ${jsonEncode(tool.parametersSchema)}');

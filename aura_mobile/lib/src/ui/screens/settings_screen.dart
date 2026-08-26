@@ -242,6 +242,81 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+          
+          const SizedBox(height: 20),
+          Card(
+            color: AppTheme.card,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: AppTheme.border, width: 1),
+            ),
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pencarian Internet Mendalam',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Saat aktif, pertanyaan pencarian Anda akan dikirim ke internet (DuckDuckGo/SearXNG). Riwayat chat dan data pribadi lain TETAP tidak pernah dikirim — hanya query pencarian spesifik yang dipicu oleh pencarian mendalam.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Aktifkan Deep Search',
+                      style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                    ),
+                    value: settings.isDeepSearchEnabled,
+                    activeTrackColor: AppTheme.primary,
+                    onChanged: (val) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .setDeepSearchEnabled(val);
+                    },
+                  ),
+                  if (settings.isDeepSearchEnabled) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'SearXNG Instance Fallback URL',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      initialValue: settings.searxngUrl,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. https://searx.be/',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                      onChanged: (val) {
+                        ref
+                          .read(settingsProvider.notifier)
+                          .setSearxngUrl(val.trim());
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
 
           const SizedBox(height: 32),
         ],

@@ -7,6 +7,8 @@ part 'settings_provider.g.dart';
 class _PrefKeys {
   static const maxAgentIterations = 'max_agent_iterations';
   static const lastBackupTimestamp = 'last_backup_timestamp_ms';
+  static const isDeepSearchEnabled = 'is_deep_search_enabled';
+  static const searxngUrl = 'searxng_url';
 }
 
 /// State untuk pengaturan aplikasi
@@ -14,6 +16,8 @@ class SettingsState {
   const SettingsState({
     this.maxAgentIterations = 8,
     this.lastBackupTimestamp,
+    this.isDeepSearchEnabled = false,
+    this.searxngUrl = 'https://searx.be/',
   });
 
   /// Batas iterasi agentic loop per giliran (Rule 06-backup-safety-cap.md)
@@ -22,6 +26,12 @@ class SettingsState {
 
   /// Timestamp (ms) backup terakhir, null jika belum pernah backup.
   final int? lastBackupTimestamp;
+
+  /// Apakah pencarian internet mendalam diaktifkan (Fase 9)
+  final bool isDeepSearchEnabled;
+
+  /// URL instance SearXNG fallback (Fase 9)
+  final String searxngUrl;
 
   /// Apakah sudah >7 hari sejak backup terakhir
   bool get shouldRemindBackup {
@@ -40,6 +50,8 @@ class SettingsState {
   SettingsState copyWith({
     int? maxAgentIterations,
     int? lastBackupTimestamp,
+    bool? isDeepSearchEnabled,
+    String? searxngUrl,
     bool clearBackupTimestamp = false,
   }) {
     return SettingsState(
@@ -47,6 +59,8 @@ class SettingsState {
       lastBackupTimestamp: clearBackupTimestamp
           ? null
           : (lastBackupTimestamp ?? this.lastBackupTimestamp),
+      isDeepSearchEnabled: isDeepSearchEnabled ?? this.isDeepSearchEnabled,
+      searxngUrl: searxngUrl ?? this.searxngUrl,
     );
   }
 }
@@ -63,9 +77,14 @@ class SettingsNotifier extends _$SettingsNotifier {
     final prefs = await SharedPreferences.getInstance();
     final maxIter = prefs.getInt(_PrefKeys.maxAgentIterations) ?? 8;
     final lastBackup = prefs.getInt(_PrefKeys.lastBackupTimestamp);
+    final deepSearch = prefs.getBool(_PrefKeys.isDeepSearchEnabled) ?? false;
+    final url = prefs.getString(_PrefKeys.searxngUrl) ?? 'https://searx.be/';
+
     state = SettingsState(
       maxAgentIterations: maxIter.clamp(4, 16),
       lastBackupTimestamp: lastBackup,
+      isDeepSearchEnabled: deepSearch,
+      searxngUrl: url,
     );
   }
 
@@ -77,7 +96,21 @@ class SettingsNotifier extends _$SettingsNotifier {
     state = state.copyWith(maxAgentIterations: clamped);
   }
 
-  /// Dipanggil setelah export backup berhasil — catat timestamp sekarang
+  /// Simpan isDeepSearchEnabled baru
+  Future<void> setDeepSearchEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_PrefKeys.isDeepSearchEnabled, value);
+    state = state.copyWith(isDeepSearchEnabled: value);
+  }
+
+  /// Simpan searxngUrl baru
+  Future<void> setSearxngUrl(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.searxngUrl, value);
+    state = state.copyWith(searxngUrl: value);
+  }
+
+  /// Dipanggil setelah export backup berhasil – catat timestamp sekarang
   Future<void> recordBackupNow() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final prefs = await SharedPreferences.getInstance();
