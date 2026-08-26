@@ -1,10 +1,12 @@
-# Workflow: Fase 9 — Tugas Terjadwal (Cron) & Pencarian Online (Search-Handoff)
+# Workflow: Fase 9 — Tugas Terjadwal (Cron) & Pencarian Online (Deep Search + Handoff)
 
-Baca `.agents/rules/07-cron-search.md` SEBELUM memulai — keputusan desain (WorkManager vs
-AlarmManager, dan kenapa search pakai handoff bukan fetch+parse) sudah final di sana.
+Baca `.agents/rules/07-cron-search.md` SEBELUM memulai — keputusan desain sudah diperbarui:
+sekarang ada DUA tool pencarian berdampingan (handoff aman + deep search sensitif via
+toggle), bukan cuma handoff seperti versi awal.
 
 **Tujuan:** Agent bisa proaktif lewat reminder terjadwal, dan bisa membantu pencarian
-online TANPA mengorbankan prinsip privasi-offline inti A.U.R.A.
+online — baik sekadar membuka browser, maupun (kalau user aktifkan) benar-benar membaca
+dan menalar dari hasil pencarian.
 **Prasyarat:** Fase 5 (Tool-Calling) sudah selesai — reminder terjadwal butuh tool "buat
 catatan/reminder" yang sudah ada.
 
@@ -21,24 +23,39 @@ catatan/reminder" yang sudah ada.
 5. Uji: buat reminder "5 menit dari sekarang", tutup app sepenuhnya, pastikan notifikasi
    tetap muncul tepat waktu.
 
-## Langkah — Bagian B: Search-Handoff
+## Langkah — Bagian B: Search (Handoff + Deep Search)
 
-6. Implementasikan tool baru `search_web(query)` di Agent Orchestration Layer — kategori
-   AMAN (auto-execute, tidak perlu permission gate seperti tool sensitif di Fase 5).
-7. Gunakan `Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=..."))`
-   dengan query di-encode dengan benar (`Uri.encodeQueryComponent` atau setara).
-8. Setelah Intent dikirim, agent merespons singkat ke user tanpa berpura-pura tahu hasil
-   pencarian — lihat contoh respons di Rules.
-9. Update system prompt tool-calling (skema di Fase 5) supaya model tahu kapan
-   `search_web` relevan dipakai (mis. pertanyaan tentang info terkini yang tidak mungkin
-   dijawab dari pengetahuan model kecil offline).
-10. Uji: minta agent cari sesuatu yang jelas butuh info terkini (mis. "cuaca hari ini"),
-    pastikan browser terbuka dengan query yang benar dan agent tidak berpura-pura menjawab
-    dari halusinasi.
+6. Implementasikan `search_web_handoff(query)` — kategori AMAN, buka
+   `Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=..."))` dengan
+   query di-encode benar. Agent respons singkat tanpa berpura-pura tahu hasilnya.
+7. Tambahkan toggle "Izinkan pencarian internet mendalam" di Settings, default MATI,
+   dengan teks peringatan sesuai draft di Rules.
+8. Implementasikan `search_web_deep(query)` — kategori SENSITIF, hanya terdaftar ke agent
+   kalau toggle di langkah 7 nyala:
+   - Fetch `https://html.duckduckgo.com/html/?q=<query>`, parse title+snippet dari 3-5
+     hasil teratas.
+   - Fallback ke instance SearXNG publik (URL configurable) kalau fetch utama gagal/timeout.
+   - Gabungkan hasil jadi satu blok maksimal ~500 karakter sebelum disuntik ke context.
+9. Tampilkan indikator UI kecil ("🌐 Mencari online: '...'") tiap kali `search_web_deep`
+   benar-benar dipanggil — bukan dialog konfirmasi blocking per panggilan.
+10. Update system prompt tool-calling: prioritaskan `search_web_deep` (kalau tersedia)
+    untuk pertanyaan info terkini; `search_web_handoff` untuk kasus user mau baca sendiri
+    di browser.
+11. Implementasikan error handling: kalau DDG dan SearXNG fallback keduanya gagal, agent
+    HARUS bilang jujur ke user, bukan diam-diam menjawab dari halusinasi.
+12. Uji dua skenario terpisah:
+    - Toggle MATI: minta info terkini → hanya `search_web_handoff` tersedia, browser
+      terbuka, agent tidak berpura-pura tahu hasil.
+    - Toggle NYALA: minta info terkini → `search_web_deep` terpanggil, indikator UI
+      muncul, agent menjawab berdasarkan snippet hasil pencarian asli.
 
 ## Definition of Done
 - [ ] Reminder terjadwal presisi (AlarmManager) berfungsi meski app ditutup total
 - [ ] Notifikasi tepat waktu dan membuka konteks yang relevan saat di-tap
-- [ ] Tool `search_web` membuka browser dengan query yang benar, tanpa fetch/parse HTML
-- [ ] Agent tidak pernah berpura-pura tahu hasil pencarian setelah handoff ke browser
-- [ ] Tidak ada toggle "izinkan kirim ke internet" yang aktif secara default
+- [ ] `search_web_handoff` tetap berfungsi seperti semula (aman, tanpa fetch/parse)
+- [ ] Toggle "pencarian internet mendalam" default MATI, dengan teks peringatan jelas
+- [ ] `search_web_deep` HANYA aktif saat toggle nyala, dengan fallback DDG→SearXNG
+- [ ] Hasil pencarian dipotong ke budget ~500 karakter sebelum masuk context
+- [ ] Indikator UI muncul tiap kali `search_web_deep` benar-benar dipanggil
+- [ ] Agent jujur mengaku gagal kalau kedua sumber pencarian tidak bisa diakses
+

@@ -31,31 +31,61 @@ privasi/baterai berbeda, jangan dicampur logikanya.
   terjadwal dan dieksekusi di device).
 - Tap notification membuka app langsung ke konteks terkait (mis. sesi chat yang relevan).
 
-## Bagian B: Pencarian Online (Search-Handoff)
+## Bagian B: Pencarian Online (Deep Search — UPGRADE dari Search-Handoff)
 
-### KEPUTUSAN FINAL: Opsi A — handoff ke browser, BUKAN fetch+parse+inject ke context
-Alasan (jangan ubah tanpa diskusi ulang): menjaga janji privasi inti A.U.R.A (lihat
-`.agents/rules/01-overview-stack.md`), nol maintenance beban parsing HTML yang rapuh, dan
-menghindari masalah context window kecil model 1-3B kalau harus mencerna hasil pencarian
-mentah.
+### KEPUTUSAN DIPERBARUI: dua tool berdampingan, dipilih lewat toggle
+Keputusan lama (Opsi A, handoff browser saja) sekarang **di-upgrade**, bukan diganti —
+kedua tool tetap ada, dipilih berdasarkan toggle di Settings:
+- **Toggle MATI (default):** agent HANYA punya `search_web_handoff` (Opsi A lama, tetap
+  ada — lihat versi sebelumnya di riwayat git file ini). Ini tetap default aman.
+- **Toggle NYALA (opt-in eksplisit user):** agent JUGA punya `search_web_deep` — fetch
+  hasil pencarian sungguhan, parse, suntik ke context supaya agent bisa benar-benar
+  menjawab berdasarkan itu.
 
-### Cara kerja
-1. Tool baru: `search_web(query: String)` — masuk kategori tool AMAN (bukan sensitif),
-   karena TIDAK ADA data yang dikirim dari app selain membuka Intent standar Android;
-   app tidak pernah menerima/menyimpan hasil pencarian.
-2. Implementasi: `Intent(Intent.ACTION_WEB_SEARCH)` atau lebih andal —
-   `Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + encodedQuery))`
-   supaya browser default user yang menangani, apapun browsernya.
-3. Setelah Intent terkirim, agent TIDAK menunggu hasil apapun — cukup respons ke user
-   sesuatu seperti "Saya sudah bukakan pencarian untuk '...' di browser" lalu selesai
-   giliran itu. Jangan pura-pura tahu hasilnya.
-4. Ini satu kategori dengan tool berbasis Android Intent lainnya (buka Maps, dial nomor,
-   dll) — desain `search_web` supaya gampang diperluas ke Intent lain nanti dengan pola
-   yang sama.
+Ini pengecualian sadar terhadap prinsip privasi inti (lihat pembaruan Visi di
+`.agents/rules/01-overview-stack.md`) — query akan keluar device saat toggle nyala.
 
-### Kalau nanti mau upgrade ke fetch+parse (opt-in eksplisit)
-JANGAN implementasikan di Fase 9 ini. Kalau nanti benar-benar dibutuhkan, itu keputusan
-terpisah yang HARUS melalui toggle eksplisit "Izinkan A.U.R.A mengirim pertanyaan ke
-internet" (default MATI) di Settings, dengan disclosure jelas setiap kali dipakai — bukan
-default silent seperti tool aman lainnya. Lihat opsi B/C yang sudah dibahas (DuckDuckGo
-HTML Lite / SearXNG) sebagai referensi kalau saatnya tiba.
+### Tool baru: `search_web_deep(query: String)`
+Kategori: **SENSITIF** (beda dari `search_web_handoff` yang aman) — alasannya jelas: ini
+benar-benar mengirim data ke internet dan menerima balasannya, bukan sekadar membuka Intent.
+
+### Sumber pencarian: DuckDuckGo HTML Lite (utama) + SearXNG (fallback)
+1. **Utama:** fetch `https://html.duckduckgo.com/html/?q=<query_encoded>` — HTML statis
+   tanpa JS, tidak butuh API key.
+2. **Fallback:** kalau request utama gagal/timeout (>5 detik) atau dapat response error,
+   coba instance SearXNG publik (URL dikonfigurasi di Settings, advanced — beri default
+   satu instance publik yang stabil, tapi izinkan user ganti karena instance publik bisa
+   down sewaktu-waktu).
+3. JANGAN fetch halaman penuh dari link hasil pencarian — cukup title + snippet dari
+   halaman hasil pencarian itu sendiri. Fetch halaman penuh akan membanjiri context window
+   model kecil dan menambah risiko lebih jauh dari yang perlu.
+
+### Parsing & budget context (KRITIS untuk model 1-3B)
+1. Parse HTML hasil, ekstrak maksimal **3-5 hasil teratas**: title, snippet singkat, URL.
+2. Gabungkan jadi satu blok teks dengan **budget total maksimal ~500 karakter** — potong
+   snippet yang kepanjangan, jangan suntik mentah-mentah. Model kecil gampang "kewalahan"
+   kalau observasi tool terlalu panjang dibanding kapasitasnya.
+3. Sertakan URL tiap hasil dalam blok itu supaya kalau user mau, bisa diminta buka salah
+   satu link lewat `search_web_handoff` (Intent) untuk baca lengkap — kombinasi dua tool
+   ini saling melengkapi, bukan saling gantikan.
+4. Masukkan blok ini ke context sebagai observasi tool (role terpisah), sama pola dengan
+   tool lain di `.agents/rules/03-tool-calling.md` — bukan menimpa system prompt.
+
+### Permission & disclosure
+1. Toggle "Izinkan pencarian internet mendalam" di Settings, **default MATI**, dengan teks
+   peringatan jelas: "Saat aktif, pertanyaan pencarian Anda akan dikirim ke internet
+   (DuckDuckGo/SearXNG). Riwayat chat dan data pribadi lain TETAP tidak pernah dikirim —
+   hanya query pencarian spesifik yang dipicu tool ini."
+2. Saat toggle nyala dan tool benar-benar dipakai, tampilkan indikator kecil di UI chat
+   (mis. "🌐 Mencari online: '...'") — transparan tanpa perlu dialog konfirmasi blocking
+   tiap kali (itu akan sangat mengganggu untuk agentic loop yang mungkin butuh search
+   berkali-kali dalam satu giliran).
+3. Update system prompt tool-calling: kalau `search_web_deep` tersedia (toggle nyala),
+   prioritaskan itu untuk pertanyaan yang butuh info terkini — `search_web_handoff` jadi
+   fallback untuk kasus user memang mau baca sendiri di browser.
+
+### Error handling
+- Kalau DDG dan SearXNG fallback KEDUANYA gagal, agent harus bilang jujur ke user "saya
+  tidak berhasil mencari online saat ini" — JANGAN diam-diam fallback ke halusinasi
+  jawaban dari pengetahuan model yang sudah usang.
+
