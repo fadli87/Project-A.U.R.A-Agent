@@ -1054,23 +1054,39 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: TextField(
-                              controller: _messageController,
-                              maxLines: null,
-                              decoration: const InputDecoration(
-                                hintText: 'Tulis pesan obrolan di sini...',
-                                border: InputBorder.none,
-                                hintStyle: TextStyle(color: Colors.grey, fontSize: 13.5),
-                              ),
-                              style: const TextStyle(fontSize: 14),
-                              onSubmitted: (_) {
-                                final text = _messageController.text;
-                                if (text.trim().isNotEmpty && !chatState.isLoading) {
-                                  chatNotifier.sendMessage(text);
-                                  _messageController.clear();
-                                }
-                              },
-                            ),
+                            child: Focus(
+  onKeyEvent: (node, event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.enter) {
+        final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+        if (isShiftPressed) {
+          // Shift+Enter: allow new line insertion
+          return KeyEventResult.ignored;
+        } else {
+          // Enter only: send chat
+          final text = _messageController.text;
+          if (text.trim().isNotEmpty && !chatState.isLoading) {
+            chatNotifier.sendMessage(text);
+            _messageController.clear();
+          }
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  },
+  child: TextField(
+    controller: _messageController,
+    maxLines: null,
+    keyboardType: TextInputType.multiline,
+    decoration: const InputDecoration(
+      hintText: 'Tulis pesan obrolan di sini...',
+      border: InputBorder.none,
+      hintStyle: TextStyle(color: Colors.grey, fontSize: 13.5),
+    ),
+    style: const TextStyle(fontSize: 14),
+  ),
+),
                           ),
                         ),
                         const SizedBox(width: 16),
