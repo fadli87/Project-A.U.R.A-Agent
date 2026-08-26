@@ -298,6 +298,52 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        SwitchListTile(
+                          activeThumbColor: const Color(0xFF00BFA5),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Expose Server to LAN (0.0.0.0)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Izinkan HP/device lain di jaringan WiFi Anda untuk mengakses server ini', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          value: ref.read(desktopChatProvider).exposeToLan,
+                          onChanged: (val) async {
+                            await notifier.updateLanSettings(exposeToLan: val);
+                            setDialogState(() {});
+                          },
+                        ),
+                        if (ref.read(desktopChatProvider).exposeToLan) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF13131A),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF00BFA5).withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 16),
+                                    const SizedBox(width: 8),
+                                    const Text('Peringatan Keamanan', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 11)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Pastikan Anda berada di jaringan WiFi tepercaya (misal: rumah sendiri, bukan WiFi publik) sebelum mengaktifkan fitur ini.',
+                                  style: TextStyle(color: Colors.grey, fontSize: 10, height: 1.4),
+                                ),
+                                const Divider(color: Colors.white12, height: 16),
+                                Text('IP Address: ${ref.read(desktopChatProvider).localIp}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                                const SizedBox(height: 4),
+                                const Text('Port: 8080', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                                const SizedBox(height: 4),
+                                Text('Pairing PIN: ${ref.read(desktopChatProvider).pairingPin}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.greenAccent)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ] else ...[
                         const Text(
                           'Pilih API Type & URL sesuai server LLM lokal Anda (Ollama / LM Studio).',

@@ -44,7 +44,7 @@ final class MemoryNotifierProvider
   }
 }
 
-String _$memoryNotifierHash() => r'7462bc7ee64fdb35d8acf5b025c2412269f85f33';
+String _$memoryNotifierHash() => r'c341f92f72b8746b113ca31fcc090f62f7f4c0e9';
 
 /// Manages semantic memory: embeds chat messages and performs HNSW recall.
 

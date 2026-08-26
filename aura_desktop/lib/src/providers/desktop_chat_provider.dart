@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,10 @@ class DesktopChatState {
   final String llamaServerPath;
   final String ggufModelPath;
   final bool isInAppServerRunning;
+  final List<Map<String, dynamic>> trustedFolders;
+  final bool exposeToLan;
+  final String pairingPin;
+  final String localIp;
 
   DesktopChatState({
     required this.sessions,
@@ -44,6 +49,10 @@ class DesktopChatState {
     this.llamaServerPath = '',
     this.ggufModelPath = '',
     this.isInAppServerRunning = false,
+    this.trustedFolders = const [],
+    this.exposeToLan = false,
+    this.pairingPin = '',
+    this.localIp = '127.0.0.1',
   });
 
   DesktopChatState copyWith({
@@ -64,6 +73,10 @@ class DesktopChatState {
     String? llamaServerPath,
     String? ggufModelPath,
     bool? isInAppServerRunning,
+    List<Map<String, dynamic>>? trustedFolders,
+    bool? exposeToLan,
+    String? pairingPin,
+    String? localIp,
   }) {
     return DesktopChatState(
       sessions: sessions ?? this.sessions,
@@ -83,6 +96,10 @@ class DesktopChatState {
       llamaServerPath: llamaServerPath ?? this.llamaServerPath,
       ggufModelPath: ggufModelPath ?? this.ggufModelPath,
       isInAppServerRunning: isInAppServerRunning ?? this.isInAppServerRunning,
+      trustedFolders: trustedFolders ?? this.trustedFolders,
+      exposeToLan: exposeToLan ?? this.exposeToLan,
+      pairingPin: pairingPin ?? this.pairingPin,
+      localIp: localIp ?? this.localIp,
     );
   }
 }
@@ -103,6 +120,10 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
           llamaServerPath: '',
           ggufModelPath: '',
           isInAppServerRunning: false,
+          trustedFolders: const [],
+          exposeToLan: false,
+          pairingPin: '',
+          localIp: '127.0.0.1',
         )) {
     _init();
   }
@@ -113,6 +134,7 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
   Future<void> _init() async {
     await loadSessions();
     await checkConnection();
+    await loadTrustedFolders();
   }
 
   @override
@@ -151,17 +173,21 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     _killLlamaProcess();
 
     try {
-      // Spawn llama-server subprocess on port 8080 with alias 'local-model'
-      _llamaProcess = await Process.start(
-        serverPath,
-        [
-          '-m', modelPath,
-          '--ctx-size', '8192',
-          '--port', '8080',
-          '-t', '4',
-          '--alias', 'local-model',
-        ],
-      );
+      final host = state.exposeToLan ? '0.0.0.0' : '127.0.0.1';
+      final List<String> argsList = [
+        '-m', modelPath,
+        '--ctx-size', '8192',
+        '--port', '8080',
+        '-t', '4',
+        '--alias', 'local-model',
+        '--host', host,
+      ];
+      if (state.exposeToLan && state.pairingPin.isNotEmpty) {
+        argsList.addAll(['--api-key', state.pairingPin]);
+      }
+
+      // Spawn llama-server subprocess
+      _llamaProcess = await Process.start(serverPath, argsList);
 
       // Listen to stdout/stderr for diagnostics
       _llamaProcess!.stdout.transform(utf8.decoder).listen((data) {
@@ -368,15 +394,99 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     }
   }
 
-  String _formatMemoriesForPrompt(List<MemoryEntry> memories) {
+  Future<String> _formatMemoriesForPrompt(List<MemoryEntry> memories) async {
     if (memories.isEmpty) return '';
-    final sb = StringBuffer('[RELEVANT MEMORIES]\n');
-    for (final m in memories) {
-      final roleLabel = m.role == 'user' ? 'User previously said' : 'Assistant previously said';
-      sb.writeln('- $roleLabel: "${m.content.trim()}"');
+    final sb = StringBuffer();
+    
+    // Separate chat memories and document memories
+    final chatMemories = memories.where((m) => m.sourceType != 'document').toList();
+    final docMemories = memories.where((m) => m.sourceType == 'document').toList();
+    
+    if (chatMemories.isNotEmpty) {
+      sb.writeln('[RELEVANT CHAT MEMORIES]');
+      for (final m in chatMemories) {
+        final roleLabel = m.role == 'user' ? 'User previously said' : 'Assistant previously said';
+        sb.writeln('- $roleLabel: "${m.content.trim()}"');
+      }
+      sb.writeln('[END CHAT MEMORIES]\n');
     }
-    sb.writeln('[END MEMORIES]');
+    
+    if (docMemories.isNotEmpty) {
+      sb.writeln('[RELEVANT DOCUMENT CHUNKS]');
+      for (final m in docMemories) {
+        final docName = await _db.getDocumentName(m.sourceId) ?? 'Dokumen Tidak Dikenal';
+        sb.writeln('Dari dokumen "' + docName + '":');
+        sb.writeln('"""');
+        sb.writeln(m.content.trim());
+        sb.writeln('"""');
+        sb.writeln();
+      }
+      sb.writeln('[END DOCUMENT CHUNKS]');
+    }
+    
     return sb.toString();
+  }
+
+  Future<void> updateLanSettings({required bool exposeToLan}) async {
+    String pin = state.pairingPin;
+    if (pin.isEmpty) {
+      final r = Random();
+      pin = (100000 + r.nextInt(900000)).toString();
+    }
+
+    String ip = '127.0.0.1';
+    if (exposeToLan) {
+      try {
+        final interfaces = await NetworkInterface.list(
+          includeLoopback: false,
+          type: InternetAddressType.IPv4,
+        );
+        for (final interface in interfaces) {
+          for (final addr in interface.addresses) {
+            if (!addr.isLoopback) {
+              ip = addr.address;
+              break;
+            }
+          }
+          if (ip != '127.0.0.1') break;
+        }
+      } catch (e) {
+        debugPrint('Failed to get local IP: $e');
+      }
+    }
+
+    state = state.copyWith(
+      exposeToLan: exposeToLan,
+      pairingPin: pin,
+      localIp: ip,
+    );
+  }
+
+  Future<void> loadTrustedFolders() async {
+    try {
+      final list = await _db.getAllTrustedFolders();
+      state = state.copyWith(trustedFolders: list);
+    } catch (e) {
+      debugPrint('Failed to load trusted folders: $e');
+    }
+  }
+
+  Future<void> addTrustedFolder(String path) async {
+    try {
+      await _db.insertTrustedFolder(path);
+      await loadTrustedFolders();
+    } catch (e) {
+      debugPrint('Failed to add trusted folder: $e');
+    }
+  }
+
+  Future<void> removeTrustedFolder(int id) async {
+    try {
+      await _db.deleteTrustedFolder(id);
+      await loadTrustedFolders();
+    } catch (e) {
+      debugPrint('Failed to remove trusted folder: $e');
+    }
   }
 
   String _getDayName(int weekday) {
@@ -431,7 +541,7 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
 
         // Recall relevant semantic memories for this prompt (using original text)
         final memories = await _recallMemories(text);
-        final memoryContext = _formatMemoriesForPrompt(memories);
+        final memoryContext = await _formatMemoriesForPrompt(memories);
 
         // Assemble system prompt with persona, memories, tools, and skills
         final systemPrompt = StringBuffer();

@@ -9,6 +9,10 @@ class _PrefKeys {
   static const lastBackupTimestamp = 'last_backup_timestamp_ms';
   static const isDeepSearchEnabled = 'is_deep_search_enabled';
   static const searxngUrl = 'searxng_url';
+  static const useDesktopAssistant = 'use_desktop_assistant';
+  static const desktopIp = 'desktop_ip';
+  static const desktopPort = 'desktop_port';
+  static const desktopPin = 'desktop_pin';
 }
 
 /// State untuk pengaturan aplikasi
@@ -18,6 +22,10 @@ class SettingsState {
     this.lastBackupTimestamp,
     this.isDeepSearchEnabled = false,
     this.searxngUrl = 'https://searx.be/',
+    this.useDesktopAssistant = false,
+    this.desktopIp = '',
+    this.desktopPort = '8080',
+    this.desktopPin = '',
   });
 
   /// Batas iterasi agentic loop per giliran (Rule 06-backup-safety-cap.md)
@@ -32,6 +40,12 @@ class SettingsState {
 
   /// URL instance SearXNG fallback (Fase 9)
   final String searxngUrl;
+
+  /// Apakah asisten di-routing ke Desktop (Fase 12)
+  final bool useDesktopAssistant;
+  final String desktopIp;
+  final String desktopPort;
+  final String desktopPin;
 
   /// Apakah sudah >7 hari sejak backup terakhir
   bool get shouldRemindBackup {
@@ -52,6 +66,10 @@ class SettingsState {
     int? lastBackupTimestamp,
     bool? isDeepSearchEnabled,
     String? searxngUrl,
+    bool? useDesktopAssistant,
+    String? desktopIp,
+    String? desktopPort,
+    String? desktopPin,
     bool clearBackupTimestamp = false,
   }) {
     return SettingsState(
@@ -61,6 +79,10 @@ class SettingsState {
           : (lastBackupTimestamp ?? this.lastBackupTimestamp),
       isDeepSearchEnabled: isDeepSearchEnabled ?? this.isDeepSearchEnabled,
       searxngUrl: searxngUrl ?? this.searxngUrl,
+      useDesktopAssistant: useDesktopAssistant ?? this.useDesktopAssistant,
+      desktopIp: desktopIp ?? this.desktopIp,
+      desktopPort: desktopPort ?? this.desktopPort,
+      desktopPin: desktopPin ?? this.desktopPin,
     );
   }
 }
@@ -79,12 +101,20 @@ class SettingsNotifier extends _$SettingsNotifier {
     final lastBackup = prefs.getInt(_PrefKeys.lastBackupTimestamp);
     final deepSearch = prefs.getBool(_PrefKeys.isDeepSearchEnabled) ?? false;
     final url = prefs.getString(_PrefKeys.searxngUrl) ?? 'https://searx.be/';
+    final useDesktop = prefs.getBool(_PrefKeys.useDesktopAssistant) ?? false;
+    final ip = prefs.getString(_PrefKeys.desktopIp) ?? '';
+    final port = prefs.getString(_PrefKeys.desktopPort) ?? '8080';
+    final pin = prefs.getString(_PrefKeys.desktopPin) ?? '';
 
     state = SettingsState(
       maxAgentIterations: maxIter.clamp(4, 16),
       lastBackupTimestamp: lastBackup,
       isDeepSearchEnabled: deepSearch,
       searxngUrl: url,
+      useDesktopAssistant: useDesktop,
+      desktopIp: ip,
+      desktopPort: port,
+      desktopPin: pin,
     );
   }
 
@@ -116,5 +146,29 @@ class SettingsNotifier extends _$SettingsNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_PrefKeys.lastBackupTimestamp, now);
     state = state.copyWith(lastBackupTimestamp: now);
+  }
+
+  Future<void> setUseDesktopAssistant(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_PrefKeys.useDesktopAssistant, value);
+    state = state.copyWith(useDesktopAssistant: value);
+  }
+
+  Future<void> setDesktopIp(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.desktopIp, value.trim());
+    state = state.copyWith(desktopIp: value.trim());
+  }
+
+  Future<void> setDesktopPort(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.desktopPort, value.trim());
+    state = state.copyWith(desktopPort: value.trim());
+  }
+
+  Future<void> setDesktopPin(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.desktopPin, value.trim());
+    state = state.copyWith(desktopPin: value.trim());
   }
 }

@@ -22,7 +22,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 3720395251345096840),
     name: 'MemoryEntry',
-    lastPropertyId: const obx_int.IdUid(7, 2055052728205459968),
+    lastPropertyId: const obx_int.IdUid(9, 381061922906310988),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -68,6 +68,18 @@ final _entities = <obx_int.ModelEntity>[
         flags: 8,
         indexId: const obx_int.IdUid(1, 4554747815171770076),
         hnswParams: obx_int.ModelHnswParams(dimensions: 384, distanceType: 2),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 474344334371640866),
+        name: 'sourceType',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 381061922906310988),
+        name: 'sourceId',
+        type: 6,
+        flags: 0,
       ),
     ],
     relations: <obx_int.ModelRelation>[],
@@ -146,7 +158,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final embeddingOffset = object.embedding == null
             ? null
             : fbb.writeListFloat32(object.embedding!);
-        fbb.startTable(8);
+        final sourceTypeOffset = fbb.writeString(object.sourceType);
+        fbb.startTable(10);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, contentOffset);
         fbb.addOffset(2, roleOffset);
@@ -154,6 +167,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(4, object.messageId);
         fbb.addInt64(5, object.timestampMs);
         fbb.addOffset(6, embeddingOffset);
+        fbb.addOffset(7, sourceTypeOffset);
+        fbb.addInt64(8, object.sourceId);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -194,6 +209,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
           fb.Float32Reader(),
           lazy: false,
         ).vTableGetNullable(buffer, rootOffset, 16);
+        final sourceTypeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 18, '');
+        final sourceIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          20,
+          0,
+        );
         final object = MemoryEntry(
           id: idParam,
           content: contentParam,
@@ -202,6 +226,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           messageId: messageIdParam,
           timestampMs: timestampMsParam,
           embedding: embeddingParam,
+          sourceType: sourceTypeParam,
+          sourceId: sourceIdParam,
         );
 
         return object;
@@ -247,5 +273,15 @@ class MemoryEntry_ {
   /// See [MemoryEntry.embedding].
   static final embedding = obx.QueryHnswProperty<MemoryEntry>(
     _entities[0].properties[6],
+  );
+
+  /// See [MemoryEntry.sourceType].
+  static final sourceType = obx.QueryStringProperty<MemoryEntry>(
+    _entities[0].properties[7],
+  );
+
+  /// See [MemoryEntry.sourceId].
+  static final sourceId = obx.QueryIntegerProperty<MemoryEntry>(
+    _entities[0].properties[8],
   );
 }

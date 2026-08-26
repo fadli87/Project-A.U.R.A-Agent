@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'persona_provider.dart';
+part of 'knowledge_provider.dart';
 
 // **************************************************************************
 // RiverpodGenerator
@@ -9,51 +9,51 @@ part of 'persona_provider.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(PersonaNotifier)
-final personaProvider = PersonaNotifierProvider._();
+@ProviderFor(KnowledgeNotifier)
+final knowledgeProvider = KnowledgeNotifierProvider._();
 
-final class PersonaNotifierProvider
-    extends $NotifierProvider<PersonaNotifier, PersonaState> {
-  PersonaNotifierProvider._()
+final class KnowledgeNotifierProvider
+    extends $NotifierProvider<KnowledgeNotifier, KnowledgeState> {
+  KnowledgeNotifierProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'personaProvider',
+        name: r'knowledgeProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$personaNotifierHash();
+  String debugGetCreateSourceHash() => _$knowledgeNotifierHash();
 
   @$internal
   @override
-  PersonaNotifier create() => PersonaNotifier();
+  KnowledgeNotifier create() => KnowledgeNotifier();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(PersonaState value) {
+  Override overrideWithValue(KnowledgeState value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<PersonaState>(value),
+      providerOverride: $SyncValueProvider<KnowledgeState>(value),
     );
   }
 }
 
-String _$personaNotifierHash() => r'4b41429685a1cb5ab142d6c2ae2d4887fdc1b156';
+String _$knowledgeNotifierHash() => r'2a86f560773af4e09a5a0f44649c367072d5354c';
 
-abstract class _$PersonaNotifier extends $Notifier<PersonaState> {
-  PersonaState build();
+abstract class _$KnowledgeNotifier extends $Notifier<KnowledgeState> {
+  KnowledgeState build();
   @$mustCallSuper
   @override
   void runBuild() {
-    final ref = this.ref as $Ref<PersonaState, PersonaState>;
+    final ref = this.ref as $Ref<KnowledgeState, KnowledgeState>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<PersonaState, PersonaState>,
-              PersonaState,
+              AnyNotifier<KnowledgeState, KnowledgeState>,
+              KnowledgeState,
               Object?,
               Object?
             >;

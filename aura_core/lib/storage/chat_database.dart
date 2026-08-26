@@ -105,7 +105,7 @@ class ChatDatabase {
   static Sqlite3DatabaseWrapper? _db;
   static String? _dbPath;
 
-  static const _dbVersion = 3;
+  static const _dbVersion = 5;
 
   /// Initialize database path before calling [database]
   static void init(String path) {
@@ -167,6 +167,8 @@ class ChatDatabase {
 
     await _createFase7Tables(db);
     await _createTodoTables(db);
+    await _createFase11Tables(db);
+    await _createFase13Tables(db);
   }
 
   Future<void> _createFase7Tables(Sqlite3DatabaseWrapper db) async {
@@ -231,6 +233,12 @@ class ChatDatabase {
     }
     if (oldVersion < 3) {
       await _upgradeToVersion3(db);
+    }
+    if (oldVersion < 4) {
+      await _createFase11Tables(db);
+    }
+    if (oldVersion < 5) {
+      await _createFase13Tables(db);
     }
   }
 
@@ -363,5 +371,91 @@ class ChatDatabase {
       await _db!.close();
       _db = null;
     }
+  }
+
+  Future<void> _createFase11Tables(Sqlite3DatabaseWrapper db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS DocumentSources (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    NOT NULL,
+        path        TEXT    NOT NULL,
+        imported_at INTEGER NOT NULL,
+        chunk_count INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  // ─── DocumentSources Helpers ─────────────────────────────────────────
+
+  Future<int> insertDocumentSource(Map<String, dynamic> doc) async {
+    final db = await database;
+    return db.insert('DocumentSources', doc);
+  }
+
+  Future<void> deleteDocumentSource(int id) async {
+    final db = await database;
+    await db.delete(
+      'DocumentSources',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllDocumentSources() async {
+    final db = await database;
+    return db.query(
+      'DocumentSources',
+      orderBy: 'imported_at DESC',
+    );
+  }
+
+  Future<String?> getDocumentName(int id) async {
+    final db = await database;
+    final results = await db.query(
+      'DocumentSources',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (results.isNotEmpty) {
+      return results.first['name'] as String?;
+    }
+    return null;
+  }
+
+  // ─── Fase 13: TrustedFolders Helpers ──────────────────────────────────────────
+
+  Future<void> _createFase13Tables(Sqlite3DatabaseWrapper db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS TrustedFolders (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        path     TEXT    NOT NULL UNIQUE,
+        added_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  Future<int> insertTrustedFolder(String path) async {
+    final db = await database;
+    return db.insert('TrustedFolders', {
+      'path': path,
+      'added_at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  Future<void> deleteTrustedFolder(int id) async {
+    final db = await database;
+    await db.delete(
+      'TrustedFolders',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllTrustedFolders() async {
+    final db = await database;
+    return db.query(
+      'TrustedFolders',
+      orderBy: 'added_at DESC',
+    );
   }
 }

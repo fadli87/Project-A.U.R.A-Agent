@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
@@ -283,7 +284,7 @@ class SearchWebDeepTool extends AgentTool {
       searchUrl += '?q=' + Uri.encodeComponent(query) + '&format=json';
 
       final request = await client.getUrl(Uri.parse(searchUrl));
-      request.headers.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       final response = await request.close();
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -329,7 +330,7 @@ class SearchWebDeepTool extends AgentTool {
       final request = await client.getUrl(
         Uri.parse('https://html.duckduckgo.com/html/?q=' + Uri.encodeComponent(query)),
       );
-      request.headers.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       final response = await request.close();
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -729,6 +730,105 @@ class SessionSearchTool extends AgentTool {
   }
 }
 
+/// Tool: Read Local File from Whitelist (Sensitive)
+class ReadLocalFileTool extends AgentTool {
+  @override
+  String get name => 'read_local_file';
+
+  @override
+  String get description => 'Membaca isi berkas teks lokal dari folder yang terdaftar di Whitelist Folder Terpercaya.';
+
+  @override
+  bool get isSensitive => true;
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+        'type': 'object',
+        'properties': {
+          'path': {
+            'type': 'string',
+            'description': 'Absolute path berkas teks yang akan dibaca (misalnya: C:/my_folder/notes.txt atau /storage/emulated/0/my_folder/notes.txt).'
+          },
+        },
+        'required': ['path'],
+      };
+
+  @override
+  Future<String> execute(Map<String, dynamic> args) async {
+    final pathStr = args['path'] ?? '';
+    if (pathStr.toString().trim().isEmpty) {
+      return jsonEncode({
+        'status': 'error',
+        'message': 'Parameter path tidak boleh kosong.',
+      });
+    }
+
+    try {
+      final targetFile = File(pathStr);
+      final canonicalPath = p.canonicalize(targetFile.absolute.path);
+
+      // Load whitelist folders from SQLite
+      final folders = await ChatDatabase.instance.getAllTrustedFolders();
+      bool isWhitelisted = false;
+
+      for (final folderMap in folders) {
+        final folderPath = folderMap['path'] as String? ?? '';
+        if (folderPath.isEmpty) continue;
+        final canonicalFolder = p.canonicalize(folderPath);
+
+        if (p.isWithin(canonicalFolder, canonicalPath) || canonicalPath == canonicalFolder) {
+          isWhitelisted = true;
+          break;
+        }
+      }
+
+      if (!isWhitelisted) {
+        return jsonEncode({
+          'status': 'error',
+          'message': 'Akses Ditolak: Path "' + pathStr + '" tidak berada di dalam folder yang di-whitelist. Silakan tambahkan folder induknya ke Whitelist Folder Terpercaya di Settings terlebih dahulu.',
+        });
+      }
+
+      // Check if file exists
+      if (!await targetFile.exists()) {
+        return jsonEncode({
+          'status': 'error',
+          'message': 'File tidak ditemukan pada path "' + pathStr + '".',
+        });
+      }
+
+      // Read contents (Limit to 1MB)
+      final fileStat = await targetFile.stat();
+      final length = fileStat.size;
+      const limit = 1024 * 1024; // 1MB
+
+      if (length > limit) {
+        final stream = targetFile.openRead(0, limit);
+        final bytes = await stream.fold<List<int>>([], (p, e) => p..addAll(e));
+        final fileContent = utf8.decode(bytes, allowMalformed: true);
+        return jsonEncode({
+          'status': 'success',
+          'file': p.basename(canonicalPath),
+          'note': 'Peringatan: File ini terlalu besar (>1MB) dan telah dipotong secara otomatis. Hanya menampilkan 1MB pertama.',
+          'content': fileContent,
+        });
+      } else {
+        final fileContent = await targetFile.readAsString();
+        return jsonEncode({
+          'status': 'success',
+          'file': p.basename(canonicalPath),
+          'content': fileContent,
+        });
+      }
+    } catch (e) {
+      return jsonEncode({
+        'status': 'error',
+        'message': 'Gagal membaca berkas: ' + e.toString(),
+      });
+    }
+  }
+}
+
 class AgentToolRegistry {
   final Map<String, AgentTool> _tools = {};
 
@@ -744,6 +844,7 @@ class AgentToolRegistry {
     registerTool(TodoListTool());
     registerTool(SkillManageTool());
     registerTool(SessionSearchTool());
+    registerTool(ReadLocalFileTool());
   }
 
   void registerTool(AgentTool tool) {

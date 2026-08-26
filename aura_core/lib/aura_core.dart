@@ -7,6 +7,7 @@ export 'inference/gguf_model.dart';
 export 'memory/memory_entry.dart';
 export 'memory/embedding_service.dart';
 export 'memory/objectbox_store.dart';
+export 'memory/text_extractor.dart';
 export 'storage/chat_models.dart';
 export 'storage/chat_database.dart';
 export 'storage/backup_service.dart';

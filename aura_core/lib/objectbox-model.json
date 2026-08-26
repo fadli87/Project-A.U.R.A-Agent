@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:3720395251345096840",
-      "lastPropertyId": "7:2055052728205459968",
+      "lastPropertyId": "9:381061922906310988",
       "name": "MemoryEntry",
       "properties": [
         {
@@ -45,6 +45,16 @@
           "indexId": "1:4554747815171770076",
           "type": 28,
           "flags": 8
+        },
+        {
+          "id": "8:474344334371640866",
+          "name": "sourceType",
+          "type": 9
+        },
+        {
+          "id": "9:381061922906310988",
+          "name": "sourceId",
+          "type": 6
         }
       ],
       "relations": []

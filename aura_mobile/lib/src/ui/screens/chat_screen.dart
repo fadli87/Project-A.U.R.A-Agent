@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import '../../providers/memory_provider.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -32,6 +33,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isComposing = false;
   ClarifyRequest? _activeClarify;
   String? _activeSearchQuery;
+  String? _activeReadFile;
 
   // ── Agentic loop state ─────────────────────────────────────────────────────
   /// Counter iterasi loop per giliran percakapan (Rule 06-backup-safety-cap.md)
@@ -102,6 +104,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               _buildAgentLoopIndicator(),
             if (_activeSearchQuery != null)
               _buildSearchIndicator(),
+            if (_activeReadFile != null)
+              _buildReadFileIndicator(),
             if (isStreaming)
               _buildStopButton(),
             if (chatState.hasError)
@@ -630,7 +634,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         // Recall relevant semantic memories for this prompt
         final memories = await ref.read(memoryProvider.notifier).recall(initialUserText, topK: 3);
-        final memoryContext = MemoryNotifier.formatMemoriesForPrompt(memories);
+        final memoryContext = await MemoryNotifier.formatMemoriesForPrompt(memories);
 
         // Bangun system prompt dengan persona + tools + skills
         var systemPrompt = personaNotifier.assembleSystemPrompt(initialUserText);
@@ -726,6 +730,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           }
         }
 
+        if (tool.name == 'read_local_file') {
+          if (mounted) {
+            setState(() {
+              _activeReadFile = toolCallReq.arguments['path'] as String?;
+            });
+          }
+        }
+
         String toolResult;
         try {
           toolResult = await tool.execute(enrichedArgs);
@@ -736,6 +748,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             if (mounted) {
               setState(() {
                 _activeSearchQuery = null;
+              });
+            }
+          }
+
+          if (tool.name == 'read_local_file') {
+            if (mounted) {
+              setState(() {
+                _activeReadFile = null;
               });
             }
           }
@@ -800,6 +820,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           const SizedBox(width: 8),
           Text(
             '🌐 Mencari online: "$_activeSearchQuery"...',
+            style: const TextStyle(
+              color: AppTheme.secondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadFileIndicator() {
+    final fileName = _activeReadFile != null ? p.basename(_activeReadFile!) : '';
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppTheme.secondary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '📂 Membaca file: "$fileName"...',
             style: const TextStyle(
               color: AppTheme.secondary,
               fontSize: 11,

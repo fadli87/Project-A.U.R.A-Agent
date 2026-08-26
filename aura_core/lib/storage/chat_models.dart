@@ -152,3 +152,41 @@ class ChatSession {
     );
   }
 }
+
+
+/// A document source imported by the user for RAG
+class DocumentSource {
+  final int id;
+  final String name;
+  final String path;
+  final DateTime importedAt;
+  final int chunkCount;
+
+  const DocumentSource({
+    required this.id,
+    required this.name,
+    required this.path,
+    required this.importedAt,
+    required this.chunkCount,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'path': path,
+      'imported_at': importedAt.millisecondsSinceEpoch,
+      'chunk_count': chunkCount,
+    };
+  }
+
+  factory DocumentSource.fromMap(Map<String, dynamic> map) {
+    return DocumentSource(
+      id: map['id'] as int,
+      name: map['name'] as String,
+      path: map['path'] as String,
+      importedAt: DateTime.fromMillisecondsSinceEpoch(map['imported_at'] as int),
+      chunkCount: map['chunk_count'] as int,
+    );
+  }
+}

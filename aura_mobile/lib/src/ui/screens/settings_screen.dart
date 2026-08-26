@@ -1,3 +1,5 @@
+import 'trusted_folders_screen.dart';
+import 'knowledge_sources_screen.dart';
 import 'skill_manager_screen.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -21,6 +23,26 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isExporting = false;
   bool _isRestoring = false;
+  late final TextEditingController _ipController;
+  late final TextEditingController _portController;
+  late final TextEditingController _pinController;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = ref.read(settingsProvider);
+    _ipController = TextEditingController(text: settings.desktopIp);
+    _portController = TextEditingController(text: settings.desktopPort);
+    _pinController = TextEditingController(text: settings.desktopPin);
+  }
+
+  @override
+  void dispose() {
+    _ipController.dispose();
+    _portController.dispose();
+    _pinController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +166,158 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
                   },
                 ),
+                const Divider(height: 1, color: AppTheme.border),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.library_books_outlined, color: AppTheme.primary),
+                  title: const Text(
+                    'Sumber Pengetahuan (RAG)',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Latih AURA dengan dokumen teks (.txt, .md, .pdf) Anda sendiri.',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const KnowledgeSourcesScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, color: AppTheme.border),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.folder_shared_outlined, color: AppTheme.primary),
+                  title: const Text(
+                    'Folder Terpercaya (Read-Only)',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Whitelist folder lokal yang boleh dibaca asisten AURA secara ad-hoc.',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TrustedFoldersScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          _SectionHeader(
+            icon: Icons.computer_outlined,
+            label: 'Asisten Desktop (Hybrid Routing)',
+          ),
+          _InfoCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeThumbColor: AppTheme.primary,
+                  title: const Text(
+                    'Gunakan Asisten Desktop',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Rute pertanyaan kompleks ke PC Desktop Anda lewat jaringan lokal (LAN).',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  value: settings.useDesktopAssistant,
+                  onChanged: (val) {
+                    ref.read(settingsProvider.notifier).setUseDesktopAssistant(val);
+                  },
+                ),
+                if (settings.useDesktopAssistant) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Peringatan Keamanan: Pastikan Anda terhubung ke jaringan WiFi pribadi yang tepercaya (mis. rumah sendiri) sebelum mengaktifkan asisten Desktop.',
+                    style: TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _ipController,
+                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: 'IP Address Desktop (PC)',
+                      labelStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      hintText: 'e.g. 192.168.1.5',
+                      hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) {
+                      ref.read(settingsProvider.notifier).setDesktopIp(val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _portController,
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                          decoration: const InputDecoration(
+                            labelText: 'Port',
+                            labelStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                            hintText: '8080',
+                            hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (val) {
+                            ref.read(settingsProvider.notifier).setDesktopPort(val);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _pinController,
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                          decoration: const InputDecoration(
+                            labelText: 'Pairing PIN',
+                            labelStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                            hintText: '6 digit PIN',
+                            hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (val) {
+                            ref.read(settingsProvider.notifier).setDesktopPin(val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

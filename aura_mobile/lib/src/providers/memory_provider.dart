@@ -100,14 +100,36 @@ class MemoryNotifier extends _$MemoryNotifier {
   }
 
   /// Format recalled memories as context injection string for the prompt.
-  static String formatMemoriesForPrompt(List<MemoryEntry> memories) {
+  static Future<String> formatMemoriesForPrompt(List<MemoryEntry> memories) async {
     if (memories.isEmpty) return '';
-    final sb = StringBuffer('[RELEVANT MEMORIES]\n');
-    for (final m in memories) {
-      final roleLabel = m.role == 'user' ? 'User previously said' : 'Assistant previously said';
-      sb.writeln('- $roleLabel: "${m.content.trim()}"');
+    final sb = StringBuffer();
+    
+    // Separate chat memories and document memories
+    final chatMemories = memories.where((m) => m.sourceType != 'document').toList();
+    final docMemories = memories.where((m) => m.sourceType == 'document').toList();
+    
+    if (chatMemories.isNotEmpty) {
+      sb.writeln('[RELEVANT CHAT MEMORIES]');
+      for (final m in chatMemories) {
+        final roleLabel = m.role == 'user' ? 'User previously said' : 'Assistant previously said';
+        sb.writeln('- $roleLabel: "${m.content.trim()}"');
+      }
+      sb.writeln('[END CHAT MEMORIES]\n');
     }
-    sb.writeln('[END MEMORIES]');
+    
+    if (docMemories.isNotEmpty) {
+      sb.writeln('[RELEVANT DOCUMENT CHUNKS]');
+      for (final m in docMemories) {
+        final docName = await ChatDatabase.instance.getDocumentName(m.sourceId) ?? 'Dokumen Tidak Dikenal';
+        sb.writeln('Dari dokumen "' + docName + '":');
+        sb.writeln('"""');
+        sb.writeln(m.content.trim());
+        sb.writeln('"""');
+        sb.writeln();
+      }
+      sb.writeln('[END DOCUMENT CHUNKS]');
+    }
+    
     return sb.toString();
   }
 }

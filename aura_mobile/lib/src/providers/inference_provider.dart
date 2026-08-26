@@ -1,3 +1,6 @@
+import 'settings_provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -91,6 +94,7 @@ class InferenceNotifier extends _$InferenceNotifier {
   StreamSubscription<String>? _streamSub;
   Stopwatch? _stopwatch;
   int _manualTokenCount = 0;
+  http.Client? _desktopClient;
 
   @override
   InferenceState build() {
@@ -201,12 +205,47 @@ class InferenceNotifier extends _$InferenceNotifier {
 
     // Recall relevant semantic memories for this prompt
     final memories = await ref.read(memoryProvider.notifier).recall(prompt, topK: 3);
-    final memoryContext = MemoryNotifier.formatMemoriesForPrompt(memories);
+    final memoryContext = await MemoryNotifier.formatMemoriesForPrompt(memories);
 
     // Inject memories into system prompt if available
     String effectiveSystemPrompt = systemPrompt ?? '';
     if (memoryContext.isNotEmpty) {
       effectiveSystemPrompt = memoryContext + (effectiveSystemPrompt.isNotEmpty ? '\n$effectiveSystemPrompt' : '');
+    }
+
+    // Hybrid Routing Check (Fase 12)
+    final settings = ref.read(settingsProvider);
+    bool isDesktopUsed = false;
+    String desktopUrl = '';
+    
+    if (settings.useDesktopAssistant && settings.desktopIp.isNotEmpty) {
+      desktopUrl = 'http://${settings.desktopIp}:${settings.desktopPort}';
+      try {
+        final pingRes = await http.get(
+          Uri.parse('$desktopUrl/v1/models'),
+          headers: {
+            if (settings.desktopPin.isNotEmpty) 'Authorization': 'Bearer ${settings.desktopPin}',
+          },
+        ).timeout(const Duration(seconds: 2));
+        if (pingRes.statusCode == 200) {
+          isDesktopUsed = true;
+        }
+      } catch (_) {
+        // Fail silent -> fallback to local
+      }
+    }
+
+    if (isDesktopUsed) {
+      await _generateDesktop(
+        desktopUrl: desktopUrl,
+        pin: settings.desktopPin,
+        prompt: prompt,
+        systemPrompt: effectiveSystemPrompt,
+        maxTokens: maxTokens,
+        temperature: temperature,
+        topP: topP,
+      );
+      return;
     }
 
     final formattedPrompt = formatPrompt(
@@ -309,6 +348,8 @@ class InferenceNotifier extends _$InferenceNotifier {
 
       await _streamSub?.cancel();
       _streamSub = null;
+      _desktopClient?.close();
+      _desktopClient = null;
       _stopwatch?.stop();
 
       state = state.copyWith(status: InferenceStatus.cancelled);
@@ -321,5 +362,132 @@ class InferenceNotifier extends _$InferenceNotifier {
     _streamSub = null;
     _stopwatch?.stop();
     state = const InferenceState();
+  }
+
+  Future<void> _generateDesktop({
+    required String desktopUrl,
+    required String pin,
+    required String prompt,
+    required String systemPrompt,
+    required int maxTokens,
+    required double temperature,
+    required double topP,
+  }) async {
+    state = InferenceState(
+      status: InferenceStatus.generating,
+      prompt: prompt,
+      text: '',
+      metrics: const InferenceMetrics(),
+    );
+
+    _stopwatch = Stopwatch()..start();
+    int tokenCount = 0;
+    Duration? timeToFirstToken;
+    final buffer = StringBuffer();
+
+    // Cancel any previous stream/client
+    _desktopClient?.close();
+    final client = http.Client();
+    _desktopClient = client;
+
+    try {
+      final messages = [
+        if (systemPrompt.isNotEmpty)
+          {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': prompt},
+      ];
+
+      final request = http.Request('POST', Uri.parse('$desktopUrl/v1/chat/completions'));
+      request.headers['Content-Type'] = 'application/json';
+      if (pin.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $pin';
+      }
+      request.body = jsonEncode({
+        'model': 'local-model',
+        'messages': messages,
+        'stream': true,
+        'temperature': temperature,
+        'max_tokens': maxTokens,
+        'top_p': topP,
+      });
+
+      final response = await client.send(request).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        throw Exception('Server returned status code ${response.statusCode}');
+      }
+
+      final stream = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final line in stream) {
+        if (_desktopClient == null || state.status == InferenceStatus.cancelled) {
+          break;
+        }
+        if (line.startsWith('data: ')) {
+          final dataStr = line.substring(6).trim();
+          if (dataStr == '[DONE]') break;
+          try {
+            final Map<String, dynamic> data = jsonDecode(dataStr);
+            final delta = data['choices']?[0]?['delta']?['content'] as String?;
+            if (delta != null && delta.isNotEmpty) {
+              tokenCount++;
+              if (tokenCount == 1 && _stopwatch != null) {
+                timeToFirstToken = _stopwatch!.elapsed;
+              }
+
+              buffer.write(delta);
+              final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+              final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+              final tps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+              final processedText = EmojiParser.replaceShortcodes(buffer.toString());
+
+              state = state.copyWith(
+                text: processedText,
+                metrics: InferenceMetrics(
+                  tokensGenerated: tokenCount,
+                  tokensPerSecond: tps,
+                  elapsedDuration: elapsed,
+                  timeToFirstToken: timeToFirstToken,
+                ),
+              );
+            }
+          } catch (_) {}
+        }
+      }
+
+      _stopwatch?.stop();
+      final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+      final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+      final finalTps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+      // Append hidden desktop annotation comment
+      buffer.write(' <!-- desktop -->');
+
+      state = state.copyWith(
+        status: InferenceStatus.completed,
+        text: EmojiParser.replaceShortcodes(buffer.toString()),
+        metrics: state.metrics.copyWith(
+          tokensGenerated: tokenCount,
+          tokensPerSecond: finalTps,
+          elapsedDuration: elapsed,
+        ),
+      );
+    } catch (e) {
+      _stopwatch?.stop();
+      if (state.status != InferenceStatus.cancelled) {
+        state = state.copyWith(
+          status: InferenceStatus.error,
+          errorMessage: 'Desktop Inference Error: ${e.toString()}',
+        );
+      }
+    } finally {
+      client.close();
+      if (_desktopClient == client) {
+        _desktopClient = null;
+      }
+    }
   }
 }
