@@ -57,6 +57,7 @@ class InferenceState {
     this.text = '',
     this.metrics = const InferenceMetrics(),
     this.errorMessage,
+    this.useCloudAssistant = false,
   });
 
   final InferenceStatus status;
@@ -64,6 +65,7 @@ class InferenceState {
   final String text;
   final InferenceMetrics metrics;
   final String? errorMessage;
+  final bool useCloudAssistant;
 
   bool get isGenerating => status == InferenceStatus.generating;
   bool get isIdle => status == InferenceStatus.idle;
@@ -76,6 +78,7 @@ class InferenceState {
     String? text,
     InferenceMetrics? metrics,
     String? errorMessage,
+    bool? useCloudAssistant,
     bool clearError = false,
   }) {
     return InferenceState(
@@ -84,6 +87,7 @@ class InferenceState {
       text: text ?? this.text,
       metrics: metrics ?? this.metrics,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      useCloudAssistant: useCloudAssistant ?? this.useCloudAssistant,
     );
   }
 }
@@ -103,6 +107,10 @@ class InferenceNotifier extends _$InferenceNotifier {
       _stopwatch?.stop();
     });
     return const InferenceState();
+  }
+
+  void toggleCloudAssistant() {
+    state = state.copyWith(useCloudAssistant: !state.useCloudAssistant);
   }
 
   void startManualMetrics() {
@@ -192,6 +200,7 @@ class InferenceNotifier extends _$InferenceNotifier {
     double repeatPenalty = 1.1,
   }) async {
     final modelState = ref.read(modelProvider);
+    final settings = ref.read(settingsProvider);
     if (!modelState.isReady || modelState.activeModel == null) {
       state = state.copyWith(
         status: InferenceStatus.error,
@@ -213,8 +222,31 @@ class InferenceNotifier extends _$InferenceNotifier {
       effectiveSystemPrompt = memoryContext + (effectiveSystemPrompt.isNotEmpty ? '\n$effectiveSystemPrompt' : '');
     }
 
+    // Cloud Routing Check (Fase 14)
+    if (state.useCloudAssistant) {
+      final apiKey = await SecureStorageService.instance.read(
+        settings.activeCloudProvider == 'openai' ? 'openai_api_key' : 'gemini_api_key',
+      ) ?? '';
+      if (apiKey.isEmpty) {
+        state = state.copyWith(
+          status: InferenceStatus.error,
+          errorMessage: 'API Key untuk ${settings.activeCloudProvider} kosong. Silakan isi di Pengaturan.',
+        );
+        return;
+      }
+      await _generateCloud(
+        provider: settings.activeCloudProvider,
+        apiKey: apiKey,
+        prompt: prompt,
+        systemPrompt: effectiveSystemPrompt,
+        maxTokens: maxTokens,
+        temperature: temperature,
+        openaiModel: settings.openaiModel,
+      );
+      return;
+    }
+
     // Hybrid Routing Check (Fase 12)
-    final settings = ref.read(settingsProvider);
     bool isDesktopUsed = false;
     String desktopUrl = '';
     
@@ -258,6 +290,7 @@ class InferenceNotifier extends _$InferenceNotifier {
       prompt: prompt,
       text: '',
       metrics: const InferenceMetrics(),
+      useCloudAssistant: state.useCloudAssistant,
     );
 
     _stopwatch = Stopwatch()..start();
@@ -361,7 +394,114 @@ class InferenceNotifier extends _$InferenceNotifier {
     _streamSub?.cancel();
     _streamSub = null;
     _stopwatch?.stop();
-    state = const InferenceState();
+    state = InferenceState(useCloudAssistant: state.useCloudAssistant);
+  }
+
+  Future<void> _generateCloud({
+    required String provider,
+    required String apiKey,
+    required String prompt,
+    required String systemPrompt,
+    required int maxTokens,
+    required double temperature,
+    required String openaiModel,
+  }) async {
+    state = InferenceState(
+      status: InferenceStatus.generating,
+      prompt: prompt,
+      text: '',
+      metrics: const InferenceMetrics(),
+      useCloudAssistant: state.useCloudAssistant,
+    );
+
+    _stopwatch = Stopwatch()..start();
+    int tokenCount = 0;
+    Duration? timeToFirstToken;
+    final buffer = StringBuffer();
+
+    // Cancel any previous stream/client
+    _desktopClient?.close();
+    _streamSub?.cancel();
+
+    try {
+      final messages = [
+        if (systemPrompt.isNotEmpty)
+          {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': prompt},
+      ];
+
+      final CloudInferenceEngine engine;
+      if (provider == 'openai') {
+        engine = OpenAIInferenceEngine(modelName: openaiModel);
+      } else {
+        engine = GeminiInferenceEngine();
+      }
+
+      final tokenStream = engine.generate(
+        messages: messages,
+        temperature: temperature,
+        maxTokens: maxTokens,
+        apiKey: apiKey,
+      );
+
+      _streamSub = tokenStream.listen(
+        (token) {
+          tokenCount++;
+          if (tokenCount == 1 && _stopwatch != null) {
+            timeToFirstToken = _stopwatch!.elapsed;
+          }
+
+          buffer.write(token);
+          final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+          final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+          final tps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+          final processedText = EmojiParser.replaceShortcodes(buffer.toString());
+
+          state = state.copyWith(
+            text: processedText,
+            metrics: InferenceMetrics(
+              tokensGenerated: tokenCount,
+              tokensPerSecond: tps,
+              elapsedDuration: elapsed,
+              timeToFirstToken: timeToFirstToken,
+            ),
+          );
+        },
+        onDone: () {
+          _stopwatch?.stop();
+          final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+          final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+          final finalTps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+          buffer.write(provider == 'openai' ? ' <!-- openai -->' : ' <!-- gemini -->');
+
+          state = state.copyWith(
+            status: InferenceStatus.completed,
+            text: EmojiParser.replaceShortcodes(buffer.toString()),
+            metrics: state.metrics.copyWith(
+              tokensGenerated: tokenCount,
+              tokensPerSecond: finalTps,
+              elapsedDuration: elapsed,
+            ),
+          );
+        },
+        onError: (error) {
+          _stopwatch?.stop();
+          state = state.copyWith(
+            status: InferenceStatus.error,
+            errorMessage: 'Cloud Inference Error: ${error.toString()}',
+          );
+        },
+        cancelOnError: true,
+      );
+    } catch (e) {
+      _stopwatch?.stop();
+      state = state.copyWith(
+        status: InferenceStatus.error,
+        errorMessage: 'Gagal memulai inferensi cloud: ${e.toString()}',
+      );
+    }
   }
 
   Future<void> _generateDesktop({
@@ -378,6 +518,7 @@ class InferenceNotifier extends _$InferenceNotifier {
       prompt: prompt,
       text: '',
       metrics: const InferenceMetrics(),
+      useCloudAssistant: state.useCloudAssistant,
     );
 
     _stopwatch = Stopwatch()..start();

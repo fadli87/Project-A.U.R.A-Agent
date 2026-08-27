@@ -1,3 +1,5 @@
+import 'package:aura_core/storage/secure_storage_service.dart';
+import 'package:aura_core/agent/cloud_inference_engine.dart';
 import 'trusted_folders_screen.dart';
 import 'knowledge_sources_screen.dart';
 import 'skill_manager_screen.dart';
@@ -27,6 +29,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _portController;
   late final TextEditingController _pinController;
 
+  final TextEditingController _geminiKeyController = TextEditingController();
+  final TextEditingController _openaiKeyController = TextEditingController();
+  bool _obscureGeminiKey = true;
+  bool _obscureOpenaiKey = true;
+  String? _geminiValidationResult;
+  String? _openaiValidationResult;
+  bool _isValidatingGemini = false;
+  bool _isValidatingOpenai = false;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +45,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _ipController = TextEditingController(text: settings.desktopIp);
     _portController = TextEditingController(text: settings.desktopPort);
     _pinController = TextEditingController(text: settings.desktopPin);
+    _loadSecureKeys();
+  }
+
+  Future<void> _loadSecureKeys() async {
+    final geminiKey = await SecureStorageService.instance.read('gemini_api_key') ?? '';
+    final openaiKey = await SecureStorageService.instance.read('openai_api_key') ?? '';
+    if (mounted) {
+      setState(() {
+        _geminiKeyController.text = geminiKey;
+        _openaiKeyController.text = openaiKey;
+      });
+    }
   }
 
   @override
@@ -41,7 +64,87 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _ipController.dispose();
     _portController.dispose();
     _pinController.dispose();
+    _geminiKeyController.dispose();
+    _openaiKeyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _validateGeminiKey() async {
+    final key = _geminiKeyController.text.trim();
+    if (key.isEmpty) {
+      setState(() => _geminiValidationResult = 'Kunci API kosong');
+      return;
+    }
+    setState(() {
+      _isValidatingGemini = true;
+      _geminiValidationResult = null;
+    });
+
+    final engine = GeminiInferenceEngine();
+    final isValid = await engine.validateKey(key);
+
+    // Save key to secure storage regardless of validation success so it is saved
+    await SecureStorageService.instance.write('gemini_api_key', key);
+
+    if (mounted) {
+      setState(() {
+        _isValidatingGemini = false;
+        if (isValid) {
+          _geminiValidationResult = 'Valid';
+        } else {
+          _geminiValidationResult = 'Tidak Valid';
+        }
+      });
+    }
+  }
+
+  Future<void> _validateOpenaiKey() async {
+    final key = _openaiKeyController.text.trim();
+    if (key.isEmpty) {
+      setState(() => _openaiValidationResult = 'Kunci API kosong');
+      return;
+    }
+    setState(() {
+      _isValidatingOpenai = true;
+      _openaiValidationResult = null;
+    });
+
+    final engine = OpenAIInferenceEngine();
+    final isValid = await engine.validateKey(key);
+
+    // Save key to secure storage regardless of validation success so it is saved
+    await SecureStorageService.instance.write('openai_api_key', key);
+
+    if (mounted) {
+      setState(() {
+        _isValidatingOpenai = false;
+        if (isValid) {
+          _openaiValidationResult = 'Valid';
+        } else {
+          _openaiValidationResult = 'Tidak Valid';
+        }
+      });
+    }
+  }
+
+  Future<void> _deleteGeminiKey() async {
+    await SecureStorageService.instance.delete('gemini_api_key');
+    if (mounted) {
+      setState(() {
+        _geminiKeyController.clear();
+        _geminiValidationResult = null;
+      });
+    }
+  }
+
+  Future<void> _deleteOpenaiKey() async {
+    await SecureStorageService.instance.delete('openai_api_key');
+    if (mounted) {
+      setState(() {
+        _openaiKeyController.clear();
+        _openaiValidationResult = null;
+      });
+    }
   }
 
   @override
@@ -316,6 +419,215 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          _SectionHeader(
+            icon: Icons.cloud_outlined,
+            label: 'Cloud Provider (Opsional)',
+          ),
+          _InfoCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Gunakan Google Gemini atau OpenAI sebagai asisten cadangan berdaya tinggi secara manual.',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                
+                const Text(
+                  'Aktifkan Provider:',
+                  style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Gemini', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                        value: 'gemini',
+                        groupValue: settings.activeCloudProvider,
+                        activeColor: AppTheme.primary,
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref.read(settingsProvider.notifier).setActiveCloudProvider(val);
+                          }
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('OpenAI', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                        value: 'openai',
+                        groupValue: settings.activeCloudProvider,
+                        activeColor: AppTheme.primary,
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref.read(settingsProvider.notifier).setActiveCloudProvider(val);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(color: AppTheme.border, height: 24),
+
+                const Text('Gemini API Key', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _geminiKeyController,
+                        obscureText: _obscureGeminiKey,
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan API Key Gemini...',
+                          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureGeminiKey ? Icons.visibility_off : Icons.visibility,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscureGeminiKey = !_obscureGeminiKey),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 20),
+                      onPressed: _deleteGeminiKey,
+                      tooltip: 'Hapus Key',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isValidatingGemini ? null : _validateGeminiKey,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                        foregroundColor: AppTheme.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: _isValidatingGemini
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Validasi & Simpan', style: TextStyle(fontSize: 12)),
+                    ),
+                    if (_geminiValidationResult != null)
+                      Text(
+                        _geminiValidationResult!,
+                        style: TextStyle(
+                          color: _geminiValidationResult == 'Valid' ? AppTheme.statusReady : AppTheme.error,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+                const Divider(color: AppTheme.border, height: 32),
+
+                const Text('OpenAI API Key', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _openaiKeyController,
+                        obscureText: _obscureOpenaiKey,
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan API Key OpenAI...',
+                          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureOpenaiKey ? Icons.visibility_off : Icons.visibility,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscureOpenaiKey = !_obscureOpenaiKey),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 20),
+                      onPressed: _deleteOpenaiKey,
+                      tooltip: 'Hapus Key',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isValidatingOpenai ? null : _validateOpenaiKey,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                        foregroundColor: AppTheme.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: _isValidatingOpenai
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Validasi & Simpan', style: TextStyle(fontSize: 12)),
+                    ),
+                    if (_openaiValidationResult != null)
+                      Text(
+                        _openaiValidationResult!,
+                        style: TextStyle(
+                          color: _openaiValidationResult == 'Valid' ? AppTheme.statusReady : AppTheme.error,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+                if (settings.activeCloudProvider == 'openai') ...[
+                  const SizedBox(height: 16),
+                  const Text('OpenAI Model', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.border),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        dropdownColor: AppTheme.card,
+                        value: settings.openaiModel,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(value: 'gpt-4o-mini', child: Text('gpt-4o-mini', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
+                          DropdownMenuItem(value: 'gpt-4o', child: Text('gpt-4o', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
+                          DropdownMenuItem(value: 'o1-mini', child: Text('o1-mini', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref.read(settingsProvider.notifier).setOpenaiModel(val);
+                          }
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ],

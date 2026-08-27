@@ -8,6 +8,7 @@ import 'package:sqflite/sqflite.dart' show getDatabasesPath;
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
 import 'src/services/mobile_platform_service.dart';
+import 'src/services/mobile_secure_storage.dart';
 import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/model_manager_screen.dart';
 import 'src/ui/theme/app_theme.dart';
@@ -26,6 +27,7 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SecureStorageService.instance = MobileSecureStorage();
 
   // Lock orientation to portrait for better mobile AI assistant experience
   await SystemChrome.setPreferredOrientations([

@@ -502,7 +502,7 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     }
   }
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(String text, {bool useCloud = false}) async {
     if (text.trim().isEmpty || state.activeSession == null) return;
     
     final userMsg = ChatMessage(
@@ -618,13 +618,51 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
           };
         }));
 
-        // Call Local LLM Service
-        final result = await LocalLlmService.generateChatReply(
-          baseUrl: state.baseUrl,
-          apiType: state.apiType,
-          model: state.activeModel,
-          messages: apiMessages,
-        );
+        // Call Cloud or Local LLM Service
+        final Map<String, dynamic> result;
+        if (useCloud) {
+          final provider = await SecureStorageService.instance.read('active_cloud_provider') ?? 'gemini';
+          final apiKey = await SecureStorageService.instance.read(
+            provider == 'openai' ? 'openai_api_key' : 'gemini_api_key',
+          ) ?? '';
+          if (apiKey.isEmpty) {
+            throw Exception('API Key untuk ' + provider + ' kosong. Silakan isi di Settings.');
+          }
+          final modelName = await SecureStorageService.instance.read('openai_model') ?? 'gpt-4o-mini';
+
+          final CloudInferenceEngine engine;
+          if (provider == 'openai') {
+            engine = OpenAIInferenceEngine(modelName: modelName);
+          } else {
+            engine = GeminiInferenceEngine();
+          }
+
+          // Format messages for cloud inference format
+          final cloudMessages = apiMessages.map((m) {
+            return {
+              'role': m['role'],
+              'content': m['content'],
+            };
+          }).toList();
+
+          final responseText = await engine.generate(
+            messages: cloudMessages,
+            temperature: 0.7,
+            maxTokens: 512,
+            apiKey: apiKey,
+          ).join('');
+
+          result = {
+            'content': responseText + (provider == 'openai' ? ' <!-- openai -->' : ' <!-- gemini -->'),
+          };
+        } else {
+          result = await LocalLlmService.generateChatReply(
+            baseUrl: state.baseUrl,
+            apiType: state.apiType,
+            model: state.activeModel,
+            messages: apiMessages,
+          );
+        }
 
         final responseText = result['content'] as String;
 
@@ -720,7 +758,18 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
       }
     } catch (e) {
       debugPrint('Error in desktop agent loop: $e');
-      state = state.copyWith(isLoading: false);
+      final errorMsg = ChatMessage(
+        id: 0,
+        sessionId: state.activeSession!.id,
+        role: MessageRole.assistant,
+        content: '⚠️ Error: ${e.toString()}',
+        timestamp: DateTime.now(),
+      );
+      final savedErrorId = await _db.saveMessage(errorMsg);
+      state = state.copyWith(
+        messages: [...state.messages, errorMsg.copyWith(id: savedErrorId)],
+        isLoading: false,
+      );
     }
   }
 }

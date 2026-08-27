@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura_core/aura_core.dart';
 import 'package:aura/src/providers/inference_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
   group('InferenceNotifier Tests', () {
     test('Initial state is idle', () {
       final container = ProviderContainer();

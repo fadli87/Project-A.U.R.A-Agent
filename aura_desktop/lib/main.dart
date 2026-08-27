@@ -8,10 +8,14 @@ import 'package:path/path.dart' as path_lib;
 import 'package:aura_core/aura_core.dart';
 import 'package:file_picker/file_picker.dart';
 import 'src/providers/desktop_chat_provider.dart';
+import 'src/providers/desktop_knowledge_provider.dart';
+import 'src/providers/desktop_trusted_folders_provider.dart';
 import 'src/services/desktop_platform_service.dart';
+import 'src/services/desktop_secure_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SecureStorageService.instance = DesktopSecureStorage();
   
   // Register Desktop Platform Service delegate for AlarmService
   AlarmService.instance.registerDelegate(DesktopPlatformService.instance);
@@ -78,6 +82,7 @@ class DesktopChatScreen extends ConsumerStatefulWidget {
 class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  bool useCloudAssistant = false;
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -103,544 +108,1075 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
     bool isTesting = false;
     String testResult = '';
 
+    // Cloud settings variables
+    final geminiKeyController = TextEditingController();
+    final openaiKeyController = TextEditingController();
+    bool obscureGeminiKey = true;
+    bool obscureOpenaiKey = true;
+    String? geminiValidationResult;
+    String? openaiValidationResult;
+    bool isValidatingGemini = false;
+    bool isValidatingOpenai = false;
+    String activeCloudProvider = 'gemini';
+    String openaiModel = 'gpt-4o-mini';
+    bool keysLoaded = false;
+
+    void loadCloudSettings(void Function(void Function()) setDialogState) async {
+      final geminiKey = await SecureStorageService.instance.read('gemini_api_key') ?? '';
+      final openaiKey = await SecureStorageService.instance.read('openai_api_key') ?? '';
+      final provider = await SecureStorageService.instance.read('active_cloud_provider') ?? 'gemini';
+      final model = await SecureStorageService.instance.read('openai_model') ?? 'gpt-4o-mini';
+      setDialogState(() {
+        geminiKeyController.text = geminiKey;
+        openaiKeyController.text = openaiKey;
+        activeCloudProvider = provider;
+        openaiModel = model;
+        keysLoaded = true;
+      });
+    }
+
+    void validateGeminiKey(void Function(void Function()) setDialogState) async {
+      final key = geminiKeyController.text.trim();
+      if (key.isEmpty) {
+        setDialogState(() => geminiValidationResult = 'Kunci API kosong');
+        return;
+      }
+      setDialogState(() {
+        isValidatingGemini = true;
+        geminiValidationResult = null;
+      });
+      final engine = GeminiInferenceEngine();
+      final isValid = await engine.validateKey(key);
+      // Write to secure storage regardless of validation success so it is saved
+      await SecureStorageService.instance.write('gemini_api_key', key);
+      setDialogState(() {
+        isValidatingGemini = false;
+        if (isValid) {
+          geminiValidationResult = 'Valid';
+        } else {
+          geminiValidationResult = 'Tidak Valid';
+        }
+      });
+    }
+
+    void validateOpenaiKey(void Function(void Function()) setDialogState) async {
+      final key = openaiKeyController.text.trim();
+      if (key.isEmpty) {
+        setDialogState(() => openaiValidationResult = 'Kunci API kosong');
+        return;
+      }
+      setDialogState(() {
+        isValidatingOpenai = true;
+        openaiValidationResult = null;
+      });
+      final engine = OpenAIInferenceEngine();
+      final isValid = await engine.validateKey(key);
+      // Write to secure storage regardless of validation success so it is saved
+      await SecureStorageService.instance.write('openai_api_key', key);
+      setDialogState(() {
+        isValidatingOpenai = false;
+        if (isValid) {
+          openaiValidationResult = 'Valid';
+        } else {
+          openaiValidationResult = 'Tidak Valid';
+        }
+      });
+    }
+
+    void deleteGeminiKey(void Function(void Function()) setDialogState) async {
+      await SecureStorageService.instance.delete('gemini_api_key');
+      setDialogState(() {
+        geminiKeyController.clear();
+        geminiValidationResult = null;
+      });
+    }
+
+    void deleteOpenaiKey(void Function(void Function()) setDialogState) async {
+      await SecureStorageService.instance.delete('openai_api_key');
+      setDialogState(() {
+        openaiKeyController.clear();
+        openaiValidationResult = null;
+      });
+    }
+
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1E1E26),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-              ),
-              title: Row(
-                children: [
-                  const Icon(Icons.settings, color: Color(0xFF7C4DFF)),
-                  const SizedBox(width: 12),
-                  const Text('Settings Local LLM Server', style: TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: SizedBox(
-                  width: 480,
+            if (!keysLoaded) {
+              loadCloudSettings(setDialogState);
+            }
+            return DefaultTabController(
+              length: 4,
+              child: AlertDialog(
+                backgroundColor: const Color(0xFF1E1E26),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                title: Row(
+                  children: const [
+                    Icon(Icons.settings, color: Color(0xFF7C4DFF)),
+                    SizedBox(width: 12),
+                    Text('AURA Settings', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 550,
+                  height: 520,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Direct Server Toggle
-                      SwitchListTile(
-                        activeThumbColor: const Color(0xFF7C4DFF),
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Run In-App Server (Direct GGUF)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Jalankan model .gguf langsung tanpa Ollama / LM Studio', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        value: dialogUseInAppServer,
-                        onChanged: (val) {
-                          setDialogState(() {
-                            dialogUseInAppServer = val;
-                          });
-                        },
+                      const TabBar(
+                        isScrollable: true,
+                        labelColor: Color(0xFF7C4DFF),
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: Color(0xFF7C4DFF),
+                        tabs: [
+                          Tab(text: 'Server & Cloud'),
+                          Tab(text: 'RAG Documents'),
+                          Tab(text: 'Trusted Folders'),
+                          Tab(text: 'Backup & Restore'),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      
-                      if (dialogUseInAppServer) ...[
-                        // In-App Server Fields
-                        const Text('llama-server Executable Path', style: TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: serverPathController,
-                                decoration: InputDecoration(
-                                  hintText: 'e.g. C:\\path\\to\\llama-server.exe',
-                                  fillColor: const Color(0xFF13131A),
-                                  filled: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
-                                foregroundColor: Colors.white,
-                              ),
-                              onPressed: () async {
-                                final result = await FilePicker.pickFile(
-                                  dialogTitle: 'Select llama-server executable',
-                                  type: FileType.any,
-                                );
-                                if (result != null && result.path != null) {
-                                  setDialogState(() {
-                                    serverPathController.text = result.path!;
-                                  });
-                                }
-                              },
-                              child: const Text('Browse'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        const Text('GGUF Model File Path', style: TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: modelPathController,
-                                decoration: InputDecoration(
-                                  hintText: 'e.g. C:\\path\\to\\model.gguf',
-                                  fillColor: const Color(0xFF13131A),
-                                  filled: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
-                                foregroundColor: Colors.white,
-                              ),
-                              onPressed: () async {
-                                final result = await FilePicker.pickFile(
-                                  dialogTitle: 'Select GGUF model file',
-                                  type: FileType.custom,
-                                  allowedExtensions: ['gguf'],
-                                );
-                                if (result != null && result.path != null) {
-                                  setDialogState(() {
-                                    modelPathController.text = result.path!;
-                                  });
-                                }
-                              },
-                              child: const Text('Browse'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Server Action Controller
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: dialogIsInAppServerRunning 
-                                    ? Colors.redAccent.withValues(alpha: 0.2) 
-                                    : const Color(0xFF00BFA5).withValues(alpha: 0.2),
-                                foregroundColor: dialogIsInAppServerRunning ? Colors.redAccent : const Color(0xFF00BFA5),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: isTesting 
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                                : Icon(dialogIsInAppServerRunning ? Icons.stop : Icons.play_arrow, size: 18),
-                              label: Text(dialogIsInAppServerRunning ? 'Stop Server' : 'Start Server'),
-                              onPressed: isTesting ? null : () async {
-                                if (dialogIsInAppServerRunning) {
-                                  setDialogState(() {
-                                    isTesting = true;
-                                    testResult = 'Stopping server...';
-                                  });
-                                  await notifier.stopInAppServer();
-                                  setDialogState(() {
-                                    isTesting = false;
-                                    dialogIsInAppServerRunning = false;
-                                    testResult = 'Server stopped.';
-                                  });
-                                } else {
-                                  if (serverPathController.text.trim().isEmpty || modelPathController.text.trim().isEmpty) {
-                                    setDialogState(() {
-                                      testResult = 'Error: Paths cannot be empty!';
-                                    });
-                                    return;
-                                  }
-                                  setDialogState(() {
-                                    isTesting = true;
-                                    testResult = 'Starting llama-server...';
-                                  });
-                                  final success = await notifier.startInAppServer(
-                                    serverPath: serverPathController.text.trim(),
-                                    modelPath: modelPathController.text.trim(),
-                                  );
-                                  setDialogState(() {
-                                    isTesting = false;
-                                    dialogIsInAppServerRunning = success;
-                                    testResult = success 
-                                        ? 'Server connected successfully!' 
-                                        : 'Failed to connect. Check paths.';
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                testResult.isEmpty 
-                                    ? (dialogIsInAppServerRunning ? 'Running on http://localhost:8080/v1' : 'Ready to start') 
-                                    : testResult,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: dialogIsInAppServerRunning ? Colors.greenAccent : Colors.grey,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        SwitchListTile(
-                          activeThumbColor: const Color(0xFF00BFA5),
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Expose Server to LAN (0.0.0.0)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('Izinkan HP/device lain di jaringan WiFi Anda untuk mengakses server ini', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                          value: ref.read(desktopChatProvider).exposeToLan,
-                          onChanged: (val) async {
-                            await notifier.updateLanSettings(exposeToLan: val);
-                            setDialogState(() {});
-                          },
-                        ),
-                        if (ref.read(desktopChatProvider).exposeToLan) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF13131A),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFF00BFA5).withValues(alpha: 0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final knowledgeState = ref.watch(desktopKnowledgeProvider);
+                            final knowledgeNotifier = ref.read(desktopKnowledgeProvider.notifier);
+                            final foldersState = ref.watch(desktopTrustedFoldersProvider);
+                            final foldersNotifier = ref.read(desktopTrustedFoldersProvider.notifier);
+
+                            return TabBarView(
                               children: [
-                                Row(
+                                // Tab 1: Server & Cloud
+                                SingleChildScrollView(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SwitchListTile(
+                                        activeThumbColor: const Color(0xFF7C4DFF),
+                                        contentPadding: EdgeInsets.zero,
+                                        title: const Text('Run In-App Server (Direct GGUF)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        subtitle: const Text('Jalankan model .gguf langsung tanpa Ollama / LM Studio', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                        value: dialogUseInAppServer,
+                                        onChanged: (val) {
+                                          setDialogState(() {
+                                            dialogUseInAppServer = val;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (dialogUseInAppServer) ...[
+                                        const Text('llama-server Executable Path', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: TextField(
+                                                controller: serverPathController,
+                                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                                decoration: InputDecoration(
+                                                  hintText: 'e.g. C:\\path\\to\\llama-server.exe',
+                                                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                                  fillColor: const Color(0xFF13131A),
+                                                  filled: true,
+                                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              onPressed: () async {
+                                                final result = await FilePickerPlatform.instance.pickFiles(
+                                                  dialogTitle: 'Select llama-server executable',
+                                                  type: FileType.any,
+                                                );
+                                                if (result.isNotEmpty && result.first.path != null) {
+                                                  setDialogState(() {
+                                                    serverPathController.text = result.first.path!;
+                                                  });
+                                                }
+                                              },
+                                              child: const Text('Browse'),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        const Text('GGUF Model File Path', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: TextField(
+                                                controller: modelPathController,
+                                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                                decoration: InputDecoration(
+                                                  hintText: 'e.g. C:\\path\\to\\model.gguf',
+                                                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                                  fillColor: const Color(0xFF13131A),
+                                                  filled: true,
+                                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.2),
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              onPressed: () async {
+                                                final result = await FilePickerPlatform.instance.pickFiles(
+                                                  dialogTitle: 'Select GGUF model file',
+                                                  type: FileType.custom,
+                                                  allowedExtensions: ['gguf'],
+                                                );
+                                                if (result.isNotEmpty && result.first.path != null) {
+                                                  setDialogState(() {
+                                                    modelPathController.text = result.first.path!;
+                                                  });
+                                                }
+                                              },
+                                              child: const Text('Browse'),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          children: [
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: dialogIsInAppServerRunning
+                                                    ? Colors.redAccent.withValues(alpha: 0.2)
+                                                    : const Color(0xFF00BFA5).withValues(alpha: 0.2),
+                                                foregroundColor: dialogIsInAppServerRunning ? Colors.redAccent : const Color(0xFF00BFA5),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              ),
+                                              icon: isTesting
+                                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                                  : Icon(dialogIsInAppServerRunning ? Icons.stop : Icons.play_arrow, size: 18),
+                                              label: Text(dialogIsInAppServerRunning ? 'Stop Server' : 'Start Server'),
+                                              onPressed: isTesting
+                                                  ? null
+                                                  : () async {
+                                                      if (dialogIsInAppServerRunning) {
+                                                        setDialogState(() {
+                                                          isTesting = true;
+                                                          testResult = 'Stopping server...';
+                                                        });
+                                                        await notifier.stopInAppServer();
+                                                        setDialogState(() {
+                                                          isTesting = false;
+                                                          dialogIsInAppServerRunning = false;
+                                                          testResult = 'Server stopped.';
+                                                        });
+                                                      } else {
+                                                        if (serverPathController.text.trim().isEmpty || modelPathController.text.trim().isEmpty) {
+                                                          setDialogState(() {
+                                                            testResult = 'Error: Paths cannot be empty!';
+                                                          });
+                                                          return;
+                                                        }
+                                                        setDialogState(() {
+                                                          isTesting = true;
+                                                          testResult = 'Starting llama-server...';
+                                                        });
+                                                        final success = await notifier.startInAppServer(
+                                                          serverPath: serverPathController.text.trim(),
+                                                          modelPath: modelPathController.text.trim(),
+                                                        );
+                                                        setDialogState(() {
+                                                          isTesting = false;
+                                                          dialogIsInAppServerRunning = success;
+                                                          testResult = success ? 'Server connected successfully!' : 'Failed to connect. Check paths.';
+                                                        });
+                                                      }
+                                                    },
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                testResult.isEmpty
+                                                    ? (dialogIsInAppServerRunning ? 'Running on http://localhost:8080/v1' : 'Ready to start')
+                                                    : testResult,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: dialogIsInAppServerRunning ? Colors.greenAccent : Colors.grey,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        SwitchListTile(
+                                          activeThumbColor: const Color(0xFF00BFA5),
+                                          contentPadding: EdgeInsets.zero,
+                                          title: const Text('Expose Server to LAN (0.0.0.0)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                                          subtitle: const Text('Izinkan HP/device lain di jaringan WiFi Anda untuk mengakses server ini', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                          value: state.exposeToLan,
+                                          onChanged: (val) async {
+                                            await notifier.updateLanSettings(exposeToLan: val);
+                                            setDialogState(() {});
+                                          },
+                                        ),
+                                        if (state.exposeToLan) ...[
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF13131A),
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: const Color(0xFF00BFA5).withValues(alpha: 0.3)),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: const [
+                                                    Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 16),
+                                                    SizedBox(width: 8),
+                                                    Text('Peringatan Keamanan', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 11)),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                const Text(
+                                                  'Pastikan Anda berada di jaringan WiFi tepercaya (misal: rumah sendiri, bukan WiFi publik) sebelum mengaktifkan fitur ini.',
+                                                  style: TextStyle(color: Colors.grey, fontSize: 10, height: 1.4),
+                                                ),
+                                                const Divider(color: Colors.white12, height: 16),
+                                                Text('IP Address: ${state.localIp}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                                                const SizedBox(height: 4),
+                                                const Text('Port: 8080', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                                                const SizedBox(height: 4),
+                                                Text('Pairing PIN: ${state.pairingPin}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.greenAccent)),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ] else ...[
+                                        const Text('Pilih API Type & URL sesuai server LLM lokal Anda (Ollama / LM Studio).', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                        const SizedBox(height: 16),
+                                        const Text('API Type', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
+                                        const SizedBox(height: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF13131A),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<String>(
+                                              value: selectedApiType,
+                                              isExpanded: true,
+                                              dropdownColor: const Color(0xFF1E1E26),
+                                              items: const [
+                                                DropdownMenuItem(value: 'Ollama', child: Text('Ollama', style: TextStyle(color: Colors.white))),
+                                                DropdownMenuItem(value: 'OpenAI-Compatible', child: Text('OpenAI-Compatible (LM Studio / llama-server)', style: TextStyle(color: Colors.white))),
+                                              ],
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() {
+                                                    selectedApiType = val;
+                                                    if (val == 'Ollama' && urlController.text.contains('1234')) {
+                                                      urlController.text = 'http://localhost:11434';
+                                                    } else if (val == 'OpenAI-Compatible' && urlController.text.contains('11434')) {
+                                                      urlController.text = 'http://localhost:1234/v1';
+                                                    }
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text('Base URL', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
+                                        const SizedBox(height: 6),
+                                        TextField(
+                                          controller: urlController,
+                                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                                          decoration: InputDecoration(
+                                            hintText: 'e.g. http://localhost:11434',
+                                            hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                            fillColor: const Color(0xFF13131A),
+                                            filled: true,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text('Active Model', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
+                                        const SizedBox(height: 6),
+                                        if (state.availableModels.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF13131A),
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                            ),
+                                            child: DropdownButtonHideUnderline(
+                                              child: DropdownButton<String>(
+                                                value: state.availableModels.contains(selectedModel) ? selectedModel : state.availableModels.first,
+                                                isExpanded: true,
+                                                dropdownColor: const Color(0xFF1E1E26),
+                                                items: state.availableModels.map((modelName) {
+                                                  return DropdownMenuItem(value: modelName, child: Text(modelName, style: const TextStyle(color: Colors.white)));
+                                                }).toList(),
+                                                onChanged: (val) {
+                                                  if (val != null) {
+                                                    setDialogState(() {
+                                                      selectedModel = val;
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          )
+                                        else
+                                          TextField(
+                                            controller: modelController,
+                                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                                            decoration: InputDecoration(
+                                              hintText: 'e.g. gemma:2b',
+                                              hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                              fillColor: const Color(0xFF13131A),
+                                              filled: true,
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(10),
+                                                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                                              ),
+                                            ),
+                                          ),
+                                        const SizedBox(height: 20),
+                                        Row(
+                                          children: [
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              ),
+                                              icon: isTesting
+                                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                                  : const Icon(Icons.bolt, size: 18),
+                                              label: const Text('Test & Discover Models'),
+                                              onPressed: isTesting
+                                                  ? null
+                                                  : () async {
+                                                      setDialogState(() {
+                                                        isTesting = true;
+                                                        testResult = 'Connecting...';
+                                                      });
+                                                      await notifier.updateSettings(
+                                                        baseUrl: urlController.text.trim(),
+                                                        apiType: selectedApiType,
+                                                        activeModel: state.availableModels.isNotEmpty ? selectedModel : modelController.text.trim(),
+                                                      );
+                                                      final currentChatState = ref.read(desktopChatProvider);
+                                                      setDialogState(() {
+                                                        isTesting = false;
+                                                        if (currentChatState.isServerConnected) {
+                                                          testResult = 'Success! Found ${currentChatState.availableModels.length} models.';
+                                                          if (currentChatState.availableModels.isNotEmpty) {
+                                                            selectedModel = currentChatState.activeModel;
+                                                          }
+                                                        } else {
+                                                          testResult = 'Connection Failed. Check URL & server.';
+                                                        }
+                                                      });
+                                                    },
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                testResult,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: testResult.contains('Success') ? Colors.greenAccent : (testResult.contains('Failed') ? Colors.redAccent : Colors.grey),
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                      const Divider(color: Colors.white12, height: 32),
+                                      const Text('Cloud Provider (Opsional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF7C4DFF))),
+                                      const SizedBox(height: 6),
+                                      const Text('Gunakan Google Gemini atau OpenAI sebagai asisten cadangan berdaya tinggi secara manual.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                      const SizedBox(height: 12),
+                                      const Text('Aktifkan Provider:', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Gemini', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'gemini',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  SecureStorageService.instance.write('active_cloud_provider', val);
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('OpenAI', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'openai',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  SecureStorageService.instance.write('active_cloud_provider', val);
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text('Gemini API Key', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
+                                              controller: geminiKeyController,
+                                              obscureText: obscureGeminiKey,
+                                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                                              decoration: InputDecoration(
+                                                hintText: 'API Key Gemini...',
+                                                hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                                fillColor: const Color(0xFF13131A),
+                                                filled: true,
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(obscureGeminiKey ? Icons.visibility_off : Icons.visibility, size: 18),
+                                                  onPressed: () => setDialogState(() => obscureGeminiKey = !obscureGeminiKey),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                            onPressed: () => deleteGeminiKey(setDialogState),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.15),
+                                              foregroundColor: const Color(0xFF7C4DFF),
+                                            ),
+                                            onPressed: isValidatingGemini ? null : () => validateGeminiKey(setDialogState),
+                                            child: isValidatingGemini
+                                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                                : const Text('Validasi & Simpan', style: TextStyle(fontSize: 11)),
+                                          ),
+                                          if (geminiValidationResult != null)
+                                            Text(
+                                              geminiValidationResult!,
+                                              style: TextStyle(
+                                                color: geminiValidationResult == 'Valid' ? const Color(0xFF00BFA5) : Colors.redAccent,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text('OpenAI API Key', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
+                                              controller: openaiKeyController,
+                                              obscureText: obscureOpenaiKey,
+                                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                                              decoration: InputDecoration(
+                                                hintText: 'API Key OpenAI...',
+                                                hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                                fillColor: const Color(0xFF13131A),
+                                                filled: true,
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(obscureOpenaiKey ? Icons.visibility_off : Icons.visibility, size: 18),
+                                                  onPressed: () => setDialogState(() => obscureOpenaiKey = !obscureOpenaiKey),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                            onPressed: () => deleteOpenaiKey(setDialogState),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.15),
+                                              foregroundColor: const Color(0xFF7C4DFF),
+                                            ),
+                                            onPressed: isValidatingOpenai ? null : () => validateOpenaiKey(setDialogState),
+                                            child: isValidatingOpenai
+                                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                                : const Text('Validasi & Simpan', style: TextStyle(fontSize: 11)),
+                                          ),
+                                          if (openaiValidationResult != null)
+                                            Text(
+                                              openaiValidationResult!,
+                                              style: TextStyle(
+                                                color: openaiValidationResult == 'Valid' ? const Color(0xFF00BFA5) : Colors.redAccent,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      if (activeCloudProvider == 'openai') ...[
+                                        const SizedBox(height: 12),
+                                        const Text('OpenAI Model', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                        const SizedBox(height: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF13131A),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<String>(
+                                              value: openaiModel,
+                                              dropdownColor: const Color(0xFF1E1E26),
+                                              isExpanded: true,
+                                              items: const [
+                                                DropdownMenuItem(value: 'gpt-4o-mini', child: Text('gpt-4o-mini', style: TextStyle(color: Colors.white, fontSize: 12))),
+                                                DropdownMenuItem(value: 'gpt-4o', child: Text('gpt-4o', style: TextStyle(color: Colors.white, fontSize: 12))),
+                                                DropdownMenuItem(value: 'o1-mini', child: Text('o1-mini', style: TextStyle(color: Colors.white, fontSize: 12))),
+                                              ],
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => openaiModel = val);
+                                                  SecureStorageService.instance.write('openai_model', val);
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+
+                                // Tab 2: RAG Documents
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 16),
-                                    const SizedBox(width: 8),
-                                    const Text('Peringatan Keamanan', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 11)),
+                                    const Text('Sumber Pengetahuan (RAG)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF7C4DFF))),
+                                    const SizedBox(height: 6),
+                                    const Text('Latih asisten AURA dengan mengunggah dokumen pribadi Anda (.txt, .md, .pdf) ke dalam memori vektor lokal.', style: TextStyle(color: Colors.grey, fontSize: 11, height: 1.4)),
+                                    const SizedBox(height: 12),
+                                    if (knowledgeState.isImporting && knowledgeState.importingProgressText != null)
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF7C4DFF).withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.3)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7C4DFF))),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(knowledgeState.importingProgressText!, style: const TextStyle(color: Color(0xFF7C4DFF), fontSize: 11, fontWeight: FontWeight.w500)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    Expanded(
+                                      child: knowledgeState.sources.isEmpty
+                                          ? Center(
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.library_books_outlined, size: 40, color: Colors.grey.withValues(alpha: 0.5)),
+                                                  const SizedBox(height: 8),
+                                                  const Text('Belum ada dokumen', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                  const SizedBox(height: 4),
+                                                  const Text('Impor file untuk melatih memori vektor AURA.', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                                ],
+                                              ),
+                                            )
+                                          : ListView.builder(
+                                              itemCount: knowledgeState.sources.length,
+                                              itemBuilder: (context, index) {
+                                                final doc = knowledgeState.sources[index];
+                                                final isPdf = doc.name.toLowerCase().endsWith('.pdf');
+                                                return Card(
+                                                  color: const Color(0xFF13131A),
+                                                  elevation: 0,
+                                                  margin: const EdgeInsets.only(bottom: 8),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                                                  ),
+                                                  child: ListTile(
+                                                    dense: true,
+                                                    leading: Icon(isPdf ? Icons.picture_as_pdf : Icons.description, color: isPdf ? Colors.redAccent : const Color(0xFF00BFA5)),
+                                                    title: Text(doc.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                                    subtitle: Text('${doc.chunkCount} chunks • ${doc.path}', style: const TextStyle(color: Colors.grey, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                    trailing: IconButton(
+                                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                                      onPressed: () async {
+                                                        final deleteConfirmed = await showDialog<bool>(
+                                                          context: context,
+                                                          builder: (ctx) => AlertDialog(
+                                                            backgroundColor: const Color(0xFF1E1E26),
+                                                            title: const Text('Hapus Dokumen?', style: TextStyle(color: Colors.white)),
+                                                            content: Text('Apakah Anda yakin ingin menghapus "${doc.name}" dari basis pengetahuan? Seluruh potongan memori vektornya juga akan dibersihkan.'),
+                                                            actions: [
+                                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
+                                                              ElevatedButton(
+                                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                                                onPressed: () => Navigator.pop(ctx, true),
+                                                                child: const Text('Hapus'),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                        if (deleteConfirmed == true) {
+                                                          setDialogState(() {});
+                                                          await knowledgeNotifier.deleteDocument(doc.id);
+                                                          setDialogState(() {});
+                                                        }
+                                                      },
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF7C4DFF),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                        icon: const Icon(Icons.upload_file, size: 16),
+                                        label: const Text('Tambah Dokumen (.txt, .md, .pdf)'),
+                                        onPressed: knowledgeState.isImporting
+                                            ? null
+                                            : () async {
+                                                final result = await FilePickerPlatform.instance.pickFiles(
+                                                  type: FileType.custom,
+                                                  allowedExtensions: ['txt', 'md', 'pdf'],
+                                                );
+                                                if (result.isNotEmpty && result.first.path != null) {
+                                                  setDialogState(() {});
+                                                  await knowledgeNotifier.importDocument(result.first.path!);
+                                                  setDialogState(() {});
+                                                }
+                                              },
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Pastikan Anda berada di jaringan WiFi tepercaya (misal: rumah sendiri, bukan WiFi publik) sebelum mengaktifkan fitur ini.',
-                                  style: TextStyle(color: Colors.grey, fontSize: 10, height: 1.4),
-                                ),
-                                const Divider(color: Colors.white12, height: 16),
-                                Text('IP Address: ${ref.read(desktopChatProvider).localIp}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
-                                const SizedBox(height: 4),
-                                const Text('Port: 8080', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
-                                const SizedBox(height: 4),
-                                Text('Pairing PIN: ${ref.read(desktopChatProvider).pairingPin}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.greenAccent)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ] else ...[
-                        const Text(
-                          'Pilih API Type & URL sesuai server LLM lokal Anda (Ollama / LM Studio).',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // API Type Dropdown
-                        const Text('API Type', style: TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF13131A),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedApiType,
-                              isExpanded: true,
-                              dropdownColor: const Color(0xFF1E1E26),
-                              items: const [
-                                DropdownMenuItem(value: 'Ollama', child: Text('Ollama')),
-                                DropdownMenuItem(value: 'OpenAI-Compatible', child: Text('OpenAI-Compatible (LM Studio / llama-server)')),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    selectedApiType = val;
-                                    if (val == 'Ollama' && urlController.text.contains('1234')) {
-                                      urlController.text = 'http://localhost:11434';
-                                    } else if (val == 'OpenAI-Compatible' && urlController.text.contains('11434')) {
-                                      urlController.text = 'http://localhost:1234/v1';
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Base URL
-                        const Text('Base URL', style: TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: urlController,
-                          decoration: InputDecoration(
-                            hintText: 'e.g. http://localhost:11434',
-                            fillColor: const Color(0xFF13131A),
-                            filled: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
 
-                        // Model selection
-                        const Text('Active Model', style: TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        if (state.availableModels.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF13131A),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: state.availableModels.contains(selectedModel) ? selectedModel : state.availableModels.first,
-                                isExpanded: true,
-                                dropdownColor: const Color(0xFF1E1E26),
-                                items: state.availableModels.map((modelName) {
-                                  return DropdownMenuItem(value: modelName, child: Text(modelName));
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setDialogState(() {
-                                      selectedModel = val;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          )
-                        else
-                          TextField(
-                            controller: modelController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g. gemma:2b',
-                              fillColor: const Color(0xFF13131A),
-                              filled: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                              ),
-                            ),
-                          ),
-                        
-                        const SizedBox(height: 20),
-                        
-                        // Test Connection Button & Result
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: isTesting 
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                                : const Icon(Icons.bolt, size: 18),
-                              label: const Text('Test & Discover Models'),
-                              onPressed: isTesting ? null : () async {
-                                setDialogState(() {
-                                  isTesting = true;
-                                  testResult = 'Connecting...';
-                                });
-                                
-                                await notifier.updateSettings(
-                                  baseUrl: urlController.text.trim(),
-                                  apiType: selectedApiType,
-                                  activeModel: state.availableModels.isNotEmpty ? selectedModel : modelController.text.trim(),
-                                );
-                                
-                                final currentChatState = ref.read(desktopChatProvider);
-                                setDialogState(() {
-                                  isTesting = false;
-                                  if (currentChatState.isServerConnected) {
-                                    testResult = 'Success! Found ${currentChatState.availableModels.length} models.';
-                                    if (currentChatState.availableModels.isNotEmpty) {
-                                      selectedModel = currentChatState.activeModel;
-                                    }
-                                  } else {
-                                    testResult = 'Connection Failed. Check URL & server.';
-                                  }
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                testResult,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: testResult.contains('Success') ? Colors.greenAccent : (testResult.contains('Failed') ? Colors.redAccent : Colors.grey),
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    const Divider(color: Colors.white12, height: 32),
-                    const Text(
-                      'Backup & Restore',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5)),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Ekspor atau impor riwayat sesi obrolan, persona, dan memori AURA (.aurabackup).',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.08),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.download, size: 16),
-                          label: const Text('Export Backup'),
-                          onPressed: () async {
-                            try {
-                              final jsonData = await BackupService.instance.exportBackupData();
-                              final bytes = utf8.encode(jsonData);
-                              final result = await FilePicker.saveFile(
-                                dialogTitle: 'Save AURA Backup',
-                                fileName: 'aura_backup_${DateTime.now().toIso8601String().substring(0, 10)}.aurabackup',
-                                bytes: bytes,
-                              );
-                              if (result != null) {
-                                setDialogState(() {
-                                  testResult = '✅ Backup exported successfully!';
-                                });
-                              }
-                            } catch (e) {
-                              setDialogState(() {
-                                testResult = '❌ Export failed: $e';
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.08),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.upload, size: 16),
-                          label: const Text('Import Backup'),
-                          onPressed: () async {
-                            try {
-                              final result = await FilePicker.pickFile(
-                                dialogTitle: 'Select AURA Backup File',
-                                type: FileType.any,
-                              );
-                              if (result != null && result.path != null) {
-                                final fileContent = await File(result.path!).readAsString();
-                                final validation = BackupService.instance.validateBackup(fileContent);
-                                if (!validation.isValid) {
-                                  setDialogState(() {
-                                    testResult = '❌ Invalid backup: ${validation.errorMessage}';
-                                  });
-                                  return;
-                                }
-
-                                // Show confirmation dialog
-                                if (!context.mounted) return;
-                                final restoreConfirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    backgroundColor: const Color(0xFF1E1E26),
-                                    title: const Text('Confirm Restore'),
-                                    content: Text(
-                                      'Apakah Anda yakin ingin me-restore backup ini?\n\n'
-                                      'Peringatan: Seluruh data saat ini (sesi chat, pesan, dll) akan dihapus dan digantikan oleh data backup.\n\n'
-                                      'Detail Backup:\n'
-                                      '- Sesi Chat: ${validation.sessionCount}\n'
-                                      '- Total Pesan: ${validation.messageCount}\n'
-                                      '- Tanggal Ekspor: ${validation.exportedAt?.toLocal() ?? 'Tidak diketahui'}',
+                                // Tab 3: Trusted Folders
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Folder Terpercaya (Read-Only)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5))),
+                                    const SizedBox(height: 6),
+                                    const Text('Daftar folder lokal yang diizinkan untuk diakses asisten AURA secara langsung saat diminta (read-only, tanpa write/execute).', style: TextStyle(color: Colors.grey, fontSize: 11, height: 1.4)),
+                                    const SizedBox(height: 12),
+                                    Expanded(
+                                      child: foldersState.folders.isEmpty
+                                          ? Center(
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.folder_shared_outlined, size: 40, color: Colors.grey.withValues(alpha: 0.5)),
+                                                  const SizedBox(height: 8),
+                                                  const Text('Belum ada folder', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                  const SizedBox(height: 4),
+                                                  const Text('Tambahkan folder untuk memberi akses asisten AURA.', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                                ],
+                                              ),
+                                            )
+                                          : ListView.builder(
+                                              itemCount: foldersState.folders.length,
+                                              itemBuilder: (context, index) {
+                                                final folder = foldersState.folders[index];
+                                                final folderId = folder['id'] as int;
+                                                final folderPath = folder['path'] as String;
+                                                return Card(
+                                                  color: const Color(0xFF13131A),
+                                                  elevation: 0,
+                                                  margin: const EdgeInsets.only(bottom: 8),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                                                  ),
+                                                  child: ListTile(
+                                                    dense: true,
+                                                    leading: const Icon(Icons.folder_open, color: Color(0xFF00BFA5)),
+                                                    title: Text(path_lib.basename(folderPath), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                                    subtitle: Text(folderPath, style: const TextStyle(color: Colors.grey, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                    trailing: IconButton(
+                                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                                      onPressed: () async {
+                                                        final deleteConfirmed = await showDialog<bool>(
+                                                          context: context,
+                                                          builder: (ctx) => AlertDialog(
+                                                            backgroundColor: const Color(0xFF1E1E26),
+                                                            title: const Text('Hapus Folder Terpercaya?', style: TextStyle(color: Colors.white)),
+                                                            content: Text('Apakah Anda yakin ingin menghapus "$folderPath" dari whitelist? AURA tidak akan bisa membaca berkas dari direktori ini.'),
+                                                            actions: [
+                                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
+                                                              ElevatedButton(
+                                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                                                onPressed: () => Navigator.pop(ctx, true),
+                                                                child: const Text('Hapus'),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                        if (deleteConfirmed == true) {
+                                                          setDialogState(() {});
+                                                          await foldersNotifier.removeFolder(folderId);
+                                                          setDialogState(() {});
+                                                        }
+                                                      },
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, false),
-                                        child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF00BFA5),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                        icon: const Icon(Icons.create_new_folder, size: 16),
+                                        label: const Text('Tambah Folder Whitelist'),
+                                        onPressed: () async {
+                                          final path = await FilePickerPlatform.instance.getDirectoryPath();
+                                          if (path != null && path.isNotEmpty) {
+                                            setDialogState(() {});
+                                            await foldersNotifier.addFolder(path);
+                                            setDialogState(() {});
+                                          }
+                                        },
                                       ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        child: const Text('Restore Data'),
+                                    ),
+                                  ],
+                                ),
+
+                                // Tab 4: Backup & Restore
+                                SingleChildScrollView(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Backup & Restore', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00BFA5))),
+                                      const SizedBox(height: 6),
+                                      const Text('Ekspor atau impor riwayat sesi obrolan, persona, dan memori AURA (.aurabackup).', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                            icon: const Icon(Icons.download, size: 16),
+                                            label: const Text('Export Backup'),
+                                            onPressed: () async {
+                                              try {
+                                                final jsonData = await BackupService.instance.exportBackupData();
+                                                final bytes = utf8.encode(jsonData);
+                                                final result = await FilePickerPlatform.instance.saveFile(
+                                                  dialogTitle: 'Save AURA Backup',
+                                                  fileName: 'aura_backup_${DateTime.now().toIso8601String().substring(0, 10)}.aurabackup',
+                                                  bytes: bytes,
+                                                  mimeType: 'application/octet-stream',
+                                                );
+                                                if (result != null) {
+                                                  setDialogState(() {
+                                                    testResult = '✅ Backup exported successfully!';
+                                                  });
+                                                }
+                                              } catch (e) {
+                                                setDialogState(() {
+                                                  testResult = '❌ Export failed: $e';
+                                                });
+                                              }
+                                            },
+                                          ),
+                                          const SizedBox(width: 12),
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                            icon: const Icon(Icons.upload, size: 16),
+                                            label: const Text('Import Backup'),
+                                            onPressed: () async {
+                                              try {
+                                                final result = await FilePickerPlatform.instance.pickFiles(
+                                                  dialogTitle: 'Select AURA Backup File',
+                                                  type: FileType.any,
+                                                );
+                                                if (result.isNotEmpty && result.first.path != null) {
+                                                  final fileContent = await File(result.first.path!).readAsString();
+                                                  final validation = BackupService.instance.validateBackup(fileContent);
+                                                  if (!validation.isValid) {
+                                                    setDialogState(() {
+                                                      testResult = '❌ Invalid backup: ${validation.errorMessage}';
+                                                    });
+                                                    return;
+                                                  }
+                                                  if (!context.mounted) return;
+                                                  final restoreConfirmed = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (ctx) => AlertDialog(
+                                                      backgroundColor: const Color(0xFF1E1E26),
+                                                      title: const Text('Confirm Restore'),
+                                                      content: Text(
+                                                        'Apakah Anda yakin ingin me-restore backup ini?\n\n'
+                                                        'Peringatan: Seluruh data saat ini (sesi chat, pesan, dll) akan dihapus dan digantikan oleh data backup.\n\n'
+                                                        'Detail Backup:\n'
+                                                        '- Sesi Chat: ${validation.sessionCount}\n'
+                                                        '- Total Pesan: ${validation.messageCount}\n'
+                                                        '- Tanggal Ekspor: ${validation.exportedAt?.toLocal() ?? 'Tidak diketahui'}',
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(ctx, false),
+                                                          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                                        ),
+                                                        ElevatedButton(
+                                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                                          onPressed: () => Navigator.pop(ctx, true),
+                                                          child: const Text('Restore Data'),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                  if (restoreConfirmed == true) {
+                                                    final success = await BackupService.instance.restoreBackupData(fileContent);
+                                                    if (success) {
+                                                      setDialogState(() {
+                                                        testResult = '✅ Restore successful!';
+                                                      });
+                                                      await notifier.loadSessions();
+                                                    } else {
+                                                      setDialogState(() {
+                                                        testResult = '❌ Restore failed.';
+                                                      });
+                                                    }
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                setDialogState(() {
+                                                  testResult = '❌ Import failed: $e';
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                );
-
-                                if (restoreConfirmed == true) {
-                                  final success = await BackupService.instance.restoreBackupData(fileContent);
-                                  if (success) {
-                                    setDialogState(() {
-                                      testResult = '✅ Restore successful!';
-                                    });
-                                    await notifier.loadSessions();
-                                  } else {
-                                    setDialogState(() {
-                                      testResult = '❌ Restore failed.';
-                                    });
-                                  }
-                                }
-                              }
-                            } catch (e) {
-                              setDialogState(() {
-                                testResult = '❌ Import failed: $e';
-                              });
-                            }
+                                ),
+                              ],
+                            );
                           },
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C4DFF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ],
                   ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C4DFF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   onPressed: () async {
                     final navigator = Navigator.of(context);
+                    
+                    // Save API Keys directly on Save & Apply
+                    final geminiKey = geminiKeyController.text.trim();
+                    final openaiKey = openaiKeyController.text.trim();
+                    if (geminiKey.isNotEmpty) {
+                      await SecureStorageService.instance.write('gemini_api_key', geminiKey);
+                    } else {
+                      await SecureStorageService.instance.delete('gemini_api_key');
+                    }
+                    if (openaiKey.isNotEmpty) {
+                      await SecureStorageService.instance.write('openai_api_key', openaiKey);
+                    } else {
+                      await SecureStorageService.instance.delete('openai_api_key');
+                    }
+
                     if (dialogUseInAppServer) {
                       await notifier.updateSettings(
                         baseUrl: 'http://localhost:8080/v1',
@@ -660,9 +1196,10 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                     }
                     navigator.pop();
                   },
-                  child: const Text('Save & Apply'),
-                ),
-              ],
+                    child: const Text('Save & Apply'),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -1121,7 +1658,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
           // Enter only: send chat
           final text = _messageController.text;
           if (text.trim().isNotEmpty && !chatState.isLoading) {
-            chatNotifier.sendMessage(text);
+            chatNotifier.sendMessage(text, useCloud: useCloudAssistant);
             _messageController.clear();
           }
           return KeyEventResult.handled;
@@ -1146,12 +1683,48 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                         ),
                         const SizedBox(width: 16),
                         
+                        // Cloud Toggle Button
+                        IconButton(
+                          icon: Icon(
+                            useCloudAssistant ? Icons.cloud_done_rounded : Icons.cloud_outlined,
+                            color: useCloudAssistant ? const Color(0xFF7C4DFF) : Colors.grey,
+                            size: 20,
+                          ),
+                          tooltip: 'Gunakan Asisten Cloud',
+                          onPressed: () async {
+                            final geminiKey = await SecureStorageService.instance.read('gemini_api_key') ?? '';
+                            final openaiKey = await SecureStorageService.instance.read('openai_api_key') ?? '';
+                            if (geminiKey.isEmpty && openaiKey.isEmpty) {
+                              if (!context.mounted) return;
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  backgroundColor: const Color(0xFF1E1E26),
+                                  title: const Text('API Key Kosong', style: TextStyle(color: Colors.white)),
+                                  content: const Text('Kunci API Cloud kosong. Silakan isi API Key di Settings terlebih dahulu.', style: TextStyle(color: Colors.white70)),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('OK', style: TextStyle(color: Color(0xFF7C4DFF))),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              return;
+                            }
+                            setState(() {
+                              useCloudAssistant = !useCloudAssistant;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        
                         // Send Button
                         InkWell(
                           onTap: chatState.isLoading ? null : () {
                             final text = _messageController.text;
                             if (text.trim().isNotEmpty) {
-                              chatNotifier.sendMessage(text);
+                              chatNotifier.sendMessage(text, useCloud: useCloudAssistant);
                               _messageController.clear();
                             }
                           },

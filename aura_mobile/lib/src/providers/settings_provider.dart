@@ -13,6 +13,8 @@ class _PrefKeys {
   static const desktopIp = 'desktop_ip';
   static const desktopPort = 'desktop_port';
   static const desktopPin = 'desktop_pin';
+  static const activeCloudProvider = 'active_cloud_provider';
+  static const openaiModel = 'openai_model';
 }
 
 /// State untuk pengaturan aplikasi
@@ -26,6 +28,8 @@ class SettingsState {
     this.desktopIp = '',
     this.desktopPort = '8080',
     this.desktopPin = '',
+    this.activeCloudProvider = 'gemini',
+    this.openaiModel = 'gpt-4o-mini',
   });
 
   /// Batas iterasi agentic loop per giliran (Rule 06-backup-safety-cap.md)
@@ -46,6 +50,8 @@ class SettingsState {
   final String desktopIp;
   final String desktopPort;
   final String desktopPin;
+  final String activeCloudProvider;
+  final String openaiModel;
 
   /// Apakah sudah >7 hari sejak backup terakhir
   bool get shouldRemindBackup {
@@ -70,6 +76,8 @@ class SettingsState {
     String? desktopIp,
     String? desktopPort,
     String? desktopPin,
+    String? activeCloudProvider,
+    String? openaiModel,
     bool clearBackupTimestamp = false,
   }) {
     return SettingsState(
@@ -83,6 +91,8 @@ class SettingsState {
       desktopIp: desktopIp ?? this.desktopIp,
       desktopPort: desktopPort ?? this.desktopPort,
       desktopPin: desktopPin ?? this.desktopPin,
+      activeCloudProvider: activeCloudProvider ?? this.activeCloudProvider,
+      openaiModel: openaiModel ?? this.openaiModel,
     );
   }
 }
@@ -105,6 +115,8 @@ class SettingsNotifier extends _$SettingsNotifier {
     final ip = prefs.getString(_PrefKeys.desktopIp) ?? '';
     final port = prefs.getString(_PrefKeys.desktopPort) ?? '8080';
     final pin = prefs.getString(_PrefKeys.desktopPin) ?? '';
+    final cloudProvider = prefs.getString(_PrefKeys.activeCloudProvider) ?? 'gemini';
+    final model = prefs.getString(_PrefKeys.openaiModel) ?? 'gpt-4o-mini';
 
     state = SettingsState(
       maxAgentIterations: maxIter.clamp(4, 16),
@@ -115,6 +127,8 @@ class SettingsNotifier extends _$SettingsNotifier {
       desktopIp: ip,
       desktopPort: port,
       desktopPin: pin,
+      activeCloudProvider: cloudProvider,
+      openaiModel: model,
     );
   }
 
@@ -170,5 +184,17 @@ class SettingsNotifier extends _$SettingsNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_PrefKeys.desktopPin, value.trim());
     state = state.copyWith(desktopPin: value.trim());
+  }
+
+  Future<void> setActiveCloudProvider(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.activeCloudProvider, value.trim());
+    state = state.copyWith(activeCloudProvider: value.trim());
+  }
+
+  Future<void> setOpenaiModel(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.openaiModel, value.trim());
+    state = state.copyWith(openaiModel: value.trim());
   }
 }

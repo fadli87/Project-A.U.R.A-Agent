@@ -473,6 +473,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
               const SizedBox(width: 8),
               IconButton(
+                onPressed: () async {
+                  final geminiKey = await SecureStorageService.instance.read('gemini_api_key') ?? '';
+                  final openaiKey = await SecureStorageService.instance.read('openai_api_key') ?? '';
+                  if (geminiKey.isEmpty && openaiKey.isEmpty) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Kunci API Cloud kosong. Silakan isi API Key di Pengaturan terlebih dahulu.'),
+                        duration: Duration(seconds: 3),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                    return;
+                  }
+                  
+                  ref.read(inferenceProvider.notifier).toggleCloudAssistant();
+                  
+                  if (!mounted) return;
+                  final isCloudActive = ref.read(inferenceProvider).useCloudAssistant;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isCloudActive
+                            ? 'Cloud Provider aktif untuk pesan berikutnya'
+                            : 'Cloud Provider dinonaktifkan (menggunakan model lokal)',
+                      ),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: Icon(
+                  ref.watch(inferenceProvider).useCloudAssistant
+                      ? Icons.cloud_done_rounded
+                      : Icons.cloud_outlined,
+                  color: ref.watch(inferenceProvider).useCloudAssistant
+                      ? AppTheme.primary
+                      : AppTheme.textMuted,
+                  size: 22,
+                ),
+                tooltip: 'Gunakan Asisten Cloud',
+              ),
+              const SizedBox(width: 4),
+              IconButton(
                 onPressed: () {
                   final settings = ref.read(settingsProvider);
                   final nextVal = !settings.useDesktopAssistant;
@@ -1083,6 +1130,28 @@ class _ChatBubble extends StatelessWidget {
   }
 
   Widget _buildAssistantBubble(BuildContext context) {
+    String cleanContent = message.content;
+    String? sourceBadge;
+    Color? badgeBgColor;
+    Color? badgeTextColor;
+
+    if (cleanContent.contains('<!-- gemini -->')) {
+      sourceBadge = 'Gemini Cloud';
+      badgeBgColor = const Color(0xFF7C4DFF).withValues(alpha: 0.15);
+      badgeTextColor = const Color(0xFFB388FF);
+      cleanContent = cleanContent.replaceAll('<!-- gemini -->', '').trim();
+    } else if (cleanContent.contains('<!-- openai -->')) {
+      sourceBadge = 'OpenAI Cloud';
+      badgeBgColor = const Color(0xFF00BFA5).withValues(alpha: 0.15);
+      badgeTextColor = const Color(0xFF64FFDA);
+      cleanContent = cleanContent.replaceAll('<!-- openai -->', '').trim();
+    } else if (cleanContent.contains('<!-- desktop -->')) {
+      sourceBadge = 'Desktop LAN';
+      badgeBgColor = const Color(0xFF00B0FF).withValues(alpha: 0.15);
+      badgeTextColor = const Color(0xFF40C4FF);
+      cleanContent = cleanContent.replaceAll('<!-- desktop -->', '').trim();
+    }
+
     return Align(
       alignment: Alignment.centerLeft,
       child: GestureDetector(
@@ -1105,9 +1174,9 @@ class _ChatBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             MarkdownBody(
-              data: message.content.isEmpty && message.isStreaming
+              data: cleanContent.isEmpty && message.isStreaming
                   ? '▊' // blinking cursor placeholder
-                  : EmojiParser.replaceShortcodes(message.content),
+                  : EmojiParser.replaceShortcodes(cleanContent),
               styleSheet: MarkdownStyleSheet(
                 p: const TextStyle(
                   color: AppTheme.textPrimary,
@@ -1142,6 +1211,26 @@ class _ChatBubble extends StatelessWidget {
                 ),
               ),
             ),
+            if (sourceBadge != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeBgColor,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: badgeTextColor!.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  sourceBadge,
+                  style: TextStyle(
+                    color: badgeTextColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
             if (message.isStreaming)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
