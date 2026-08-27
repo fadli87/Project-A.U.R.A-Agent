@@ -472,6 +472,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ),
               const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {
+                  final settings = ref.read(settingsProvider);
+                  final nextVal = !settings.useDesktopAssistant;
+                  ref.read(settingsProvider.notifier).setUseDesktopAssistant(nextVal);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        nextVal 
+                            ? 'Asisten Desktop diaktifkan untuk pesan berikutnya' 
+                            : 'Asisten Desktop dinonaktifkan (menggunakan model lokal)',
+                      ),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: Icon(
+                  ref.watch(settingsProvider).useDesktopAssistant
+                      ? Icons.computer_rounded
+                      : Icons.computer_outlined,
+                  color: ref.watch(settingsProvider).useDesktopAssistant
+                      ? AppTheme.secondary
+                      : AppTheme.textMuted,
+                  size: 22,
+                ),
+                tooltip: 'Gunakan Asisten Desktop (LAN)',
+              ),
+              const SizedBox(width: 8),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 child: IconButton.filled(
