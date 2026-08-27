@@ -4,6 +4,13 @@ Baca ini sebelum mengerjakan Fase 11. Fitur ini MEMPERLUAS infrastruktur Fase 4
 (embedding_service.dart + ObjectBox) ke sumber baru: dokumen yang dipilih user, bukan
 cuma riwayat chat.
 
+## Cakupan platform — WAJIB di kedua platform, bukan Mobile-only
+Fitur ini berlaku untuk `aura_mobile` DAN `aura_desktop` — logic inti (ekstraksi,
+chunking, embedding, retrieval) harus ditaruh di `aura_core` (shared) supaya otomatis
+tersedia di keduanya. UI Settings untuk import/kelola dokumen harus dibangun TERPISAH di
+tiap platform (karena widget UI tidak selalu portable identik), tapi memanggil service
+yang sama dari `aura_core` — jangan duplikasi logic-nya.
+
 ## Prinsip inti
 - User **secara eksplisit** memilih dokumen mana yang di-index — TIDAK ADA scan otomatis
   ke seluruh storage/PC. Sama pola dengan Import GGUF (`file_picker`/SAF) yang sudah ada.

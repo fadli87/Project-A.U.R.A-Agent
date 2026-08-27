@@ -6,6 +6,15 @@ dipilih karena model 1-4B on-device kurang reliable untuk dipercaya akses PC tan
 (lihat alasan penuh di riwayat diskusi; ringkasnya: risiko command/akses destruktif dari
 tool-call yang salah tafsir terlalu tinggi untuk kelas model ini).
 
+## Cakupan platform — WAJIB di kedua platform, JUSTRU LEBIH PENTING di Desktop
+Fitur ini berlaku untuk `aura_mobile` DAN `aura_desktop`. Di Desktop ini bahkan lebih
+relevan daripada di Mobile — Desktop berjalan LANGSUNG di PC tempat file-file berada,
+sementara Mobile baru bisa "menyentuh" PC secara tidak langsung lewat Fase 12 (Hybrid
+Routing). Logic validasi whitelist (`read_local_file`, resolve path, cek prefix) harus di
+`aura_core` (shared), UI "Folder yang Bisa Dibaca AURA" dibangun terpisah di tiap platform
+(folder picker berbeda API antara Android SAF dan Desktop file dialog) tapi memanggil
+service yang sama.
+
 ## Batasan keras — JANGAN dilonggarkan tanpa diskusi ulang eksplisit dengan user
 1. **HANYA baca (read-only).** TIDAK ADA kemampuan tulis, edit, rename, hapus file/folder
    apapun lewat tool ini. Titik.
