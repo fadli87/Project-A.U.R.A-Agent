@@ -20,11 +20,11 @@ class SessionHeatmapWidget extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSessionBadge('Tokyo', '00-09', isTokyoOpen),
+          _buildCompactBadge('Tokyo', isTokyoOpen),
           const SizedBox(width: 4),
-          _buildSessionBadge('London', '08-17', isLondonOpen),
+          _buildCompactBadge('London', isLondonOpen),
           const SizedBox(width: 4),
-          _buildSessionBadge('New York', '13-22', isNewYorkOpen),
+          _buildCompactBadge('New York', isNewYorkOpen),
         ],
       );
     }
@@ -113,6 +113,44 @@ class SessionHeatmapWidget extends StatelessWidget {
               color: isOpen ? const Color(0xFF00E676) : Colors.white38,
               fontSize: 9,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactBadge(String name, bool isOpen) {
+    final activeColor = isOpen ? const Color(0xFF00E676) : Colors.white24;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
+      decoration: BoxDecoration(
+        color: isOpen
+            ? const Color(0xFF00E676).withValues(alpha: 0.15)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isOpen ? const Color(0xFF00E676).withValues(alpha: 0.4) : Colors.transparent,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: activeColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            name,
+            style: TextStyle(
+              color: isOpen ? Colors.white : Colors.white54,
+              fontWeight: FontWeight.bold,
+              fontSize: 10.5,
             ),
           ),
         ],

@@ -350,7 +350,7 @@ class _TradeJournalWidgetState extends State<TradeJournalWidget> {
                                     ),
                                     child: Text(
                                       item.aiReview!,
-                                      style: const TextStyle(color: Colors.white90, fontSize: 10.5),
+                                      style: const TextStyle(color: Colors.white, fontSize: 10.5),
                                     ),
                                   )
                                 else
