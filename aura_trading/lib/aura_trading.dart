@@ -8,10 +8,12 @@ export 'data/models/trade_journal.dart';
 
 export 'data/sources/yahoo_finance_api.dart';
 export 'data/sources/twelve_data_api.dart';
+export 'data/sources/local/trading_database.dart';
 export 'data/sources/unified/market_data_repository.dart';
 
 export 'domain/indicators.dart';
 export 'domain/position_sizer.dart';
+export 'domain/paper_trading_engine.dart';
 
 export 'ai/prompts/trading_coach_prompt.dart';
 export 'ai/trading_tools.dart';
@@ -21,3 +23,6 @@ export 'presentation/widgets/candlestick_chart.dart';
 export 'presentation/widgets/watchlist_tile.dart';
 export 'presentation/widgets/risk_card.dart';
 export 'presentation/widgets/session_heatmap.dart';
+export 'presentation/widgets/trade_journal_widget.dart';
+export 'presentation/widgets/risk_dashboard_widget.dart';
+

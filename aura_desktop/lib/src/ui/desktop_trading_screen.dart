@@ -15,6 +15,7 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
   bool _isAiReplying = false;
   final bool _showEMA20 = true;
   final bool _showEMA50 = true;
+  int _selectedMiddleTab = 0; // 0: Watchlist & Risk, 1: Trade Journal, 2: Risk Dashboard
 
   @override
   void initState() {
@@ -287,41 +288,105 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const RiskCardWidget(),
-          const SizedBox(height: 12),
-          const Text(
-            'Market Watchlist',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-          const SizedBox(height: 6),
-          Expanded(
-            child: watchlistAsync.when(
-              data: (tickers) {
-                return ListView.builder(
-                  itemCount: tickers.length,
-                  itemBuilder: (context, index) {
-                    final item = tickers[index];
-                    return WatchlistTile(
-                      ticker: item,
-                      isSelected: item.symbol == selectedAsset.symbol,
-                      onTap: () {
-                        ref.read(selectedAssetProvider.notifier).select((
-                          symbol: item.symbol,
-                          category: item.category,
-                        ));
-                      },
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
-              ),
-              error: (err, stack) => Text('Watchlist Error: $err',
-                  style: const TextStyle(color: Colors.redAccent)),
+          // Middle Panel Tab Header Switcher
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2C),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                _buildMiddleTabButton(0, Icons.show_chart, 'Watchlist'),
+                _buildMiddleTabButton(1, Icons.menu_book, 'Jurnal'),
+                _buildMiddleTabButton(2, Icons.shield, 'Dashboard'),
+              ],
             ),
           ),
+          const SizedBox(height: 10),
+
+          // Tab View Body
+          Expanded(
+            child: _selectedMiddleTab == 1
+                ? const TradeJournalWidget()
+                : _selectedMiddleTab == 2
+                    ? const RiskDashboardWidget()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const RiskCardWidget(),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Market Watchlist',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: watchlistAsync.when(
+                              data: (tickers) {
+                                return ListView.builder(
+                                  itemCount: tickers.length,
+                                  itemBuilder: (context, index) {
+                                    final item = tickers[index];
+                                    return WatchlistTile(
+                                      ticker: item,
+                                      isSelected: item.symbol == selectedAsset.symbol,
+                                      onTap: () {
+                                        ref.read(selectedAssetProvider.notifier).select((
+                                          symbol: item.symbol,
+                                          category: item.category,
+                                        ));
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                              ),
+                              error: (err, stack) => Text('Watchlist Error: $err',
+                                  style: const TextStyle(color: Colors.redAccent)),
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiddleTabButton(int index, IconData icon, String label) {
+    final isSelected = _selectedMiddleTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedMiddleTab = index),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 13, color: isSelected ? Colors.white : Colors.white60),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white60,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

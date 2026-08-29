@@ -99,15 +99,31 @@ Project-A.U.R.A-Agent/
 
 ---
 
+### ✅ Phase 2: Paper Trading Engine, SQLite Database & Trade Journal (SELESAI)
+
+| Komponen | Berkas Terkait | Deskripsi & Fungsi |
+| :--- | :--- | :--- |
+| **Trading Database (SQLite)** | [`trading_database.dart`](file:///c:/DevApp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_trading/lib/data/sources/local/trading_database.dart) | Persistensi SQLite lokal `aura_trading.db` untuk Virtual Accounts ($10,000 & Rp 100jt), Paper Trades, dan Trade Journals. |
+| **Paper Trading Engine** | [`paper_trading_engine.dart`](file:///c:/DevApp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_trading/lib/domain/paper_trading_engine.dart) | Engine simulasi eksekusi transaksi (Open/Close Position, kalkulasi Realized PnL, & Auto-Fill Stop Loss/Take Profit). |
+| **Trade Journal Widget** | [`trade_journal_widget.dart`](file:///c:/DevApp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_trading/lib/presentation/widgets/trade_journal_widget.dart) | UI Jurnal Trading dengan Tag Emosi (Discipline, FOMO, Revenge, Fear), Filter Emosi, dan Tombol **AI Review**. |
+| **Risk Dashboard Widget** | [`risk_dashboard_widget.dart`](file:///c:/DevApp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_trading/lib/presentation/widgets/risk_dashboard_widget.dart) | Dashboard Risiko Harian, pembatasan Max Daily Drawdown (Alert >3%), dan manajemen posisi terbuka. |
+| **Desktop Tab Integration** | [`desktop_trading_screen.dart`](file:///c:/DevApp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_desktop/lib/src/ui/desktop_trading_screen.dart) | Tab Switcher di Panel Tengah Desktop ("Watchlist", "Jurnal", "Dashboard"). |
+
+---
+
 ## 3. Hasil Pengujian (Testing & Quality Assurance)
 
-### Unit Testing (`aura_trading/test/position_sizer_test.dart`)
-- **Hasil**: **5 / 5 Unit Test PASSED (100%)**
+### Unit Testing (`aura_trading/test/`)
+- **Hasil**: **9 / 9 Unit Test PASSED (100%)**
   1. `PositionSizer.calculateForexGold` (Forex EUR/USD Lot Calculation)
   2. `PositionSizer.calculateForexGold` (Gold XAU/USD Lot Calculation)
   3. `PositionSizer.calculateIDXStock` (Saham IDX Lot Calculation)
   4. Technical Indicators: `EMA` & `RSI` Calculation
   5. Technical Indicators: `calculateIchimoku` (Tenkan, Kijun, Senkou A/B, Chikou)
+  6. `PaperTradingEngine.openPosition` (Simulasi order & SQLite insert)
+  7. `PaperTradingEngine.closePosition` (Kalkulasi PnL & update saldo akun)
+  8. `PaperTradingEngine.evaluateOpenPositions` (Auto-Fill Stop Loss trigger)
+  9. `TradingDatabase` TradeJournal CRUD & Filter Emosi
 
 ### Static Code Analysis (`flutter analyze`)
 - `aura_trading`: **0 Error | 0 Warning**
@@ -116,18 +132,16 @@ Project-A.U.R.A-Agent/
 
 ---
 
-## 4. Rencana Tahap Selanjutnya (Phase 2 Roadmap)
+## 4. Rencana Tahap Selanjutnya (Phase 3 Roadmap: Advanced Features & Backtesting)
 
-1. **Database Paper Trading & Journal (ObjectBox/SQLite)**:
-   - Menyimpan akun simulasi paper trading.
-   - Menyimpan histori transaksi paper trade & PnL.
-   - Menyimpan entri jurnal trading beserta emosi & review AI.
-2. **Paper Trading Engine**:
-   - Simulated order fill & live PnL tracking.
-3. **Risk Limits & Correlation Heatmap**:
-   - Batas maksimal kerugian harian/mingguan (Daily Drawdown Limit).
-   - Deteksi korelasi posisi terbuka.
+1. **Strategy Backtesting Engine**:
+   - Historical CSV/Parquet Loader dari Yahoo Finance & TwelveData cache.
+   - Rule-based strategy runner (contoh: "RSI < 30 AND EMA20 > EMA50").
+   - Kalkulasi Metrik Kinerja Strategy: Win Rate %, Profit Factor, Sharpe Ratio, Max Drawdown.
+2. **Equity Curve & Drawdown Visualizer**:
+   - Chart kurva ekuitas histori strategi backtest berbasis `fl_chart`.
 
 ---
 
-*Dokumen ini dapat digunakan oleh Agent Claude atau Shin untuk melanjutkan analisis dan pengembangan Phase 2.*
+*Dokumen ini dapat digunakan oleh Agent Claude atau Shin untuk melanjutkan peninjauan dan pengembangan Phase 3.*
+
