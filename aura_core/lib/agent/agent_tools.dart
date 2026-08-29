@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'alarm_service.dart';
 import '../storage/chat_database.dart';
 import '../memory/embedding_service.dart';

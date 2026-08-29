@@ -1,5 +1,5 @@
 import 'dart:isolate';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:aura_core/aura_core.dart';
 import 'package:path/path.dart' as path_lib;
 

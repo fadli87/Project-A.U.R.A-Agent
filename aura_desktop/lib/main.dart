@@ -12,6 +12,8 @@ import 'src/providers/desktop_knowledge_provider.dart';
 import 'src/providers/desktop_trusted_folders_provider.dart';
 import 'src/services/desktop_platform_service.dart';
 import 'src/services/desktop_secure_storage.dart';
+import 'src/ui/desktop_trading_screen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,6 +85,8 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool useCloudAssistant = false;
+  int _activeNavIndex = 0; // 0: AI Assistant Chat, 1: Trading Lab
+
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1268,6 +1272,104 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                   ),
                 ),
                 
+                // Navigation Section Tabs
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _activeNavIndex = 0),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _activeNavIndex == 0
+                                  ? const Color(0xFF7C4DFF).withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _activeNavIndex == 0
+                                    ? const Color(0xFF7C4DFF)
+                                    : Colors.white10,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  color: _activeNavIndex == 0
+                                      ? const Color(0xFF7C4DFF)
+                                      : Colors.grey,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'AI Chat',
+                                  style: TextStyle(
+                                    color: _activeNavIndex == 0
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _activeNavIndex = 1),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _activeNavIndex == 1
+                                  ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _activeNavIndex == 1
+                                    ? const Color(0xFF6C63FF)
+                                    : Colors.white10,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.candlestick_chart,
+                                  color: _activeNavIndex == 1
+                                      ? const Color(0xFF6C63FF)
+                                      : Colors.grey,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Trading Lab',
+                                  style: TextStyle(
+                                    color: _activeNavIndex == 1
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                
                 // New Chat Button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1437,12 +1539,15 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
             ),
           ),
           
-          // Main Chat Area
+          // Main View Area (Chat or Trading Lab)
           Expanded(
-            child: Container(
-              color: const Color(0xFF13131A),
-              child: Column(
-                children: [
+            child: _activeNavIndex == 1
+                ? const DesktopTradingScreen()
+                : Container(
+                    color: const Color(0xFF13131A),
+                    child: Column(
+                      children: [
+
                   // Top Header Bar
                   Container(
                     height: 70,

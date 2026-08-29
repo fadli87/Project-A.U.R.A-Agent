@@ -11,8 +11,10 @@ import 'src/services/mobile_platform_service.dart';
 import 'src/services/mobile_secure_storage.dart';
 import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/model_manager_screen.dart';
+import 'src/ui/screens/trading_dashboard_screen.dart';
 import 'src/ui/theme/app_theme.dart';
 import 'src/providers/chat_provider.dart';
+
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -130,10 +132,10 @@ class _AuraAppState extends ConsumerState<AuraApp> {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      initialRoute: '/',
       routes: {
         '/': (context) => const ModelManagerScreen(),
         '/chat': (context) => const ChatScreen(),
+        '/trading': (context) => const TradingDashboardScreen(),
       },
     );
   }

@@ -2,7 +2,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:aura_core/aura_core.dart';
 import '../services/local_llm_service.dart';
 
