@@ -8,6 +8,9 @@ set(BINARY_NAME "aura_desktop")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
+if(POLICY CMP0169)
+  cmake_policy(SET CMP0169 OLD)
+endif()
 cmake_policy(VERSION 3.14...3.25)
 
 # Define build configuration option.

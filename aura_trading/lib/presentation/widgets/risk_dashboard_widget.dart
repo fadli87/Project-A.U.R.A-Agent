@@ -69,11 +69,13 @@ class _RiskDashboardWidgetState extends State<RiskDashboardWidget> {
             children: [
               const Icon(Icons.shield, color: Color(0xFFFF5252), size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Risk Dashboard & Paper Trading',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              const Expanded(
+                child: Text(
+                  'Risk & Paper Trading',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
               ),
-              const Spacer(),
               IconButton(
                 icon: const Icon(Icons.refresh, color: Colors.white54, size: 18),
                 onPressed: _loadDashboardData,
@@ -171,35 +173,36 @@ class _RiskDashboardWidgetState extends State<RiskDashboardWidget> {
                         ),
                         child: Row(
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      '$symbol ($type $lots Lot)',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Entry: $entryPrice',
-                                  style: const TextStyle(color: Colors.white54, fontSize: 11),
-                                ),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$symbol ($type $lots Lot)',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Entry: $entryPrice',
+                                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                  ),
+                                ],
+                              ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 8),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFFF5252).withValues(alpha: 0.8),
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               onPressed: () => _closePosition(tradeId, entryPrice),
-                              child: const Text('Tutup Posisi',
+                              child: const Text('Tutup',
                                   style: TextStyle(color: Colors.white, fontSize: 10)),
                             ),
                           ],

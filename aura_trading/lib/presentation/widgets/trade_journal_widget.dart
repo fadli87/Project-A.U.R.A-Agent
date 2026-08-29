@@ -243,19 +243,23 @@ class _TradeJournalWidgetState extends State<TradeJournalWidget> {
             children: [
               const Icon(Icons.menu_book, color: Color(0xFF6C63FF), size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Jurnal & Evaluasi Trading',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              const Expanded(
+                child: Text(
+                  'Jurnal & Evaluasi',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
               ),
-              const Spacer(),
               ElevatedButton.icon(
                 onPressed: _showAddJournalDialog,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6C63FF),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                label: const Text('Catat Jurnal', style: TextStyle(fontSize: 11, color: Colors.white)),
+                icon: const Icon(Icons.add, size: 14, color: Colors.white),
+                label: const Text('Catat', style: TextStyle(fontSize: 10.5, color: Colors.white)),
               ),
             ],
           ),
@@ -315,11 +319,14 @@ class _TradeJournalWidgetState extends State<TradeJournalWidget> {
                               children: [
                                 Row(
                                   children: [
-                                    Text(
-                                      '${item.symbol} (${item.action})',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    Flexible(
+                                      child: Text(
+                                        '${item.symbol} (${item.action})',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 4),
                                     _buildEmotionBadge(item.emotionTag),
                                     const Spacer(),
                                     Text(
@@ -327,7 +334,7 @@ class _TradeJournalWidgetState extends State<TradeJournalWidget> {
                                       style: TextStyle(
                                         color: isProfit ? const Color(0xFF00E676) : const Color(0xFFFF5252),
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
