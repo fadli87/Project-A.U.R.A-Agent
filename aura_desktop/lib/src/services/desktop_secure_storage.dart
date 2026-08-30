@@ -9,12 +9,20 @@ import 'package:aura_core/storage/secure_storage_service.dart';
 
 class DesktopSecureStorage implements SecureStorageService {
   Future<File> _getFile() async {
-    final dir = await getApplicationSupportDirectory();
-    final file = File(p.join(dir.path, 'secure_credentials.json'));
-    if (!await file.exists()) {
-      await file.writeAsString(jsonEncode({}));
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(p.join(dir.path, 'secure_credentials.json'));
+      if (!await file.exists()) {
+        await file.writeAsString(jsonEncode({}));
+      }
+      return file;
+    } catch (_) {
+      final file = File('secure_credentials.json');
+      if (!await file.exists()) {
+        await file.writeAsString(jsonEncode({}));
+      }
+      return file;
     }
-    return file;
   }
 
   @override
@@ -63,6 +71,8 @@ class DesktopSecureStorage implements SecureStorageService {
     final pDataOut = calloc<CRYPT_INTEGER_BLOB>();
 
     try {
+      // package:win32 FFI wrapper signature (6 parameters, omitting reserved NULL):
+      // CryptProtectData(pDataIn, szDataDescr, pOptionalEntropy, pPromptStruct, dwFlags, pDataOut)
       final result = CryptProtectData(
         pDataIn,
         null,
@@ -104,6 +114,8 @@ class DesktopSecureStorage implements SecureStorageService {
       final pDataOut = calloc<CRYPT_INTEGER_BLOB>();
 
       try {
+        // package:win32 FFI wrapper signature (6 parameters, omitting reserved NULL):
+        // CryptUnprotectData(pDataIn, szDataDescr, pOptionalEntropy, pPromptStruct, dwFlags, pDataOut)
         final result = CryptUnprotectData(
           pDataIn,
           null,
