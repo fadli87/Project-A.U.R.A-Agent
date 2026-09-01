@@ -1,6 +1,7 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import '../../domain/position_sizer.dart';
+import 'mt5_order_dialog.dart';
 
 class RiskCardWidget extends StatefulWidget {
   const RiskCardWidget({super.key});
@@ -161,6 +162,40 @@ class _RiskCardWidgetState extends State<RiskCardWidget> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF00E676)),
+                        foregroundColor: const Color(0xFF00E676),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        final entry = Decimal.tryParse(_entryController.text) ?? Decimal.zero;
+                        final sl = Decimal.tryParse(_slController.text) ?? Decimal.zero;
+                        final action = entry >= sl ? 'BUY' : 'SELL';
+
+                        Mt5OrderDialog.show(
+                          context,
+                          symbol: 'XAUUSD',
+                          action: action,
+                          volume: _calcResult!.recommendedLots,
+                          entryPrice: entry,
+                          stopLoss: sl,
+                          maxLossAmount: _calcResult!.maxLoss,
+                        );
+                      },
+                      icon: const Icon(Icons.send_to_mobile, size: 14),
+                      label: const Text(
+                        'Kirim ke MT5',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ],
               ),

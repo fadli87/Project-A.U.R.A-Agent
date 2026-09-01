@@ -14,6 +14,9 @@ export 'data/sources/yahoo_finance_api.dart';
 export 'data/sources/twelve_data_api.dart';
 export 'data/sources/local/trading_database.dart';
 export 'data/sources/unified/market_data_repository.dart';
+export 'data/sources/mt5/mt5_models.dart';
+export 'data/sources/mt5/mt5_client.dart';
+export 'data/sources/mt5/mt5_repository.dart';
 
 export 'domain/indicators.dart';
 export 'domain/position_sizer.dart';
@@ -32,3 +35,4 @@ export 'presentation/widgets/trade_journal_widget.dart';
 export 'presentation/widgets/risk_dashboard_widget.dart';
 export 'presentation/widgets/equity_curve_chart.dart';
 export 'presentation/widgets/backtest_panel_widget.dart';
+export 'presentation/widgets/mt5_order_dialog.dart';
