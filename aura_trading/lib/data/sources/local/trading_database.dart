@@ -1,11 +1,15 @@
-import 'dart:io';
+import 'package:decimal/decimal.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
-import '../../models/position.dart';
 import '../../models/price_ticker.dart';
 import '../../models/trade_journal.dart';
 
+/// SQLite stores monetary values as TEXT (string representation of Decimal)
+/// to preserve full precision. Never stored as REAL to avoid floating-point error.
+///
+/// Schema note: existing DBs with REAL columns for price fields are handled
+/// transparently by reading them as num and converting to Decimal.
 class TradingDatabase {
   static TradingDatabase? _instance;
   Database? _db;
@@ -44,8 +48,8 @@ class TradingDatabase {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
-        balance REAL NOT NULL,
-        equity REAL NOT NULL,
+        balance TEXT NOT NULL,
+        equity TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
     ''');
@@ -57,12 +61,12 @@ class TradingDatabase {
         symbol TEXT NOT NULL,
         category TEXT NOT NULL,
         type TEXT NOT NULL,
-        entry_price REAL NOT NULL,
-        exit_price REAL,
-        stop_loss REAL,
-        take_profit REAL,
-        lots REAL NOT NULL,
-        pnl REAL NOT NULL,
+        entry_price TEXT NOT NULL,
+        exit_price TEXT,
+        stop_loss TEXT,
+        take_profit TEXT,
+        lots TEXT NOT NULL,
+        pnl TEXT NOT NULL,
         status TEXT NOT NULL,
         open_time TEXT NOT NULL,
         close_time TEXT
@@ -75,9 +79,9 @@ class TradingDatabase {
         symbol TEXT NOT NULL,
         category TEXT NOT NULL,
         trade_type TEXT NOT NULL,
-        entry_price REAL NOT NULL,
-        exit_price REAL NOT NULL,
-        pnl REAL NOT NULL,
+        entry_price TEXT NOT NULL,
+        exit_price TEXT NOT NULL,
+        pnl TEXT NOT NULL,
         setup_reasoning TEXT NOT NULL,
         emotion_tag TEXT NOT NULL,
         ai_review TEXT,
@@ -93,13 +97,22 @@ class TradingDatabase {
       final now = DateTime.now().toIso8601String();
       db.execute(
         'INSERT INTO virtual_accounts (id, name, type, balance, equity, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        ['forex_gold_paper', 'Virtual Account Forex & Gold', 'forex', 10000.0, 10000.0, now],
+        ['forex_gold_paper', 'Virtual Account Forex & Gold', 'forex', '10000', '10000', now],
       );
       db.execute(
         'INSERT INTO virtual_accounts (id, name, type, balance, equity, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        ['idx_paper', 'Virtual Account Saham IDX', 'idxStock', 100000000.0, 100000000.0, now],
+        ['idx_paper', 'Virtual Account Saham IDX', 'idxStock', '100000000', '100000000', now],
       );
     }
+  }
+
+  // Helper: safely parse a SQLite column to Decimal.
+  // Handles TEXT (new format), num/REAL (legacy rows), and null.
+  static Decimal _toDecimal(dynamic value, {Decimal? fallback}) {
+    if (value == null) return fallback ?? Decimal.zero;
+    if (value is String) return Decimal.parse(value);
+    if (value is num) return Decimal.parse(value.toString());
+    return fallback ?? Decimal.zero;
   }
 
   // --- Virtual Accounts CRUD ---
@@ -114,16 +127,18 @@ class TradingDatabase {
       'id': row['id'],
       'name': row['name'],
       'type': row['type'],
-      'balance': row['balance'] as double,
-      'equity': row['equity'] as double,
+      'balance': _toDecimal(row['balance']),
+      'equity': _toDecimal(row['equity']),
       'created_at': row['created_at'],
     };
   }
 
-  Future<void> updateAccountBalance(String accountId, double balance, double equity) async {
+  Future<void> updateAccountBalance(
+      String accountId, Decimal balance, Decimal equity) async {
     final db = await database;
-    final stmt = db.prepare('UPDATE virtual_accounts SET balance = ?, equity = ? WHERE id = ?');
-    stmt.execute([balance, equity, accountId]);
+    final stmt = db.prepare(
+        'UPDATE virtual_accounts SET balance = ?, equity = ? WHERE id = ?');
+    stmt.execute([balance.toString(), equity.toString(), accountId]);
     stmt.dispose();
   }
 
@@ -156,31 +171,41 @@ class TradingDatabase {
 
   Future<List<Map<String, dynamic>>> getOpenPaperTrades(String accountId) async {
     final db = await database;
-    final stmt = db.prepare('SELECT * FROM paper_trades WHERE account_id = ? AND status = ? ORDER BY open_time DESC');
+    final stmt = db.prepare(
+        'SELECT * FROM paper_trades WHERE account_id = ? AND status = ? ORDER BY open_time DESC');
     final result = stmt.select([accountId, 'OPEN']);
     stmt.dispose();
     return result.map((row) => {
-      'id': row['id'],
-      'account_id': row['account_id'],
-      'symbol': row['symbol'],
-      'category': row['category'],
-      'type': row['type'],
-      'entry_price': row['entry_price'] as double,
-      'exit_price': row['exit_price'] as double?,
-      'stop_loss': row['stop_loss'] as double?,
-      'take_profit': row['take_profit'] as double?,
-      'lots': row['lots'] as double,
-      'pnl': row['pnl'] as double,
-      'status': row['status'],
-      'open_time': row['open_time'],
-      'close_time': row['close_time'],
-    }).toList();
+          'id': row['id'],
+          'account_id': row['account_id'],
+          'symbol': row['symbol'],
+          'category': row['category'],
+          'type': row['type'],
+          'entry_price': _toDecimal(row['entry_price']),
+          'exit_price': row['exit_price'] != null
+              ? _toDecimal(row['exit_price'])
+              : null,
+          'stop_loss': row['stop_loss'] != null
+              ? _toDecimal(row['stop_loss'])
+              : null,
+          'take_profit': row['take_profit'] != null
+              ? _toDecimal(row['take_profit'])
+              : null,
+          'lots': _toDecimal(row['lots']),
+          'pnl': _toDecimal(row['pnl']),
+          'status': row['status'],
+          'open_time': row['open_time'],
+          'close_time': row['close_time'],
+        }).toList();
   }
 
-  Future<void> updatePaperTradeStatus(String tradeId, String status, double exitPrice, double pnl, String closeTime) async {
+  Future<void> updatePaperTradeStatus(
+      String tradeId, String status, Decimal exitPrice, Decimal pnl,
+      String closeTime) async {
     final db = await database;
-    final stmt = db.prepare('UPDATE paper_trades SET status = ?, exit_price = ?, pnl = ?, close_time = ? WHERE id = ?');
-    stmt.execute([status, exitPrice, pnl, closeTime, tradeId]);
+    final stmt = db.prepare(
+        'UPDATE paper_trades SET status = ?, exit_price = ?, pnl = ?, close_time = ? WHERE id = ?');
+    stmt.execute([status, exitPrice.toString(), pnl.toString(), closeTime, tradeId]);
     stmt.dispose();
   }
 
@@ -197,9 +222,9 @@ class TradingDatabase {
       journal.symbol,
       journal.category.name,
       journal.tradeType,
-      journal.entryPrice,
-      journal.exitPrice,
-      journal.pnl,
+      journal.entryPrice.toString(),
+      journal.exitPrice.toString(),
+      journal.pnl.toString(),
       journal.setupReasoning,
       journal.emotionTag,
       journal.aiReview,
@@ -208,17 +233,22 @@ class TradingDatabase {
     stmt.dispose();
   }
 
-  Future<List<TradeJournal>> getTradeJournals({String? emotionFilter, String? symbolFilter}) async {
+  Future<List<TradeJournal>> getTradeJournals(
+      {String? emotionFilter, String? symbolFilter}) async {
     final db = await database;
     String sql = 'SELECT * FROM trade_journals';
     final params = <dynamic>[];
     final conditions = <String>[];
 
-    if (emotionFilter != null && emotionFilter.isNotEmpty && emotionFilter != 'ALL') {
+    if (emotionFilter != null &&
+        emotionFilter.isNotEmpty &&
+        emotionFilter != 'ALL') {
       conditions.add('emotion_tag = ?');
       params.add(emotionFilter);
     }
-    if (symbolFilter != null && symbolFilter.isNotEmpty && symbolFilter != 'ALL') {
+    if (symbolFilter != null &&
+        symbolFilter.isNotEmpty &&
+        symbolFilter != 'ALL') {
       conditions.add('symbol = ?');
       params.add(symbolFilter);
     }
@@ -244,9 +274,9 @@ class TradingDatabase {
         symbol: row['symbol'] as String,
         category: category,
         action: row['trade_type'] as String,
-        entryPrice: row['entry_price'] as double,
-        exitPrice: row['exit_price'] as double,
-        pnl: row['pnl'] as double,
+        entryPrice: _toDecimal(row['entry_price']),
+        exitPrice: _toDecimal(row['exit_price']),
+        pnl: _toDecimal(row['pnl']),
         setupReasoning: row['setup_reasoning'] as String,
         emotionTag: row['emotion_tag'] as String,
         aiReviewNote: row['ai_review'] as String?,
@@ -258,7 +288,8 @@ class TradingDatabase {
 
   Future<void> updateJournalAiReview(String journalId, String aiReview) async {
     final db = await database;
-    final stmt = db.prepare('UPDATE trade_journals SET ai_review = ? WHERE id = ?');
+    final stmt =
+        db.prepare('UPDATE trade_journals SET ai_review = ? WHERE id = ?');
     stmt.execute([aiReview, journalId]);
     stmt.dispose();
   }

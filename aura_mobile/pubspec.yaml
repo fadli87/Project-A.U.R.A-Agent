@@ -48,6 +48,7 @@ dependencies:
   objectbox_flutter_libs: ^5.3.2
   intl: ^0.19.0
   http: ^1.2.0
+  decimal: ^3.2.6
   aura_core:
     path: ../aura_core
   aura_trading:

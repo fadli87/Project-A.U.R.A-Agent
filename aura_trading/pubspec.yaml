@@ -26,6 +26,7 @@ dependencies:
   collection: ^1.18.0
   equatable: ^2.0.5
   html: ^0.15.4
+  decimal: ^3.0.1
 
 
 dev_dependencies:

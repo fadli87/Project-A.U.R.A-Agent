@@ -1,6 +1,11 @@
 import 'dart:math';
 import '../data/models/candle.dart';
 
+// Indicator calculations use [double] intentionally — these are statistical
+// computations (EMA multipliers, RS ratios, ATR smoothing), NOT monetary sums.
+// Prinsip 1 only applies to fields representing money (price, PnL, lot size, balance).
+// Candle price fields are Decimal; we call .toDouble() here for math convenience.
+
 class IndicatorResult {
   final List<double?> values;
   final String name;
@@ -63,13 +68,13 @@ class TechnicalIndicators {
     // Initial SMA for first EMA seed
     double sum = 0;
     for (int i = 0; i < period; i++) {
-      sum += candles[i].close;
+      sum += candles[i].close.toDouble();
     }
     double ema = sum / period;
     result[period - 1] = ema;
 
     for (int i = period; i < candles.length; i++) {
-      ema = (candles[i].close - ema) * multiplier + ema;
+      ema = (candles[i].close.toDouble() - ema) * multiplier + ema;
       result[i] = ema;
     }
 
@@ -87,7 +92,7 @@ class TechnicalIndicators {
     double lossSum = 0;
 
     for (int i = 1; i <= period; i++) {
-      final change = candles[i].close - candles[i - 1].close;
+      final change = candles[i].close.toDouble() - candles[i - 1].close.toDouble();
       if (change >= 0) {
         gainSum += change;
       } else {
@@ -106,7 +111,7 @@ class TechnicalIndicators {
     }
 
     for (int i = period + 1; i < candles.length; i++) {
-      final change = candles[i].close - candles[i - 1].close;
+      final change = candles[i].close.toDouble() - candles[i - 1].close.toDouble();
       final gain = change >= 0 ? change : 0.0;
       final loss = change < 0 ? change.abs() : 0.0;
 
@@ -186,9 +191,9 @@ class TechnicalIndicators {
 
     final trList = <double>[0.0];
     for (int i = 1; i < candles.length; i++) {
-      final highLow = candles[i].high - candles[i].low;
-      final highPrevClose = (candles[i].high - candles[i - 1].close).abs();
-      final lowPrevClose = (candles[i].low - candles[i - 1].close).abs();
+      final highLow = candles[i].high.toDouble() - candles[i].low.toDouble();
+      final highPrevClose = (candles[i].high.toDouble() - candles[i - 1].close.toDouble()).abs();
+      final lowPrevClose = (candles[i].low.toDouble() - candles[i - 1].close.toDouble()).abs();
       trList.add(max(highLow, max(highPrevClose, lowPrevClose)));
     }
 
@@ -224,17 +229,19 @@ class TechnicalIndicators {
     final chikouSpan = List<double?>.filled(len, null);
 
     double getHighestHigh(int start, int end) {
-      double maxH = candles[start].high;
+      double maxH = candles[start].high.toDouble();
       for (int i = start + 1; i <= end; i++) {
-        if (candles[i].high > maxH) maxH = candles[i].high;
+        final h = candles[i].high.toDouble();
+        if (h > maxH) maxH = h;
       }
       return maxH;
     }
 
     double getLowestLow(int start, int end) {
-      double minL = candles[start].low;
+      double minL = candles[start].low.toDouble();
       for (int i = start + 1; i <= end; i++) {
-        if (candles[i].low < minL) minL = candles[i].low;
+        final l = candles[i].low.toDouble();
+        if (l < minL) minL = l;
       }
       return minL;
     }
@@ -268,7 +275,7 @@ class TechnicalIndicators {
 
       // Chikou Span (Lagging Span, 26)
       if (i >= displacement) {
-        chikouSpan[i - displacement] = candles[i].close;
+        chikouSpan[i - displacement] = candles[i].close.toDouble();
       }
     }
 

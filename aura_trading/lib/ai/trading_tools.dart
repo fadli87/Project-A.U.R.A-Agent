@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:decimal/decimal.dart';
 import '../data/sources/unified/market_data_repository.dart';
 import '../data/models/price_ticker.dart';
 import '../domain/indicators.dart';
@@ -91,14 +92,16 @@ class TradingTools {
 
   /// Calculates risk-managed position size.
   Future<String> calculatePositionSize(Map<String, dynamic> args) async {
-    final equity = (args['equity'] as num?)?.toDouble() ?? 10000.0;
-    final riskPct = (args['riskPct'] as num?)?.toDouble() ?? 2.0;
-    final entryPrice = (args['entryPrice'] as num?)?.toDouble() ?? 0.0;
-    final stopLoss = (args['stopLoss'] as num?)?.toDouble() ?? 0.0;
-    final takeProfit = (args['takeProfit'] as num?)?.toDouble();
+    final equity = Decimal.parse((args['equity'] ?? 10000).toString());
+    final riskPct = Decimal.parse((args['riskPct'] ?? 2.0).toString());
+    final entryPrice = Decimal.parse((args['entryPrice'] ?? 0).toString());
+    final stopLoss = Decimal.parse((args['stopLoss'] ?? 0).toString());
+    final takeProfit = args['takeProfit'] != null
+        ? Decimal.parse(args['takeProfit'].toString())
+        : null;
     final assetType = args['assetType']?.toString().toLowerCase() ?? 'forex';
 
-    if (entryPrice <= 0 || stopLoss <= 0) {
+    if (entryPrice <= Decimal.zero || stopLoss <= Decimal.zero) {
       return jsonEncode({
         'status': 'error',
         'message': 'Please provide valid positive entryPrice and stopLoss.'
@@ -129,12 +132,12 @@ class TradingTools {
 
       return jsonEncode({
         'status': 'success',
-        'riskAmount': result.riskAmount,
-        'recommendedLots': result.recommendedLots,
-        'pipsOrPriceRisk': result.stopLossDistance,
-        'maxLossAmount': result.maxLoss,
-        'capitalRequired': result.totalCapitalRequired,
-        'riskRewardRatio': result.riskRewardRatio != 0
+        'riskAmount': result.riskAmount.toString(),
+        'recommendedLots': result.recommendedLots.toString(),
+        'pipsOrPriceRisk': result.stopLossDistance.toString(),
+        'maxLossAmount': result.maxLoss.toString(),
+        'capitalRequired': result.totalCapitalRequired.toString(),
+        'riskRewardRatio': result.riskRewardRatio != Decimal.zero
             ? '1:${result.riskRewardRatio.toStringAsFixed(2)}'
             : 'N/A',
         'summaryNote': result.notes,

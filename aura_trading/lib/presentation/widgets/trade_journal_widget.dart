@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import '../../data/models/price_ticker.dart';
 import '../../data/models/trade_journal.dart';
@@ -177,9 +178,9 @@ class _TradeJournalWidgetState extends State<TradeJournalWidget> {
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF)),
               onPressed: () async {
                 final symbol = symbolController.text.trim();
-                final entry = double.tryParse(entryController.text) ?? 0.0;
-                final exit = double.tryParse(exitController.text) ?? 0.0;
-                final pnl = double.tryParse(pnlController.text) ?? 0.0;
+                final entry = Decimal.tryParse(entryController.text) ?? Decimal.zero;
+                final exit = Decimal.tryParse(exitController.text) ?? Decimal.zero;
+                final pnl = Decimal.tryParse(pnlController.text) ?? Decimal.zero;
                 final reasoning = reasoningController.text.trim();
 
                 if (symbol.isNotEmpty) {
@@ -305,7 +306,7 @@ class _TradeJournalWidgetState extends State<TradeJournalWidget> {
                         itemCount: _journals.length,
                         itemBuilder: (context, index) {
                           final item = _journals[index];
-                          final isProfit = item.pnl >= 0;
+                          final isProfit = item.pnl >= Decimal.zero;
                           return Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(10),

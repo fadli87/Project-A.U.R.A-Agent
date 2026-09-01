@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura_trading/aura_trading.dart';
 
@@ -5,31 +6,32 @@ void main() {
   group('PositionSizer Tests', () {
     test('calculateForexGold for XAU/USD (Gold) position sizing', () {
       final result = PositionSizer.calculateForexGold(
-        equity: 10000,
-        riskPct: 2.0, // $200 risk
-        entryPrice: 2650.0,
-        stopLoss: 2630.0, // 200 pips (20.0 price diff)
+        equity: Decimal.fromInt(10000),
+        riskPct: Decimal.fromInt(2), // $200 risk
+        entryPrice: Decimal.parse('2650.0'),
+        stopLoss: Decimal.parse('2630.0'), // 200 pips (20.0 price diff)
         isGold: true,
       );
 
-      expect(result.riskAmount, equals(200.0));
-      expect(result.stopLossDistance, equals(200.0)); // 20.0 / 0.1
-      expect(result.recommendedLots, equals(0.1)); // $200 / (200 * $10) = 0.1 lot
+      expect(result.riskAmount, equals(Decimal.fromInt(200)));
+      expect(result.stopLossDistance, equals(Decimal.fromInt(200))); // 20.0 / 0.1
+      expect(result.recommendedLots, equals(Decimal.parse('0.1'))); // $200 / (200 * $10) = 0.1 lot
     });
 
     test('calculateIDXStock for Saham IDX position sizing', () {
       final result = PositionSizer.calculateIDXStock(
-        equity: 100000000, // Rp 100jt
-        riskPct: 2.0, // Rp 2jt risk
-        entryPrice: 8000, // BBCA Rp 8.000
-        stopLoss: 7600, // Rp 400 risk per share
-        takeProfit: 8800,
+        equity: Decimal.fromInt(100000000), // Rp 100jt
+        riskPct: Decimal.fromInt(2), // Rp 2jt risk
+        entryPrice: Decimal.fromInt(8000), // BBCA Rp 8.000
+        stopLoss: Decimal.fromInt(7600), // Rp 400 risk per share
+        takeProfit: Decimal.fromInt(8800),
       );
 
-      expect(result.riskAmount, equals(2000000.0));
-      expect(result.recommendedLots, equals(50.0)); // 5,000 shares = 50 Lots
-      expect(result.totalCapitalRequired, equals(40000000.0)); // 5,000 * 8,000
-      expect(result.riskRewardRatio, closeTo(2.0, 0.01));
+      expect(result.riskAmount, equals(Decimal.fromInt(2000000)));
+      expect(result.recommendedLots, equals(Decimal.fromInt(50))); // 5,000 shares = 50 Lots
+      expect(result.totalCapitalRequired, equals(Decimal.fromInt(40000000))); // 5,000 * 8,000
+      // R:R = (8800-8000) / (8000-7600) = 800/400 = 2.0
+      expect(result.riskRewardRatio.toDouble(), closeTo(2.0, 0.01));
     });
   });
 
@@ -39,10 +41,10 @@ void main() {
         30,
         (i) => Candle(
           timestamp: DateTime.now().add(Duration(days: i)),
-          open: 10.0 + i,
-          high: 12.0 + i,
-          low: 9.0 + i,
-          close: 11.0 + i,
+          open: Decimal.parse((10.0 + i).toString()),
+          high: Decimal.parse((12.0 + i).toString()),
+          low: Decimal.parse((9.0 + i).toString()),
+          close: Decimal.parse((11.0 + i).toString()),
           volume: 100,
         ),
       );
@@ -59,10 +61,11 @@ void main() {
         30,
         (i) => Candle(
           timestamp: DateTime.now().add(Duration(days: i)),
-          open: 100.0 + (i % 2 == 0 ? i : -i),
-          high: 105.0,
-          low: 95.0,
-          close: 100.0 + (i % 2 == 0 ? i * 0.5 : -i * 0.5),
+          open: Decimal.parse((100.0 + (i % 2 == 0 ? i : -i)).toString()),
+          high: Decimal.parse('105.0'),
+          low: Decimal.parse('95.0'),
+          close: Decimal.parse(
+              (100.0 + (i % 2 == 0 ? i * 0.5 : -i * 0.5)).toString()),
           volume: 500,
         ),
       );
@@ -80,10 +83,10 @@ void main() {
         60,
         (i) => Candle(
           timestamp: DateTime.now().add(Duration(days: i)),
-          open: 1.0500 + (i * 0.001),
-          high: 1.0550 + (i * 0.001),
-          low: 1.0450 + (i * 0.001),
-          close: 1.0510 + (i * 0.001),
+          open: Decimal.parse((1.0500 + (i * 0.001)).toStringAsFixed(4)),
+          high: Decimal.parse((1.0550 + (i * 0.001)).toStringAsFixed(4)),
+          low: Decimal.parse((1.0450 + (i * 0.001)).toStringAsFixed(4)),
+          close: Decimal.parse((1.0510 + (i * 0.001)).toStringAsFixed(4)),
           volume: 1000,
         ),
       );
@@ -104,4 +107,3 @@ void main() {
     });
   });
 }
-

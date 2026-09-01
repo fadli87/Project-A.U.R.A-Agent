@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:aura_trading/aura_trading.dart';
+import '../providers/desktop_chat_provider.dart';
+import '../services/local_llm_service.dart';
 
 class DesktopTradingScreen extends ConsumerStatefulWidget {
   const DesktopTradingScreen({super.key});
@@ -39,44 +41,106 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
       _isAiReplying = true;
     });
 
-    // Simulate TradingTools call
     final tools = TradingTools();
     final selectedAsset = ref.read(selectedAssetProvider);
+    final selectedTimeframe = ref.read(selectedTimeframeProvider);
+    final chatState = ref.read(desktopChatProvider);
 
-    String aiReply;
+    String aiReply = '';
     try {
-      if (text.toLowerCase().contains('harga') || text.toLowerCase().contains('price')) {
-        final priceJson = await tools.getCurrentPrice({
-          'symbol': selectedAsset.symbol,
-          'category': selectedAsset.category.name,
-        });
-        aiReply = 'Data harga terkini untuk ${selectedAsset.symbol}:\n$priceJson';
-      } else if (text.toLowerCase().contains('indikator') ||
-          text.toLowerCase().contains('rsi') ||
-          text.toLowerCase().contains('ichimoku') ||
-          text.toLowerCase().contains('macd')) {
-        final indJson = await tools.getTechnicalIndicators({
-          'symbol': selectedAsset.symbol,
-          'category': selectedAsset.category.name,
-          'timeframe': ref.read(selectedTimeframeProvider),
-        });
-        aiReply = 'Hasil analisis indikator teknikal (${selectedAsset.symbol}):\n$indJson';
-      } else if (text.toLowerCase().contains('lot') || text.toLowerCase().contains('risk')) {
-        final lotJson = await tools.calculatePositionSize({
-          'equity': 10000,
-          'riskPct': 2.0,
-          'entryPrice': 2650.0,
-          'stopLoss': 2630.0,
-          'symbol': selectedAsset.symbol,
-          'assetType': selectedAsset.category.name,
-        });
-        aiReply = 'Kalkulasi risiko & Lot ideal:\n$lotJson';
-      } else {
-        aiReply =
-            'Saya memahami analisis Anda tentang "$text". Berdasarkan strategi Risk-First, pastikan selalu menetapkan Stop Loss sebelum masuk posisi dan perhatikan rasio Risk/Reward minimal 1:1.5.';
+      final lowerText = text.toLowerCase();
+
+      // 1. Try Local LLM Inference if local server is connected
+      if (chatState.isServerConnected && chatState.activeModel.isNotEmpty) {
+        try {
+          final llmRes = await LocalLlmService.generateChatReply(
+            baseUrl: chatState.baseUrl,
+            apiType: chatState.apiType,
+            model: chatState.activeModel,
+            messages: [
+              {'role': 'system', 'content': TradingCoachPrompt.systemPrompt},
+              {
+                'role': 'user',
+                'content':
+                    '[Konteks Trading Lab - Aset: ${selectedAsset.symbol} (${selectedAsset.category.name.toUpperCase()}), Timeframe: $selectedTimeframe]\n$text'
+              },
+            ],
+          );
+          final content = llmRes['content']?.toString().trim();
+          if (content != null && content.isNotEmpty) {
+            aiReply = content;
+          }
+        } catch (e) {
+          debugPrint('Local LLM error in Trading Coach panel: $e');
+        }
+      }
+
+      // 2. Intelligent Tool & Conversational Fallback
+      if (aiReply.isEmpty) {
+        if (lowerText.contains('harga') ||
+            lowerText.contains('price') ||
+            lowerText.contains('quote') ||
+            lowerText.contains('berapa')) {
+          final priceJson = await tools.getCurrentPrice({
+            'symbol': selectedAsset.symbol,
+            'category': selectedAsset.category.name,
+          });
+          aiReply = '📊 Data harga terkini untuk ${selectedAsset.symbol}:\n$priceJson';
+        } else if (lowerText.contains('indikator') ||
+            lowerText.contains('rsi') ||
+            lowerText.contains('ichimoku') ||
+            lowerText.contains('macd') ||
+            lowerText.contains('ema') ||
+            lowerText.contains('trend')) {
+          final indJson = await tools.getTechnicalIndicators({
+            'symbol': selectedAsset.symbol,
+            'category': selectedAsset.category.name,
+            'timeframe': selectedTimeframe,
+          });
+          aiReply =
+              '📈 Hasil analisis indikator teknikal (${selectedAsset.symbol} - $selectedTimeframe):\n$indJson';
+        } else if (lowerText.contains('lot') ||
+            lowerText.contains('risk') ||
+            lowerText.contains('hitung') ||
+            lowerText.contains('kalkulasi')) {
+          final lotJson = await tools.calculatePositionSize({
+            'equity': 10000,
+            'riskPct': 2.0,
+            'entryPrice': 2650.0,
+            'stopLoss': 2630.0,
+            'symbol': selectedAsset.symbol,
+            'assetType': selectedAsset.category.name,
+          });
+          aiReply = '🛡️ Kalkulasi risiko & Lot ideal:\n$lotJson';
+        } else if (lowerText.contains('halo') ||
+            lowerText.contains('hi') ||
+            lowerText.contains('pagi') ||
+            lowerText.contains('siang') ||
+            lowerText.contains('malam') ||
+            lowerText.contains('hey')) {
+          aiReply =
+              'Halo! Saya AURA Trading Coach. Siap mendampingi Anda menganalisis pasar ${selectedAsset.symbol}. Ada yang ingin Anda tanyakan seputar indikator teknikal, kalkulasi lot, atau strategi backtest?';
+        } else if (lowerText == 'ok' ||
+            lowerText == 'oke' ||
+            lowerText == 'siap' ||
+            lowerText == 'baik' ||
+            lowerText == 'sip' ||
+            lowerText == 'mantap' ||
+            lowerText.contains('terima kasih') ||
+            lowerText.contains('thanks') ||
+            lowerText.contains('makasih')) {
+          aiReply =
+              'Sip! Selalu utamakan manajemen risiko sebelum membuka posisi (Stop Loss & Risk/Reward 1:1.5+). Tanyakan kapan saja bila Anda membutuhkan analisis harga atau indikator.';
+        } else if (lowerText.contains('backtest') || lowerText.contains('strategi')) {
+          aiReply =
+              '💡 Anda dapat menguji strategi (EMA Crossover & RSI Mean Reversion) secara langsung di Middle Panel! Pilihlah parameter yang Anda inginkan lalu klik "Jalankan Backtest" untuk melihat Win Rate % dan Equity Curve.';
+        } else {
+          aiReply =
+              'Saya AURA Trading Coach (Risk-First). Untuk instrumen ${selectedAsset.symbol}, Anda bisa menanyakan:\n- "harga" : Cek quote real-time\n- "indikator" : Cek RSI, MACD, Ichimoku, EMA 20/50\n- "lot" / "risk" : Hitung ukuran lot aman\n- "backtest" : Petunjuk simulasi strategi\n\nAtau aktifkan Server LLM Lokal di tab AI Chat agar kita dapat berdiskusi secara bebas tanpa batas!';
+        }
       }
     } catch (e) {
-      aiReply = 'Analisis AI Coach: $e';
+      aiReply = '⚠️ Analisis AI Coach: $e';
     }
 
     if (mounted) {

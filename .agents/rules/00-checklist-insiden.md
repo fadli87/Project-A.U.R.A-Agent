@@ -71,6 +71,24 @@ eksplisit kalau API punya konsep model ID, (2) pakai dynamic polling bukan delay
 untuk deteksi kesiapan proses child, (3) log stdout/stderr proses child sejak awal, jangan
 ditambah belakangan setelah debugging jadi sulit.
 
+## Insiden 7 (Desktop/Windows): Build gagal — `atlstr.h: No such file or directory`
+**Yang terjadi:** Build Windows gagal di plugin native (mis. `flutter_secure_storage_windows`)
+dengan error `Cannot open include file: 'atlstr.h'`.
+**Penyebab:** ATL (Active Template Library) tidak terinstall di Visual Studio Build Tools —
+komponen ini opsional, tidak terpasang default.
+**Fix:** Visual Studio Installer → Modify instalasi Build Tools → centang **"C++ ATL for
+latest v143 build tools (x86 & x64)"** di Individual components → Modify untuk install →
+`flutter clean` → `flutter run` ulang.
+✅ **Pencegahan:** kalau menambah plugin native Windows BARU yang berinteraksi dengan
+Windows API level rendah (Credential Manager, COM, dll), cek dulu apakah butuh komponen
+Visual Studio tambahan (ATL/MFC) sebelum mengasumsikan build akan langsung jalan.
+**Update resolusi:** untuk kasus `flutter_secure_storage_windows` spesifiknya, solusi yang
+akhirnya dipakai adalah mengganti plugin itu dengan implementasi native DPAPI langsung via
+Dart FFI (`CryptProtectData`/`CryptUnprotectData`) — lihat detail di
+`.agents/rules/13-cloud-fallback.md`. Ini menghindari dependency ATL sepenuhnya sambil
+tetap setara secara kriptografis, dan jadi pendekatan resmi untuk secure storage di
+Desktop ke depannya, bukan cuma workaround sekali pakai.
+
 ## Checklist umum — jalankan SETIAP KALI habis perubahan besar (native/dependency/plugin)
 Supaya insiden BARU yang sejenis tidak muncul, bukan cuma insiden LAMA yang tidak terulang:
 

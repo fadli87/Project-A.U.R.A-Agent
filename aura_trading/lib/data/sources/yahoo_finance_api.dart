@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:decimal/decimal.dart';
 import 'package:http/http.dart' as http;
 import '../models/candle.dart';
 import '../models/price_ticker.dart';
@@ -45,10 +46,15 @@ class YahooFinanceClient {
         final result = data['chart']['result'][0];
         final meta = result['meta'];
 
-        final regularMarketPrice = (meta['regularMarketPrice'] as num).toDouble();
-        final previousClose = (meta['chartPreviousClose'] as num?)?.toDouble() ?? regularMarketPrice;
+        final regularMarketPrice = Decimal.parse(
+            (meta['regularMarketPrice'] as num).toString());
+        final previousClose = meta['chartPreviousClose'] != null
+            ? Decimal.parse((meta['chartPreviousClose'] as num).toString())
+            : regularMarketPrice;
         final change = regularMarketPrice - previousClose;
-        final changePercent = previousClose != 0 ? (change / previousClose) * 100 : 0.0;
+        final changePercent = previousClose != Decimal.zero
+            ? (change.toDouble() / previousClose.toDouble()) * 100
+            : 0.0;
 
         return PriceTicker(
           symbol: symbol,
@@ -56,8 +62,10 @@ class YahooFinanceClient {
           price: regularMarketPrice,
           change: change,
           changePercent: changePercent,
-          high24h: (meta['regularMarketDayHigh'] as num?)?.toDouble() ?? regularMarketPrice,
-          low24h: (meta['regularMarketDayLow'] as num?)?.toDouble() ?? regularMarketPrice,
+          high24h: Decimal.parse(
+              ((meta['regularMarketDayHigh'] as num?) ?? meta['regularMarketPrice'] as num).toString()),
+          low24h: Decimal.parse(
+              ((meta['regularMarketDayLow'] as num?) ?? meta['regularMarketPrice'] as num).toString()),
           volume: (meta['regularMarketVolume'] as num?)?.toDouble() ?? 0.0,
           timestamp: DateTime.now(),
           category: category,
@@ -110,10 +118,10 @@ class YahooFinanceClient {
           }
           candles.add(Candle(
             timestamp: DateTime.fromMillisecondsSinceEpoch(timestamps[i] * 1000),
-            open: opens[i]!.toDouble(),
-            high: highs[i]!.toDouble(),
-            low: lows[i]!.toDouble(),
-            close: closes[i]!.toDouble(),
+            open: Decimal.parse(opens[i]!.toString()),
+            high: Decimal.parse(highs[i]!.toString()),
+            low: Decimal.parse(lows[i]!.toString()),
+            close: Decimal.parse(closes[i]!.toString()),
             volume: (volumes.length > i && volumes[i] != null)
                 ? volumes[i]!.toDouble()
                 : 0.0,

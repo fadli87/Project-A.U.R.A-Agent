@@ -56,12 +56,14 @@ class _CandlestickChartWidgetState extends State<CandlestickChartWidget> {
     }
 
     final candles = widget.candles;
-    double minY = candles.first.low;
-    double maxY = candles.first.high;
+    double minY = candles.first.low.toDouble();
+    double maxY = candles.first.high.toDouble();
 
     for (var c in candles) {
-      if (c.low < minY) minY = c.low;
-      if (c.high > maxY) maxY = c.high;
+      final lo = c.low.toDouble();
+      final hi = c.high.toDouble();
+      if (lo < minY) minY = lo;
+      if (hi > maxY) maxY = hi;
     }
 
     // Add padding to Y range
@@ -74,7 +76,7 @@ class _CandlestickChartWidgetState extends State<CandlestickChartWidget> {
     // Close prices line chart
     final closePoints = <FlSpot>[];
     for (int i = 0; i < candles.length; i++) {
-      closePoints.add(FlSpot(i.toDouble(), candles[i].close));
+      closePoints.add(FlSpot(i.toDouble(), candles[i].close.toDouble()));
     }
 
     lineBarsData.add(

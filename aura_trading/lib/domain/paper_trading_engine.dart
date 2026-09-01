@@ -1,9 +1,13 @@
 import 'dart:math';
+import 'package:decimal/decimal.dart';
 import '../data/models/price_ticker.dart';
 import '../data/sources/local/trading_database.dart';
 
 class PaperTradingEngine {
   final TradingDatabase _db = TradingDatabase.instance;
+
+  static final Decimal _d100000 = Decimal.fromInt(100000);
+  static final Decimal _d100 = Decimal.fromInt(100);
 
   /// Opens a new paper trading position.
   Future<Map<String, dynamic>> openPosition({
@@ -11,10 +15,10 @@ class PaperTradingEngine {
     required String symbol,
     required AssetCategory category,
     required String type, // 'BUY' or 'SELL'
-    required double entryPrice,
-    double? stopLoss,
-    double? takeProfit,
-    required double lots,
+    required Decimal entryPrice,
+    Decimal? stopLoss,
+    Decimal? takeProfit,
+    required Decimal lots,
   }) async {
     final account = await _db.getAccount(accountId);
     if (account == null) {
@@ -30,12 +34,12 @@ class PaperTradingEngine {
       'symbol': symbol,
       'category': category.name,
       'type': type.toUpperCase(),
-      'entry_price': entryPrice,
+      'entry_price': entryPrice.toString(),
       'exit_price': null,
-      'stop_loss': stopLoss,
-      'take_profit': takeProfit,
-      'lots': lots,
-      'pnl': 0.0,
+      'stop_loss': stopLoss?.toString(),
+      'take_profit': takeProfit?.toString(),
+      'lots': lots.toString(),
+      'pnl': '0',
       'status': 'OPEN',
       'open_time': nowStr,
       'close_time': null,
@@ -46,9 +50,9 @@ class PaperTradingEngine {
   }
 
   /// Closes an open paper trading position.
-  Future<double> closePosition({
+  Future<Decimal> closePosition({
     required String tradeId,
-    required double exitPrice,
+    required Decimal exitPrice,
   }) async {
     final db = await _db.database;
     final stmt = db.prepare('SELECT * FROM paper_trades WHERE id = ?');
@@ -62,8 +66,8 @@ class PaperTradingEngine {
     final row = result.first;
     final accountId = row['account_id'] as String;
     final type = row['type'] as String;
-    final entryPrice = row['entry_price'] as double;
-    final lots = row['lots'] as double;
+    final entryPrice = Decimal.parse(row['entry_price'].toString());
+    final lots = Decimal.parse(row['lots'].toString());
     final categoryStr = row['category'] as String;
 
     final category = AssetCategory.values.firstWhere(
@@ -85,7 +89,7 @@ class PaperTradingEngine {
     // Update Account Balance & Equity
     final account = await _db.getAccount(accountId);
     if (account != null) {
-      final currentBalance = account['balance'] as double;
+      final currentBalance = account['balance'] as Decimal;
       final newBalance = currentBalance + pnl;
       await _db.updateAccountBalance(accountId, newBalance, newBalance);
     }
@@ -94,12 +98,12 @@ class PaperTradingEngine {
   }
 
   /// Calculates Realized or Floating P&L for a trade.
-  double calculatePnL({
+  Decimal calculatePnL({
     required AssetCategory category,
     required String type, // 'BUY' or 'SELL'
-    required double entryPrice,
-    required double exitPrice,
-    required double lots,
+    required Decimal entryPrice,
+    required Decimal exitPrice,
+    required Decimal lots,
   }) {
     final isBuy = type.toUpperCase() == 'BUY';
     final priceDiff = isBuy ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
@@ -107,32 +111,32 @@ class PaperTradingEngine {
     switch (category) {
       case AssetCategory.forex:
         // Standard Forex: 1 Lot = 100,000 units base currency
-        return priceDiff * lots * 100000;
+        return priceDiff * lots * _d100000;
       case AssetCategory.gold:
-        // Gold (XAU/USD): 1 Lot = 100 oz (1.0 price move = $100 per lot)
-        return priceDiff * lots * 100;
+        // Gold (XAU/USD): 1 Lot = 100 oz ($100 per 1.0 price move per lot)
+        return priceDiff * lots * _d100;
       case AssetCategory.idxStock:
         // Saham IDX: 1 Lot = 100 lembar saham
-        return priceDiff * lots * 100;
+        return priceDiff * lots * _d100;
     }
   }
 
   /// Evaluates open positions against live market prices and triggers SL/TP auto-fill.
   Future<void> evaluateOpenPositions({
     required String accountId,
-    required Map<String, double> currentMarketPrices,
+    required Map<String, Decimal> currentMarketPrices,
   }) async {
     final openTrades = await _db.getOpenPaperTrades(accountId);
-    double totalFloatingPnL = 0.0;
+    Decimal totalFloatingPnL = Decimal.zero;
 
     for (final trade in openTrades) {
       final tradeId = trade['id'] as String;
       final symbol = trade['symbol'] as String;
       final type = trade['type'] as String;
-      final entryPrice = trade['entry_price'] as double;
-      final stopLoss = trade['stop_loss'] as double?;
-      final takeProfit = trade['take_profit'] as double?;
-      final lots = trade['lots'] as double;
+      final entryPrice = trade['entry_price'] as Decimal;
+      final stopLoss = trade['stop_loss'] as Decimal?;
+      final takeProfit = trade['take_profit'] as Decimal?;
+      final lots = trade['lots'] as Decimal;
       final categoryStr = trade['category'] as String;
 
       final category = AssetCategory.values.firstWhere(
@@ -177,7 +181,7 @@ class PaperTradingEngine {
     // Update Account Equity with Total Floating PnL
     final account = await _db.getAccount(accountId);
     if (account != null) {
-      final balance = account['balance'] as double;
+      final balance = account['balance'] as Decimal;
       final currentEquity = balance + totalFloatingPnL;
       await _db.updateAccountBalance(accountId, balance, currentEquity);
     }

@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import '../twelve_data_api.dart';
 import '../yahoo_finance_api.dart';
 import '../../models/candle.dart';
@@ -110,11 +111,11 @@ class MarketDataRepository implements IMarketDataRepository {
         results.add(PriceTicker(
           symbol: item.symbol,
           name: item.symbol,
-          price: 0.0,
-          change: 0.0,
+          price: Decimal.zero,
+          change: Decimal.zero,
           changePercent: 0.0,
-          high24h: 0.0,
-          low24h: 0.0,
+          high24h: Decimal.zero,
+          low24h: Decimal.zero,
           volume: 0.0,
           timestamp: DateTime.now(),
           category: item.category,

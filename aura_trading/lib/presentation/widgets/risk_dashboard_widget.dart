@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import '../../data/sources/local/trading_database.dart';
 import '../../domain/paper_trading_engine.dart';
@@ -38,7 +39,7 @@ class _RiskDashboardWidgetState extends State<RiskDashboardWidget> {
     }
   }
 
-  Future<void> _closePosition(String tradeId, double currentEntryPrice) async {
+  Future<void> _closePosition(String tradeId, Decimal currentEntryPrice) async {
     await _engine.closePosition(tradeId: tradeId, exitPrice: currentEntryPrice);
     _loadDashboardData();
   }
@@ -49,10 +50,12 @@ class _RiskDashboardWidgetState extends State<RiskDashboardWidget> {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF6C63FF)));
     }
 
-    final balance = _account?['balance'] as double? ?? 10000.0;
-    final equity = _account?['equity'] as double? ?? 10000.0;
-    final drawdownPct = ((equity - balance) / balance) * 100;
-    final maxDailyLossPct = 3.0; // 3% max daily risk rule
+    final balance = (_account?['balance'] as Decimal?) ?? Decimal.fromInt(10000);
+    final equity = (_account?['equity'] as Decimal?) ?? Decimal.fromInt(10000);
+    final balanceD = balance.toDouble();
+    final equityD = equity.toDouble();
+    final drawdownPct = ((equityD - balanceD) / balanceD) * 100;
+    const maxDailyLossPct = 3.0; // 3% max daily risk rule
     final isLossLimitExceeded = drawdownPct <= -maxDailyLossPct;
 
     return Container(
@@ -160,8 +163,8 @@ class _RiskDashboardWidgetState extends State<RiskDashboardWidget> {
                       final tradeId = item['id'] as String;
                       final symbol = item['symbol'] as String;
                       final type = item['type'] as String;
-                      final entryPrice = item['entry_price'] as double;
-                      final lots = item['lots'] as double;
+                      final entryPrice = item['entry_price'] as Decimal;
+                      final lots = item['lots'] as Decimal;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),

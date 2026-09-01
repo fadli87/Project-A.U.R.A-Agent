@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:decimal/decimal.dart';
 import 'package:http/http.dart' as http;
 import '../models/candle.dart';
 import '../models/price_ticker.dart';
@@ -29,11 +30,11 @@ class TwelveDataClient {
         throw Exception(data['message'] ?? 'TwelveData error');
       }
 
-      final price = double.parse(data['close'].toString());
-      final change = double.parse(data['change'].toString());
+      final price = Decimal.parse(data['close'].toString());
+      final change = Decimal.parse(data['change'].toString());
       final changePct = double.parse(data['percent_change'].toString());
-      final high = double.parse(data['high'].toString());
-      final low = double.parse(data['low'].toString());
+      final high = Decimal.parse(data['high'].toString());
+      final low = Decimal.parse(data['low'].toString());
       final volume = double.tryParse(data['volume']?.toString() ?? '0') ?? 0.0;
 
       return PriceTicker(
@@ -81,10 +82,10 @@ class TwelveDataClient {
       for (var v in values) {
         candles.add(Candle(
           timestamp: DateTime.parse(v['datetime'].toString()),
-          open: double.parse(v['open'].toString()),
-          high: double.parse(v['high'].toString()),
-          low: double.parse(v['low'].toString()),
-          close: double.parse(v['close'].toString()),
+          open: Decimal.parse(v['open'].toString()),
+          high: Decimal.parse(v['high'].toString()),
+          low: Decimal.parse(v['low'].toString()),
+          close: Decimal.parse(v['close'].toString()),
           volume: double.tryParse(v['volume']?.toString() ?? '0') ?? 0.0,
         ));
       }

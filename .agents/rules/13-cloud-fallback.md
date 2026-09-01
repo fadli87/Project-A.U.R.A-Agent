@@ -18,13 +18,22 @@ user selalu sadar kapan data mereka keluar device. JANGAN implementasikan auto-s
 tanpa diskusi ulang eksplisit dengan user.
 
 ## Penyimpanan API Key — WAJIB secure storage, TIDAK BOLEH plain text
-1. Gunakan `flutter_secure_storage` — Android Keystore di Mobile, Windows Credential
-   Manager/DPAPI di Desktop.
-2. JANGAN simpan API key di SQLite, ObjectBox, SharedPreferences, atau file konfigurasi
-   plain text apapun — ini kredensial sensitif yang bisa berdampak biaya nyata kalau bocor.
-3. UI Settings: input field API key dengan mode "password" (disembunyikan), tombol
+1. **Mobile (Android):** `flutter_secure_storage` — Android Keystore.
+2. **Desktop (Windows):** `flutter_secure_storage_windows` butuh komponen ATL Visual
+   Studio yang tidak selalu terinstall dan bikin build rapuh. **Pendekatan yang disetujui
+   sebagai gantinya:** implementasi native DPAPI langsung via Dart FFI — panggil
+   `CryptProtectData()` untuk enkripsi saat simpan dan `CryptUnprotectData()` untuk
+   dekripsi saat baca, dengan scope **per-user** (bukan machine-wide), file hasil enkripsi
+   disimpan di `%LOCALAPPDATA%` (bukan root project/Documents). Ini setara secara
+   kriptografis dengan Credential Manager (yang juga dibangun di atas DPAPI), sekaligus
+   menghindari dependency C++/ATL yang rapuh — lihat Insiden 7 di
+   `.agents/rules/00-checklist-insiden.md`.
+3. JANGAN simpan API key di SQLite, ObjectBox, SharedPreferences, atau file konfigurasi
+   plain text apapun di platform manapun — ini kredensial sensitif yang bisa berdampak
+   biaya nyata kalau bocor.
+4. UI Settings: input field API key dengan mode "password" (disembunyikan), tombol
    show/hide, dan opsi hapus key kapan saja.
-4. Validasi key sebelum disimpan: lakukan satu panggilan API ringan/murah (mis. list
+5. Validasi key sebelum disimpan: lakukan satu panggilan API ringan/murah (mis. list
    models) untuk konfirmasi key valid sebelum menyimpannya sebagai "aktif" — supaya user
    tidak baru tahu key salah pas sedang butuh cepat.
 

@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import '../../data/models/price_ticker.dart';
 
@@ -181,13 +182,13 @@ class WatchlistTile extends StatelessWidget {
     }
   }
 
-  String _formatPrice(double price, AssetCategory category) {
+  String _formatPrice(Decimal price, AssetCategory category) {
     if (category == AssetCategory.idxStock) {
       return 'Rp ${price.toStringAsFixed(0)}';
     } else if (category == AssetCategory.gold) {
       return '\$${price.toStringAsFixed(2)}';
     } else {
-      return price.toStringAsFixed( price >= 100 ? 2 : 4);
+      return price.toStringAsFixed(price >= Decimal.fromInt(100) ? 2 : 4);
     }
   }
 }

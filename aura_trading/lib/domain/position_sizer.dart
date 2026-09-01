@@ -1,11 +1,21 @@
+import 'package:decimal/decimal.dart';
+import 'package:rational/rational.dart';
+
+/// Extension helper: converts division result (Rational) to Decimal.
+extension RationalDecimalExt on Rational {
+  Decimal toD([int scale = 8]) => toDecimal(scaleOnInfinitePrecision: scale);
+}
+
+/// Holds the result of a position size calculation.
+/// All monetary fields use [Decimal] for financial precision (Prinsip 1).
 class PositionSizeResult {
-  final double riskAmount;
-  final double calculatedLots;
-  final double recommendedLots;
-  final double stopLossDistance;
-  final double maxLoss;
-  final double totalCapitalRequired;
-  final double riskRewardRatio;
+  final Decimal riskAmount;
+  final Decimal calculatedLots;
+  final Decimal recommendedLots;
+  final Decimal stopLossDistance; // pips at risk
+  final Decimal maxLoss;
+  final Decimal totalCapitalRequired;
+  final Decimal riskRewardRatio;
   final String notes;
 
   const PositionSizeResult({
@@ -21,45 +31,58 @@ class PositionSizeResult {
 }
 
 class PositionSizer {
+  static final Decimal _d100 = Decimal.fromInt(100);
+  static final Decimal _d10 = Decimal.fromInt(10);
+  static final Decimal _d100000 = Decimal.fromInt(100000);
+
   /// Position size calculator for Forex and Gold (XAU/USD).
-  /// [equity]: Account balance in USD (e.g. $10,000)
-  /// [riskPct]: Risk percentage per trade (e.g. 1.0% or 2.0%)
-  /// [entryPrice]: Intended entry price
-  /// [stopLoss]: Stop loss price
-  /// [takeProfit]: Optional take profit price for R:R calculation
   static PositionSizeResult calculateForexGold({
-    required double equity,
-    required double riskPct,
-    required double entryPrice,
-    required double stopLoss,
-    double? takeProfit,
+    required Decimal equity,
+    required Decimal riskPct,
+    required Decimal entryPrice,
+    required Decimal stopLoss,
+    Decimal? takeProfit,
     bool isGold = false,
   }) {
-    final riskAmount = equity * (riskPct / 100);
+    // equity * riskPct is Decimal; / _d100 gives Rational → convert to Decimal
+    final riskAmount = (equity * riskPct / _d100).toD(2);
     final priceDiff = (entryPrice - stopLoss).abs();
 
-    if (priceDiff == 0) {
+    if (priceDiff == Decimal.zero) {
       throw ArgumentError('Entry price and Stop Loss cannot be equal.');
     }
 
-    double pipSize = isGold ? 0.1 : 0.0001; // 1 pip for Gold = 0.1, Forex = 0.0001
-    double pipValuePerStandardLot = isGold ? 10.0 : 10.0; // $10 per pip per 1.0 Lot
+    // 1 pip: Gold = 0.1 price units, Forex = 0.0001
+    final pipSize = isGold ? Decimal.parse('0.1') : Decimal.parse('0.0001');
+    final pipValuePerStandardLot = _d10;
 
-    double pipsAtRisk = priceDiff / pipSize;
-    double calculatedLots = riskAmount / (pipsAtRisk * pipValuePerStandardLot);
-    
-    // Round to 2 decimal places (standard micro-lot precision 0.01)
-    double recommendedLots = (calculatedLots * 100).floorToDouble() / 100;
-    if (recommendedLots < 0.01) recommendedLots = 0.01;
+    // priceDiff / pipSize → Rational → toDecimal
+    final pipsAtRisk = (priceDiff / pipSize).toD(8);
+    // pipsAtRisk * pipValuePerStandardLot is Decimal; / that → Rational
+    final calculatedLots =
+        (riskAmount / (pipsAtRisk * pipValuePerStandardLot)).toD(8);
 
-    double maxLoss = pipsAtRisk * pipValuePerStandardLot * recommendedLots;
-    double capitalRequired = recommendedLots * 100000 * entryPrice / 100; // Assuming leverage 1:100
+    // Round down to 0.01 lot precision
+    final scale2 = Decimal.parse('0.01');
+    // calculatedLots / scale2 → Rational; floor gives Rational; * scale2 → Rational → toD
+    final recommendedLotsRaw =
+        ((calculatedLots / scale2).toD(2).floor()) * scale2;
+    final recommendedLots = recommendedLotsRaw < scale2 ? scale2 : recommendedLotsRaw;
 
-    double rrRatio = 0.0;
+    final maxLoss = pipsAtRisk * pipValuePerStandardLot * recommendedLots;
+    // leverage 1:100
+    final capitalRequired =
+        (recommendedLots * _d100000 * entryPrice / _d100).toD(2);
+
+    Decimal rrRatio = Decimal.zero;
     if (takeProfit != null && takeProfit != entryPrice) {
       final tpDistance = (takeProfit - entryPrice).abs();
-      rrRatio = tpDistance / priceDiff;
+      rrRatio = (tpDistance / priceDiff).toD(4);
     }
+
+    final pipsStr = pipsAtRisk.toStringAsFixed(0);
+    final lotsStr = recommendedLots.toStringAsFixed(2);
+    final maxLossStr = maxLoss.toStringAsFixed(2);
 
     return PositionSizeResult(
       riskAmount: riskAmount,
@@ -70,57 +93,59 @@ class PositionSizer {
       totalCapitalRequired: capitalRequired,
       riskRewardRatio: rrRatio,
       notes: isGold
-          ? 'XAU/USD: $pipsAtRisk pips at risk ($recommendedLots Lot = ~\$${maxLoss.toStringAsFixed(2)} risk)'
-          : 'Forex: $pipsAtRisk pips at risk ($recommendedLots Lot = ~\$${maxLoss.toStringAsFixed(2)} risk)',
+          ? 'XAU/USD: $pipsStr pips at risk ($lotsStr Lot = ~\$$maxLossStr risk)'
+          : 'Forex: $pipsStr pips at risk ($lotsStr Lot = ~\$$maxLossStr risk)',
     );
   }
 
   /// Position size calculator for Saham IDX (Indonesian Stocks).
-  /// [equity]: Account balance in IDR (e.g. Rp 100.000.000)
-  /// [riskPct]: Risk percentage per trade (e.g. 2.0%)
-  /// [entryPrice]: Entry price per share (e.g. Rp 8.000 for BBCA)
-  /// [stopLoss]: Stop loss price per share (e.g. Rp 7.750)
-  /// [takeProfit]: Take profit price per share (e.g. Rp 8.500)
   static PositionSizeResult calculateIDXStock({
-    required double equity,
-    required double riskPct,
-    required double entryPrice,
-    required double stopLoss,
-    double? takeProfit,
+    required Decimal equity,
+    required Decimal riskPct,
+    required Decimal entryPrice,
+    required Decimal stopLoss,
+    Decimal? takeProfit,
   }) {
-    final riskAmount = equity * (riskPct / 100);
+    final riskAmount = (equity * riskPct / _d100).toD(2);
     final riskPerShare = (entryPrice - stopLoss).abs();
 
-    if (riskPerShare == 0) {
+    if (riskPerShare == Decimal.zero) {
       throw ArgumentError('Entry price and Stop Loss cannot be equal.');
     }
 
-    final totalSharesRaw = riskAmount / riskPerShare;
+    final totalSharesRaw = (riskAmount / riskPerShare).toD(4);
     // 1 Lot Saham IDX = 100 lembar saham
-    final calculatedLots = totalSharesRaw / 100;
-    int recommendedLots = calculatedLots.floor();
-    if (recommendedLots < 1) recommendedLots = 1;
+    final calculatedLots = (totalSharesRaw / _d100).toD(4);
 
-    final actualShares = recommendedLots * 100;
+    // Round down to whole lot; minimum 1 lot
+    final recommendedLots =
+        calculatedLots.floor() < Decimal.one ? Decimal.one : calculatedLots.floor();
+
+    final actualShares = recommendedLots * _d100;
     final totalCapitalRequired = actualShares * entryPrice;
     final maxLoss = actualShares * riskPerShare;
 
-    double rrRatio = 0.0;
+    Decimal rrRatio = Decimal.zero;
     if (takeProfit != null && takeProfit != entryPrice) {
       final rewardPerShare = (takeProfit - entryPrice).abs();
-      rrRatio = rewardPerShare / riskPerShare;
+      rrRatio = (rewardPerShare / riskPerShare).toD(4);
     }
+
+    final lotsStr = recommendedLots.toStringAsFixed(0);
+    final sharesStr = actualShares.toStringAsFixed(0);
+    final capitalStr = totalCapitalRequired.toStringAsFixed(0);
+    final maxLossStr = maxLoss.toStringAsFixed(0);
 
     return PositionSizeResult(
       riskAmount: riskAmount,
       calculatedLots: calculatedLots,
-      recommendedLots: recommendedLots.toDouble(),
+      recommendedLots: recommendedLots,
       stopLossDistance: riskPerShare,
       maxLoss: maxLoss,
       totalCapitalRequired: totalCapitalRequired,
       riskRewardRatio: rrRatio,
       notes:
-          'IDX: $recommendedLots Lot (${actualShares} lembar) = Rp ${totalCapitalRequired.toStringAsFixed(0)} modal (Max Loss: Rp ${maxLoss.toStringAsFixed(0)})',
+          'IDX: $lotsStr Lot ($sharesStr lembar) = Rp $capitalStr modal (Max Loss: Rp $maxLossStr)',
     );
   }
 }

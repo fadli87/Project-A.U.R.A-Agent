@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import '../../domain/position_sizer.dart';
 
@@ -16,12 +17,12 @@ class _RiskCardWidgetState extends State<RiskCardWidget> {
   PositionSizeResult? _calcResult;
 
   void _calculate() {
-    final equity = double.tryParse(_equityController.text) ?? 10000.0;
-    final riskPct = double.tryParse(_riskPctController.text) ?? 2.0;
-    final entry = double.tryParse(_entryController.text) ?? 0.0;
-    final sl = double.tryParse(_slController.text) ?? 0.0;
+    final equity = Decimal.tryParse(_equityController.text) ?? Decimal.fromInt(10000);
+    final riskPct = Decimal.tryParse(_riskPctController.text) ?? Decimal.fromInt(2);
+    final entry = Decimal.tryParse(_entryController.text) ?? Decimal.zero;
+    final sl = Decimal.tryParse(_slController.text) ?? Decimal.zero;
 
-    if (entry > 0 && sl > 0 && entry != sl) {
+    if (entry > Decimal.zero && sl > Decimal.zero && entry != sl) {
       setState(() {
         _calcResult = PositionSizer.calculateForexGold(
           equity: equity,

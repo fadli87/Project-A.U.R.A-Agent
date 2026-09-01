@@ -38,6 +38,7 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   http: ^1.2.0
+  decimal: ^3.2.6
   sqlite3_flutter_libs: ^0.5.24
   file_picker: ^12.0.0
   ffi: ^2.1.2
