@@ -1,6 +1,8 @@
 import 'package:decimal/decimal.dart';
 import '../twelve_data_api.dart';
 import '../yahoo_finance_api.dart';
+import '../mt5/mt5_client.dart';
+import '../mt5/mt5_models.dart';
 import '../../models/candle.dart';
 import '../../models/price_ticker.dart';
 
@@ -18,6 +20,7 @@ abstract class IMarketDataRepository {
 class MarketDataRepository implements IMarketDataRepository {
   final YahooFinanceClient _yahooClient;
   final TwelveDataClient _twelveDataClient;
+  final Mt5Client _mt5Client;
 
   // In-memory cache for tickers and candles
   final Map<String, PriceTicker> _tickerCache = {};
@@ -26,8 +29,26 @@ class MarketDataRepository implements IMarketDataRepository {
   MarketDataRepository({
     YahooFinanceClient? yahooClient,
     TwelveDataClient? twelveDataClient,
+    Mt5Client? mt5Client,
   })  : _yahooClient = yahooClient ?? YahooFinanceClient(),
-        _twelveDataClient = twelveDataClient ?? TwelveDataClient();
+        _twelveDataClient = twelveDataClient ?? TwelveDataClient(),
+        _mt5Client = mt5Client ?? Mt5Client();
+
+  Future<Mt5AccountInfo?> getMt5Account() async {
+    try {
+      return await _mt5Client.fetchAccountInfo();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Mt5Position>> getMt5Positions() async {
+    try {
+      return await _mt5Client.fetchPositions();
+    } catch (_) {
+      return [];
+    }
+  }
 
   void setTwelveDataApiKey(String? key) {
     _twelveDataClient.apiKey = key;

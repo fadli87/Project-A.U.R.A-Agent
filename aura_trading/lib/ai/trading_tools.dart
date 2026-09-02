@@ -146,4 +146,38 @@ class TradingTools {
       return jsonEncode({'status': 'error', 'message': e.toString()});
     }
   }
+
+  /// Returns current MT5 account summary & open positions context for AI tool calling.
+  Future<String> getAccountContext(Map<String, dynamic> args) async {
+    try {
+      final account = await _repository.getMt5Account();
+      final positions = await _repository.getMt5Positions();
+      return jsonEncode({
+        'status': 'success',
+        'account': account != null
+            ? {
+                'login': account.login,
+                'balance': account.balance.toString(),
+                'equity': account.equity.toString(),
+                'freeMargin': account.freeMargin.toString(),
+                'currency': account.currency,
+              }
+            : 'Bridge MT5 Offline',
+        'openPositions': positions
+            .map((p) => {
+                  'ticket': p.ticket,
+                  'symbol': p.symbol,
+                  'type': p.type,
+                  'volume': p.volume.toString(),
+                  'openPrice': p.openPrice.toString(),
+                  'sl': p.sl.toString(),
+                  'tp': p.tp.toString(),
+                  'profit': p.profit.toString(),
+                })
+            .toList(),
+      });
+    } catch (e) {
+      return jsonEncode({'status': 'error', 'message': e.toString()});
+    }
+  }
 }

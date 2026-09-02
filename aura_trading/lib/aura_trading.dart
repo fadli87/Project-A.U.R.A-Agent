@@ -25,6 +25,7 @@ export 'domain/strategy_backtester.dart';
 
 export 'ai/prompts/trading_coach_prompt.dart';
 export 'ai/trading_tools.dart';
+export 'ai/context_builder.dart';
 
 export 'presentation/providers/market_data_provider.dart';
 export 'presentation/providers/mt5_provider.dart';

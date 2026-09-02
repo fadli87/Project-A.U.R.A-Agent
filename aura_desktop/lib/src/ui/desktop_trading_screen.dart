@@ -50,15 +50,25 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
     try {
       final lowerText = text.toLowerCase();
 
+      // 0. Fetch live MT5 & market context for prompt injection
+      String liveContextStr = '';
+      try {
+        final aiContext = await ref.read(aiTradingContextProvider.future);
+        liveContextStr = aiContext.toPromptContext();
+      } catch (_) {}
+
       // 1. Try Local LLM Inference if local server is connected
       if (chatState.isServerConnected && chatState.activeModel.isNotEmpty) {
         try {
+          final systemPromptWithContext =
+              '${TradingCoachPrompt.systemPrompt}\n\n=== LIVE ACCOUNT & MARKET CONTEXT ===\n$liveContextStr';
+
           final llmRes = await LocalLlmService.generateChatReply(
             baseUrl: chatState.baseUrl,
             apiType: chatState.apiType,
             model: chatState.activeModel,
             messages: [
-              {'role': 'system', 'content': TradingCoachPrompt.systemPrompt},
+              {'role': 'system', 'content': systemPromptWithContext},
               {
                 'role': 'user',
                 'content':
@@ -77,7 +87,14 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
 
       // 2. Intelligent Tool & Conversational Fallback
       if (aiReply.isEmpty) {
-        if (lowerText.contains('harga') ||
+        if (lowerText.contains('posisi') ||
+            lowerText.contains('akun') ||
+            lowerText.contains('balance') ||
+            lowerText.contains('equity') ||
+            lowerText.contains('mt5')) {
+          final accJson = await tools.getAccountContext({});
+          aiReply = '💼 Data Akun & Posisi MT5 Live:\n$accJson';
+        } else if (lowerText.contains('harga') ||
             lowerText.contains('price') ||
             lowerText.contains('quote') ||
             lowerText.contains('berapa')) {
@@ -119,7 +136,7 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
             lowerText.contains('malam') ||
             lowerText.contains('hey')) {
           aiReply =
-              'Halo! Saya AURA Trading Coach. Siap mendampingi Anda menganalisis pasar ${selectedAsset.symbol}. Ada yang ingin Anda tanyakan seputar indikator teknikal, kalkulasi lot, atau strategi backtest?';
+              'Halo! Saya AURA Trading Coach. Siap mendampingi Anda menganalisis pasar ${selectedAsset.symbol}. Ada yang ingin Anda tanyakan seputar indikator teknikal, posisi MT5, kalkulasi lot, atau strategi backtest?';
         } else if (lowerText == 'ok' ||
             lowerText == 'oke' ||
             lowerText == 'siap' ||
@@ -136,7 +153,7 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
               '💡 Anda dapat menguji strategi (EMA Crossover & RSI Mean Reversion) secara langsung di Middle Panel! Pilihlah parameter yang Anda inginkan lalu klik "Jalankan Backtest" untuk melihat Win Rate % dan Equity Curve.';
         } else {
           aiReply =
-              'Saya AURA Trading Coach (Risk-First). Untuk instrumen ${selectedAsset.symbol}, Anda bisa menanyakan:\n- "harga" : Cek quote real-time\n- "indikator" : Cek RSI, MACD, Ichimoku, EMA 20/50\n- "lot" / "risk" : Hitung ukuran lot aman\n- "backtest" : Petunjuk simulasi strategi\n\nAtau aktifkan Server LLM Lokal di tab AI Chat agar kita dapat berdiskusi secara bebas tanpa batas!';
+              'Saya AURA Trading Coach (Risk-First). Untuk instrumen ${selectedAsset.symbol}, Anda bisa menanyakan:\n- "posisi" / "akun" : Cek balance & posisi MT5 live\n- "harga" : Cek quote real-time\n- "indikator" : Cek RSI, MACD, Ichimoku, EMA 20/50\n- "lot" / "risk" : Hitung ukuran lot aman\n- "backtest" : Petunjuk simulasi strategi\n\nAtau aktifkan Server LLM Lokal di tab AI Chat agar kita dapat berdiskusi secara bebas tanpa batas!';
         }
       }
     } catch (e) {
