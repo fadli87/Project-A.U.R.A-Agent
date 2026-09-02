@@ -296,32 +296,28 @@ class _TradingDashboardScreenState
 
   Widget _buildTabButton(int index, IconData icon, String label) {
     final isSelected = _selectedTab == index;
-    return Expanded(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: InkWell(
         onTap: () => setState(() => _selectedTab = index),
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 12, color: isSelected ? Colors.white : Colors.white60),
-              const SizedBox(width: 3),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white60,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white60,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10.5,
                 ),
               ),
             ],
