@@ -204,6 +204,18 @@ def close_position():
     })
 
 
+@app.route('/shutdown', methods=['POST', 'GET'])
+def shutdown():
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is not None:
+        func()
+        return jsonify({"status": "shutdown", "message": "MT5 Bridge Service stopping..."})
+    else:
+        import os, signal
+        os.kill(os.getpid(), signal.SIGTERM)
+        return jsonify({"status": "shutdown", "message": "MT5 Bridge Service process terminated."})
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("🚀 AURA MT5 Local Bridge Service starting on http://127.0.0.1:8088")

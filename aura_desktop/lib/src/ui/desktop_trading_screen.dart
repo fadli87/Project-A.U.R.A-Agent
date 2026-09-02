@@ -352,9 +352,9 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
                 SizedBox(height: 8),
                 Text(
                   '1. Pastikan MT5 Terminal sudah terbuka di Windows.\n'
-                  '2. Jalankan: python tools/mt5_bridge/mt5_service.py\n'
-                  '3. Bridge berjalan di http://127.0.0.1:8088\n'
-                  '4. Status koneksi tampil di header bar atas.',
+                  '2. Klik tombol "Run Service" di header bar atas (atau jalankan script python tools/mt5_bridge/mt5_service.py).\n'
+                  '3. Bridge berjalan di http://127.0.0.1:8088.\n'
+                  '4. Untuk mematikan, klik tombol "Kill" di header bar atas.',
                   style: TextStyle(color: Colors.white60, fontSize: 10, height: 1.6),
                 ),
               ],

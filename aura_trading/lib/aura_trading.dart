@@ -40,3 +40,4 @@ export 'presentation/widgets/backtest_panel_widget.dart';
 export 'presentation/widgets/mt5_order_dialog.dart';
 export 'presentation/widgets/mt5_positions_widget.dart';
 export 'presentation/widgets/mt5_status_bar.dart';
+export 'services/mt5_service_launcher.dart';

@@ -2,15 +2,15 @@
 ## Koneksi RiskCardWidget → Mt5OrderDialog → MT5 Bridge
 
 > **Target**: Antigravity (Agy)  
-> **Status Kode**: **Sudah Terimplementasi** (perlu verifikasi & testing)  
+> **Status Kode**: **Sudah Terimplementasi ~95%** (perlu verifikasi & perbaikan minor)  
 > **File Utama**: `aura_trading/lib/presentation/widgets/risk_card.dart`  
 > **Tujuan**: Memastikan alur *Risk Calculation → Confirmation Dialog → MT5 Execution* berfungsi end-to-end dengan benar.
 
 ---
 
-## ✅ 1. Status Kode Saat Ini (Sudah Ada)
+## ✅ 1. Status Kode Saat Ini (Sudah Ada & Terhubung)
 
-### `risk_card.dart` (Baris 178-191)
+### `risk_card.dart` (Baris 178-191) — **SUDAH TERHUBUNG**
 ```dart
 // Sudah terhubung ke Mt5OrderDialog
 OutlinedButton.icon(
@@ -51,8 +51,9 @@ OutlinedButton.icon(
 | **2** | **Input Take Profit** | Tambah `TextField` TP di RiskCard, teruskan ke `Mt5OrderDialog.show(takeProfit: tp)`. | `risk_card.dart` + dialog | 🔴 **Tinggi** |
 | **3** | **Validasi Pre-Eksekusi** | Sebelum buka dialog: cek `Mt5Client.checkHealth()` → jika offline, tampilkan warning, jangan buka dialog. | `risk_card.dart` | 🟡 **Sedang** |
 | **4** | **Gunakan Repository Provider** | Dialog saat ini pakai `Mt5Client` langsung. Sebaiknya pakai `ref.read(mt5RepositoryProvider)` agar konsisten dengan arsitektur & testable. | `mt5_order_dialog.dart` | 🟡 **Sedang** |
-| **5** | **Auto-Fill dari Chart** | Jika user klik simbol di Watchlist/Chart → RiskCard auto-fill simbol, entry (harga saat ini), SL default (ATR-based). | `risk_card.dart` + provider | 🟢 **Rendah** |
-| **6** | **Risk:Reward Ratio Display** | Tampilkan RR ratio di hasil kalkulasi (misal: `RR 1:2.5`) sebelum kirim ke MT5. | `risk_card.dart` | 🟢 **Rendah** |
+| **5** | **Format Simbol MT5** | Verifikasi format simbol yang diterima broker MT5 (`XAUUSD` vs `XAU/USD`). Sesuaikan di dropdown. | `risk_card.dart` | 🟡 **Sedang** |
+| **6** | **Auto-Fill dari Chart** | Jika user klik simbol di Watchlist/Chart → RiskCard auto-fill simbol, entry (harga saat ini), SL default (ATR-based). | `risk_card.dart` + provider | 🟢 **Rendah** |
+| **7** | **Risk:Reward Ratio Display** | Tampilkan RR ratio di hasil kalkulasi (misal: `RR 1:2.5`) sebelum kirim ke MT5. | `risk_card.dart` | 🟢 **Rendah** |
 
 ---
 
@@ -109,8 +110,28 @@ OutlinedButton.icon(
 // Tambah di _RiskCardWidgetState:
 final _tpController = TextEditingController(); // Take Profit optional
 String _selectedSymbol = 'XAUUSD'; // Default, nanti dari provider
+List<String> _availableSymbols = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'XAU/USD']; // TODO: dari provider
 
-// Di build(), ganti tombol "Kirim ke MT5" dengan:
+// Di build(), tambah dropdown simbol sebelum tombol "Hitung Lot Safe":
+DropdownButtonFormField<String>(
+  value: _selectedSymbol,
+  decoration: InputDecoration(
+    labelText: 'Symbol',
+    labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.05),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+  ),
+  dropdownColor: const Color(0xFF1E1E2C),
+  style: const TextStyle(color: Colors.white),
+  items: _availableSymbols.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+  onChanged: (v) => setState(() => _selectedSymbol = v!),
+),
+
+// Tambah TextField TP:
+_buildTextField('Take Profit (opsional)', _tpController),
+
+// Ganti tombol "Kirim ke MT5" dengan:
 SizedBox(
   width: double.infinity,
   child: OutlinedButton.icon(
@@ -229,4 +250,4 @@ flutter run
 
 ---
 
-*Dokumen ini adalah panduan verifikasi & perbaikan. Kode dasar sudah berjalan — tugas Antigravity: **testing nyata di device + perbaikan item #1-#4 di atas**.*
+*Dokumen ini adalah panduan verifikasi & perbaikan. Kode dasar sudah berjalan — tugas Antigravity: **testing nyata di device + perbaikan item #1-#7 di atas**.*

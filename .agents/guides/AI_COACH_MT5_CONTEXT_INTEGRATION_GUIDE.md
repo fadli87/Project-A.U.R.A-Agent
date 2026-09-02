@@ -1,8 +1,13 @@
-# 🤖 IMPLEMENTATION GUIDE: AI Coach dengan Konteks MT5 Live
+# 🤖 IMPLEMENTATION GUIDE: AI Coach dengan Konteks MT5 Live (Update untuk Antigravity)
 
 > **Target**: Antigravity (Agy)  
 > **Prioritas**: 🔴 **Tinggi** — *Closing the loop* antara AI Analysis dan Real Account State  
-> **File Terkait**: `aura_trading/lib/ai/trading_tools.dart`, `aura_trading/lib/ai/prompts/trading_coach_prompt.dart`, `aura_trading/lib/presentation/providers/mt5_provider.dart`
+> **File Terkait**: 
+> - `aura_trading/lib/ai/prompts/trading_coach_prompt.dart`  
+> - `aura_mobile/lib/src/providers/inference_provider.dart`  
+> - `aura_desktop/lib/src/providers/inference_provider.dart`  
+> - `aura_trading/lib/ai/context_builder.dart` (SUDAH ADA)  
+> - `aura_trading/lib/ai/trading_tools.dart` (SUDAH ADA method `getAccountContext`)  
 
 ---
 
@@ -14,250 +19,343 @@ Agar **AI Coach (Local LLM)** bisa menjawab pertanyaan kontekstual seperti:
 
 ---
 
-## 📦 1. Data yang Harus Tersedia untuk AI (Context Builder)
+## ✅ 1. Status Implementasi Saat Ini (Sudah Dikerjakan)
 
-Buat file baru: `aura_trading/lib/ai/context_builder.dart`
-
-```dart
-import 'package:decimal/decimal.dart';
-import '../../data/sources/mt5/mt5_models.dart';
-import '../../data/models/price_ticker.dart';
-import '../../presentation/providers/mt5_provider.dart';
-import '../../presentation/providers/market_data_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-/// Ringkasan kondisi akun & pasar untuk dikirim ke LLM sebagai system context.
-class AiTradingContext {
-  final Mt5AccountInfo? account;
-  final List<Mt5Position> openPositions;
-  final Map<String, PriceTicker> watchlistPrices;
-  final String timestamp;
-
-  const AiTradingContext({
-    this.account,
-    required this.openPositions,
-    required this.watchlistPrices,
-    required this.timestamp,
-  });
-
-  /// Format ringkas untuk system prompt (hemat token).
-  String toPromptContext() {
-    final sb = StringBuffer();
-    
-    // Account Summary
-    if (account != null) {
-      sb.writeln('=== AKUN MT5 (LIVE) ===');
-      sb.writeln('Login: #${account!.login} (${account!.currency})');
-      sb.writeln('Balance: ${account!.balance.toStringAsFixed(2)}');
-      sb.writeln('Equity: ${account!.equity.toStringAsFixed(2)}');
-      sb.writeln('Margin Used: ${account!.margin.toStringAsFixed(2)}');
-      sb.writeln('Free Margin: ${account!.freeMargin.toStringAsFixed(2)}');
-      sb.writeln('Margin Level: ${_marginLevel()}%');
-      sb.writeln('');
-    }
-
-    // Open Positions
-    if (openPositions.isNotEmpty) {
-      sb.writeln('=== POSISI TERBUKA (${openPositions.length}) ===');
-      for (final p in openPositions) {
-        final pnl = p.profit >= Decimal.zero ? '+${p.profit.toStringAsFixed(2)}' : p.profit.toStringAsFixed(2);
-        sb.writeln('• ${p.symbol} ${p.type} ${p.volume} lot @ ${p.openPrice} | SL: ${p.sl} | TP: ${p.tp} | PnL: $pnl');
-      }
-      sb.writeln('');
-    }
-
-    // Watchlist Prices
-    if (watchlistPrices.isNotEmpty) {
-      sb.writeln('=== HARGA PASAR (WATCHLIST) ===');
-      watchlistPrices.forEach((sym, tick) {
-        final chg = tick.changePercent >= 0 ? '+${tick.changePercent.toStringAsFixed(2)}%' : '${tick.changePercent.toStringAsFixed(2)}%';
-        sb.writeln('$sym: ${tick.price} ($chg)');
-      });
-      sb.writeln('');
-    }
-
-    sb.write('Timestamp: $timestamp');
-    return sb.toString();
-  }
-
-  String _marginLevel() {
-    if (account == null || account!.margin == Decimal.zero) return 'N/A';
-    return ((account!.equity / account!.margin) * Decimal.fromInt(100)).toStringAsFixed(1);
-  }
-}
-
-/// Provider yang membangun konteks gabungan untuk AI.
-final aiTradingContextProvider = FutureProvider.autoDispose<AiTradingContext>((ref) async {
-  final repo = ref.watch(mt5RepositoryProvider);
-  final marketRepo = ref.watch(marketDataRepositoryProvider); // asumsi ada provider ini
-  
-  // Parallel fetch
-  final results = await Future.wait([
-    repo.getAccountInfo(),
-    repo.getOpenPositions(),
-    // Ambil harga watchlist default (bisa dari shared prefs/user settings)
-    _fetchWatchlistPrices(marketRepo),
-  ]);
-
-  return AiTradingContext(
-    account: results[0] as Mt5AccountInfo?,
-    openPositions: results[1] as List<Mt5Position>,
-    watchlistPrices: results[2] as Map<String, PriceTicker>,
-    timestamp: DateTime.now().toIso8601String(),
-  );
-});
-
-Future<Map<String, PriceTicker>> _fetchWatchlistPrices(dynamic marketRepo) async {
-  // Default watchlist symbols
-  const symbols = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BBCA.JK', 'TLKM.JK'];
-  final prices = <String, PriceTicker>{};
-  
-  for (final sym in symbols) {
-    try {
-      PriceTicker? tick;
-      if (sym.endsWith('.JK')) {
-        tick = await marketRepo.getIdxStockPrice(sym.replaceAll('.JK', ''));
-      } else {
-        tick = await marketRepo.getForexPrice(sym);
-      }
-      if (tick != null) prices[sym] = tick;
-    } catch (_) {}
-  }
-  return prices;
-}
-```
+| Komponen | File | Status |
+|----------|------|--------|
+| **Context Builder** | `aura_trading/lib/ai/context_builder.dart` | ✅ **LENGKAP** - Menyediakan `aiTradingContextProvider` yang fetch paralel data MT5 (account, posisi) dan watchlist prices |
+| **Trading Tools** | `aura_trading/lib/ai/trading_tools.dart` | ✅ **LENGKAP** - Sudah ada method `getAccountContext` yang mengembalikan JSON dengan account info dan posisi terbuka |
+| **System Prompt** | `aura_trading/lib/ai/prompts/trading_coach_prompt.dart` | ❌ **BELUM DIUBAH** - Masih menggunakan prompt statis tanpa placeholder `{live_context}` |
+| **Inference Provider (Mobile)** | `aura_mobile/lib/src/providers/inference_provider.dart` | ❌ **BELUM DIUBAH** - Belum wiring untuk inject live context ke system prompt |
+| **Inference Provider (Desktop)** | `aura_desktop/lib/src/providers/inference_provider.dart` | ❌ **BELUM DIUBAH** - Belum wiring untuk inject live context ke system prompt |
 
 ---
 
-## 🔧 2. Update `TradingTools` — Tambah Tool `get_account_context`
+## 🔧 2. Perubahan yang Perlu Dikerjakan Antigravity
 
-Edit `aura_trading/lib/ai/trading_tools.dart`:
+### ✅ Perubahan 1: Update System Prompt (trading_coach_prompt.dart)
+**File**: `aura_trading/lib/ai/prompts/trading_coach_prompt.dart`  
+**Ubah**: Tambahkan placeholder `{live_context}` di awal system prompt
 
+**Sebelum:**
 ```dart
-// Tambah import
-import '../presentation/providers/mt5_provider.dart';
-import 'context_builder.dart';
+static const String systemPrompt = '''
+Anda adalah AURA Trading Coach — pendamping AI cerdas, disiplin, dan berfokus pada edukasi serta Manajemen Risiko untuk trading Forex, Gold (XAU/USD), dan Saham IDX.
 
-/// Tool: Ambil konteks akun & posisi live untuk AI Coach
-class GetAccountContextTool extends AgentTool {
-  @override
-  String get name => 'get_account_context';
-
-  @override
-  String get description => 'Mengambil ringkasan akun MT5 live (balance, equity, margin), posisi terbuka, dan harga watchlist untuk analisis AI.';
-
-  @override
-  bool get isSensitive => false; // Read-only, aman
-
-  @override
-  Map<String, dynamic> get parametersSchema => {
-        'type': 'object',
-        'properties': {
-          'include_watchlist': {'type': 'boolean', 'description': 'Sertakan harga watchlist default (default: true)'},
-        },
-      };
-
-  @override
-  Future<String> execute(Map<String, dynamic> args) async {
-    // NOTE: Tool ini dipanggil dari AI agent yang berjalan di isolate/background.
-    // Perlu akses ke Riverpod container. Solusi: inject ProviderContainer ke AgentTools registry.
-    // Untuk implementasi awal, gunakan static access via global container (lihat catatan di bawah).
-    
-    try {
-      final container = ProviderScope.containerOf(navigatorKey.currentContext!); // butuh navigatorKey
-      final context = await container.read(aiTradingContextProvider.future);
-      return context.toPromptContext();
-    } catch (e) {
-      return 'Gagal mengambil konteks MT5: $e';
-    }
-  }
-}
-```
-
-> **Catatan Teknis**: `AgentTool` di `aura_core` tidak punya akses `BuildContext`/`ProviderContainer` langsung. Dua solusi:
-> 1. **Global ProviderContainer** di `main.dart` → `GlobalProviderContainer.container = ProviderScope.containerOf(context);`
-> 2. **Pass container ke Agent** saat inisialisasi di `InferenceProvider`.
-
----
-
-## 📝 3. Update System Prompt `trading_coach_prompt.dart`
-
-```dart
-const String tradingCoachSystemPrompt = '''
-Kamu adalah **AURA Trading Coach** — mentor trading pribadi Fadli.
-Pengalaman: Forex & Gold (masa lalu), belajar Saham IDX (sekarang).
-Gaya: Sabar, edukatif, risk-first, TIDAK memberikan financial advice.
-
-=== KONTEKS LIVE (OTOMATIS DIINJEK) ===
-{live_context}
-
-=== ATURAN WAJIB ===
-1. SELAMBAH rujuk konteks live di atas sebelum menjawab.
-2. Jika user tanya "Bolehkah saya buy XAUUSD?", cek:
-   - Margin level (> 300% aman, < 200% berbahaya)
-   - Posisi XAUUSD sudah ada? (hindari double exposure)
-   - Free margin cukup untuk lot yang diminta?
-3. Selalu tanya balik: "SL di mana?", "Risk % berapa?", "Setup apa?"
-4. Jika user mau eksekusi: "Gunakan tombol 'Kirim ke MT5' di Risk Card setelah kalkulasi lot."
-5. Jangan gunakan jargon berlebihan. Analogikan dengan kehidupan sehari-hari.
+**ATURAN WAJIB — GROUNDING DATA:** [...]
+**PRINSIP KEAMANAN UTAMA — MANUSIA ADALAH PEMICU AKHIR (HUMAN-IN-THE-LOOP):''
+...
 ''';
 ```
 
----
-
-## 🔌 4. Inject Konteks ke `InferenceProvider` (Di `aura_mobile` / `aura_desktop`)
-
-Di file yang menginisialisasi AI Agent (misal `inference_provider.dart` atau `chat_provider.dart`):
-
+**Sesudah:**
 ```dart
-// Saat user kirim pesan ke AI Coach:
-Future<void> sendToCoach(String userMessage) async {
-  // 1. Ambil konteks live
-  final context = await ref.read(aiTradingContextProvider.future);
-  final liveContext = context.toPromptContext();
+static const String systemPrompt = '''
+Anda adalah AURA Trading Coach — pendamping AI cerdas, disiplin, dan berfokus pada edukasi serta Manajemen Risiko untuk trading Forex, Gold (XAU/USD), dan Saham IDX.
+
+**KONTEKS LIVE (OTOMATIS DIINJEK):**
+{live_context}
+
+**ATURAN WAJIB — GROUNDING DATA:** [...]
+**PRINSIP KEAMANAN UTAMA — MANUSIA ADALAH PEMICU AKHIR (HUMAN-IN-THE-LOOP):''
+...
+''';
+```
+
+### ✅ Perubahan 2: Wiring ke Inference Provider (Mobile & Desktop)
+**Files**: 
+- `aura_mobile/lib/src/providers/inference_provider.dart`
+- `aura_desktop/lib/src/providers/inference_provider.dart`
+
+**Tambahkan Import** (di bagian atas file):
+```dart
+import 'package:aura_trading/aura_trading.dart';
+```
+
+**Ubah Class `InferenceNotifier`** - Tambahkan method helper dan modifikasi `generate()`:
+
+**Tambahkan method ini di dalam class `InferenceNotifier`** (di atas atau bawah method `build()`):
+```dart
+/// Mengambil konteks live MT5 dan market data untuk disisipkan ke system prompt AI Coach.
+Future<String> _fetchLiveTradingContext() async {
+  try {
+    // Akses provider dari aura_trading package melalui ref.watch
+    final context = await ref.read(aiTradingContextProvider.future);
+    return context.toPromptContext();
+  } catch (e) {
+    // Fallback jika terjadi error (misal: MT5 offline)
+    return '''
+=== AKUN MT5 (LIVE) ===
+Status: Tidak dapat mengakses data live MT5. Pastikan bridge python berjalan dan MT5 terminal terbuka.
+=== POSISI TERBUKA ===
+Data tidak tersedia
+=== HARGA PASAR (WATCHLIST) ===
+Data tidak tersedia
+
+Timestamp Data: Data tidak tersedia
+''';
+  }
+}
+```
+
+**Ubah method `generate()`** - Sisipkan konteks live ke system prompt:
+
+**Cari method `generate()`** dan ubah bagian di dalamnya seperti ini:
+
+**Sebelum (hanya contoh struktur):**
+```dart
+@override
+Future<void> generate({
+  required String prompt,
+  String? systemPrompt,
+  int maxTokens = 512,
+  double temperature = 0.7,
+  double topP = 0.9,
+  int topK = 40,
+  double repeatPenalty = 1.1,
+}) async {
+  // ... kode existing untuk memanggil model inference
+}
+```
+
+**Sesudah:**
+```dart
+@override
+Future<void> generate({
+  required String prompt,
+  String? systemPrompt,
+  int maxTokens = 512,
+  double temperature = 0.7,
+  double topP = 0.9,
+  int topK = 40,
+  double repeatPenalty = 1.1,
+}) async {
+  // 1. AMBIL KONTEKS LIVE MT5 DAN MARKET DATA
+  final liveContext = await _fetchLiveTradingContext();
+
+  // 2. SISIPKAN KONTEKS LIVE KE SYSTEM PROMPT TRADING COACH
+  final baseSystemPrompt = TradingCoachPrompt.systemPrompt;
+  final systemPromptWithLiveContext = baseSystemPrompt.replaceAll('{live_context}', liveContext);
+
+  // 3. GABUNGKAN DENGAN SYSTEM PROMPT CUSTOM JIKA ADA (OPSIONAL)
+  final effectiveSystemPrompt = systemPrompt != null && systemPrompt.isNotEmpty
+      ? '$systemPromptWithLiveContext\n\nCustom Instructions: $systemPrompt'
+      : systemPromptWithLiveContext;
+
+  // 4. LANJUTKAN DENGAN PROSES GENERATE NORMAL (tanpa perubahan lain)
+  final modelState = ref.read(modelProvider);
+  if (!modelState.isReady || modelState.activeModel == null) {
+    state = state.copyWith(
+      status: InferenceStatus.error,
+      errorMessage: 'Tidak ada model GGUF yang aktif. Silakan muat model terlebih dahulu.',
+    );
+    return;
+  }
+
+  // Cancel any previous stream
+  await stop();
+
+  // Recall relevant semantic memories for this prompt
+  final memories = await ref.read(memoryProvider.notifier).recall(prompt, topK: 3);
+  final memoryContext = await MemoryNotifier.formatMemoriesForPrompt(memories);
+
+  // Inject memories into system prompt if available
+  String effectiveSystemPromptWithMemory = effectiveSystemPrompt;
+  if (memoryContext.isNotEmpty) {
+    effectiveSystemPromptWithMemory = memoryContext + (effectiveSystemPromptWithMemory.isNotEmpty ? '\n$effectiveSystemPromptWithMemory' : '');
+  }
+
+  // Cloud Routing Check (Fase 14) - tetap seperti sebelumnya
+  if (state.useCloudAssistant) {
+    // ... kode existing untuk cloud assistant tetap sama
+    return;
+  }
+
+  // Hybrid Routing Check (Fase 12) - tetap seperti sebelumnya
+  bool isDesktopUsed = false;
+  String desktopUrl = '';
   
-  // 2. Gabungkan dengan system prompt
-  final systemPrompt = tradingCoachSystemPrompt.replaceAll('{live_context}', liveContext);
-  
-  // 3. Kirim ke inference engine
-  await ref.read(inferenceProvider.notifier).generate(
-    prompt: userMessage,
-    systemPrompt: systemPrompt,
-    // ... parameter lain
+  if (settings.useDesktopAssistant && settings.desktopIp.isNotEmpty) {
+    desktopUrl = 'http://${settings.desktopIp}:${settings.desktopPort}';
+    try {
+      final pingRes = await http.get(
+        Uri.parse('$desktopUrl/v1/models'),
+        headers: {
+          if (settings.desktopPin.isNotEmpty) 'Authorization': 'Bearer ${settings.desktopPin}',
+        },
+      ).timeout(const Duration(seconds: 2));
+      if (pingRes.statusCode == 200) {
+        isDesktopUsed = true;
+      }
+    } catch (_) {
+      // Fail silent -> fallback to local
+    }
+  }
+
+  if (isDesktopUsed) {
+    // ... kode existing untuk desktop assistant tetap sama
+    return;
+  }
+
+  // LOCAL INFERENCE - INI BAGIAN YANG PERLU DIUBAH
+  final formattedPrompt = formatPrompt(
+    prompt,
+    systemPrompt: effectiveSystemPromptWithMemory.isNotEmpty ? effectiveSystemPromptWithMemory : null,
   );
+
+  state = InferenceState(
+    status: InferenceStatus.generating,
+    prompt: prompt,
+    text: '',
+    metrics: const InferenceMetrics(),
+    useCloudAssistant: state.useCloudAssistant,
+  );
+
+  _stopwatch = Stopwatch()..start();
+  int tokenCount = 0;
+  Duration? timeToFirstToken;
+
+  final controller = ref.read(modelProvider.notifier).controller;
+
+  try {
+    final tokenStream = controller.generate(
+      prompt: formattedPrompt,
+      maxTokens: maxTokens,
+      temperature: temperature,
+      topP: topP,
+      topK: topK,
+      repeatPenalty: repeatPenalty,
+    );
+
+    final buffer = StringBuffer();
+
+    _streamSub = tokenStream.listen(
+      (token) {
+        tokenCount++;
+        if (tokenCount == 1 && _stopwatch != null) {
+          timeToFirstToken = _stopwatch!.elapsed;
+        }
+
+        buffer.write(token);
+        final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+        final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+        final tps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+        final processedText = EmojiParser.replaceShortcodes(buffer.toString());
+
+        state = state.copyWith(
+          text: processedText,
+          metrics: InferenceMetrics(
+            tokensGenerated: tokenCount,
+            tokensPerSecond: tps,
+            elapsedDuration: elapsed,
+            timeToFirstToken: timeToFirstToken,
+          ),
+        );
+      },
+      onDone: () {
+        _stopwatch?.stop();
+        final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+        final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+        final finalTps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+        state = state.copyWith(
+          status: InferenceStatus.completed,
+          text: EmojiParser.replaceShortcodes(buffer.toString()),
+          metrics: state.metrics.copyWith(
+            tokensGenerated: tokenCount,
+            tokensPerSecond: finalTps,
+            elapsedDuration: elapsed,
+          ),
+        );
+      },
+      onError: (error) {
+        _stopwatch?.stop();
+        state = state.copyWith(
+          status: InferenceStatus.error,
+          errorMessage: 'Inference Error: ${error.toString()}',
+        );
+      },
+      cancelOnError: true,
+    );
+  } catch (e) {
+    _stopwatch?.stop();
+    state = state.copyWith(
+      status: InferenceStatus.error,
+      errorMessage: 'Gagal memulai inferensi: ${e.toString()}',
+    );
+  }
 }
 ```
 
 ---
 
-## ✅ 5. Checklist Verifikasi untuk Antigravity
+## ✅ 3. Verifikasi bahwa `aiTradingContextProvider` Bisa Diakses
 
-| Test Case | Expected Behavior |
-|-----------|-------------------|
-| **Tanya saat flat (no positions)** | AI jawab normal, tidak mention posisi terbuka |
-| **Tanya saat ada posisi XAUUSD BUY 0.10 lot floating -$50** | AI mention: "Kamu punya posisi XAUUSD BUY 0.10 lot floating -$50. Margin level 820%. Jika tambah posisi, pastikan total risk < 2% equity." |
-| **Tanya "Bisa buy GBPUSD?" saat margin level 150%** | AI peringat: "Margin level 150% (kritis). Free margin hanya \$X. Tidak disarankan buka posisi baru sebelum ada yang close/trail." |
-| **Tanya "SL di mana untuk XAUUSD buy sekarang?"** | AI hitung berdasarkan ATR/structure, tapi mention: "Entry saat ini ~2650. SL disarankan 2630 (200 pip). Lot safe 0.10 untuk risk 2%." |
-| **MT5 Offline** | AI jawab: "Tidak bisa akses data live MT5. Pastikan bridge Python jalan & MT5 terminal terbuka." |
+Untuk memastikan bahwa `ref.read(aiTradingContextProvider.future)` bekerja di `inference_provider.dart`, pastikan:
+
+1. **Di `aura_trading/lib/aura_trading.dart`** (File ekspor package) sudah ada:
+   ```dart
+   export 'ai/context_builder.dart' show aiTradingContextProvider;
+   // ATAU
+   export 'presentation/providers/mt5_provider.dart' show aiTradingContextProvider;
+   ```
+
+2. **Di `aura_mobile/pubspec.yaml` dan `aura_desktop/pubspec.yaml`** sudah ada dependensi:
+   ```yaml
+   dependencies:
+     aura_trading:
+       path: ../aura_trading
+   ```
+
+3. **Provider `aiTradingContextProvider` di `context_builder.dart`** didefinisikan sebagai:
+   ```dart
+   final aiTradingContextProvider =
+       FutureProvider.autoDispose<AiTradingContext>((ref) async {
+     // ... implementasi yang sudah ada
+   });
+   ```
 
 ---
 
-## 🚀 6. Langkah Eksekusi Antigravity
+## ✅ 4. Checklist Verifikasi untuk Antigravity
+
+| Test Case | Expected Behavior |
+|-----------|-------------------|
+| **Tanya saat MT5 Offline** | AI harus menanggapi bahwa tidak bisa akses data live, tetapi tetap bisa memberikan edukasi umum (misal: penjelasan RSI) tanpa memberikan saran trading spesifik. |
+| **Tanya saat ada posisi XAUUSD BUY 0.10 lot floating -$50** | AI harus menyebutkan posisi tersebut dalam jawaban, misal: "Saya lihat kamu punya posisi XAUUSD BUY 0.10 lot dengan floating loss -$50. Margin level kamu berapa? Jika ada posisi lain, pastikan total risiko tidak melebihi 2% dari equity." |
+| **Tanya "Bisa buy GBPUSD?" saat margin level 150%** | AI harus memperingatkan tentang margin level yang rendah dan tidak menyarankan posisi baru tanpa penutupan posisi existente atau penambahan margin. |
+| **Tanya "SL di mana untuk XAUUSD buy sekarang?"** | AI boleh memberikan saran berdasarkan struktur harga terkini (jika ada data candlestick dari context builder), tapi harus tetap menekankan bahwa keputusan akhir ada pada pengguna. |
+| **System prompt terlihat dalam log** | Saat memeriksa log inference atau inspect state, system prompt yang dikirim ke LLM harus mengandung data akun dan posisi aktual dari MT5 (misal: "Balance: $10,250.50", "Position: #12345 XAUUSD BUY 0.10 lot"). |
+
+---
+
+## 🚀 5. Langkah Eksekusi untuk Antigravity
 
 ```bash
-# 1. Buat context_builder.dart
-# 2. Update trading_tools.dart (tambah GetAccountContextTool)
-# 3. Update trading_coach_prompt.dart (template {live_context})
-# 4. Update inference/chat provider di aura_mobile & aura_desktop (inject context)
-# 5. Register GetAccountContextTool ke AgentTools registry
-# 6. Test: run python bridge -> run aura_desktop -> chat "Aku punya posisi apa aja?"
+# 1. Pastikan semua file di atas sudah sesuai dengan petunjuk ini
+# 2. Jalankan build_runner jika ada perubahan provider (biasanya tidak diperlukan karena kita hanya mengakses provider yang sudah ada)
+cd C:/devapp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_trading
+flutter pub run build_runner build --delete-conflicting-outputs  # Hanya jika diperlukan
+
+# 3. Jalankan MT5 Bridge Python (di terminal terpisah)
+cd C:/devapp/AURA_MonoRepo/Project-A.U.R.A-Agent/tools/mt5_bridge
+python mt5_service.py
+
+# 4. Test di aplikasi desktop atau mobile
+cd C:/devapp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_desktop  # atau ../aura_mobile
+flutter run -d windows  # atau flutter run untuk mobile
 ```
 
 ---
 
-## ⚠️ Catatan Penting
-- **ProviderScope.globalContainer** pattern diperlukan untuk akses Riverpod dari `AgentTool` non-UI.
-- **Token budget**: Konteks live ~300-500 token. Masih aman untuk context window 4k-8k.
-- **Privacy**: Data akun live HANYA dikirim ke **Local LLM** (tidak ke cloud kecuali user toggle cloud assistant).
+## ⚠️ Catatan Penting untuk Antigravity
 
-*Implementasi ini membuat AI Coach benar-benar "aware" kondisi real account — diferensiasi utama AURA vs chatbot biasa.*
+1. **Jangan ubah `aura_core`** — hanya kerja di `aura_trading`, `aura_mobile`, `aura_desktop`.
+2. **Decimal wajib** untuk semua kalkulasi uang/lot (sudah benar di kode).
+3. **Prinsip 5 non-negotiable**: Tidak ada auto-execute. Selalu dialog konfirmasi untuk order MT5.
+4. **Token budget**: Konteks live ~300-500 token. Masih aman untuk context window 4k-8k dari model Lokal seperti Qwen2.5-7B atau Gemma2-9B.
+5. **Privacy**: Data akun live HANYA dikirim ke **Local LLM** (tidak ke cloud kecuali user aktifkan cloud assistant toggle secara eksplisit).
+6. **Fallback penting**: Jika terjadi error saat mengambil context (misal: MT5 bridge offline), sistem harus tetap memberikan respons yang berguna tanpa crash.
+
+*Implementasi ini membuat AI Coach benar-benar "aware" kondisi real account — diferensiasi utama AURA vs chatbot biasa. Dengan ini, Fadli akan mendapatkan pendamping trading yang benar-benar paham situasi akun live-nya.* 

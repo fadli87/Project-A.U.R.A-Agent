@@ -1,14 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/mt5_provider.dart';
+import '../../services/mt5_service_launcher.dart';
 
-/// Compact MT5 connection status + live balance indicator for desktop header bar.
-/// Shows: 🟢 Connected / 🔴 Offline, Balance, Equity, Free Margin.
-class Mt5StatusBarWidget extends ConsumerWidget {
+/// Compact MT5 connection status + live balance indicator + Run/Kill controls.
+class Mt5StatusBarWidget extends ConsumerStatefulWidget {
   const Mt5StatusBarWidget({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<Mt5StatusBarWidget> createState() => _Mt5StatusBarWidgetState();
+}
+
+class _Mt5StatusBarWidgetState extends ConsumerState<Mt5StatusBarWidget> {
+  bool _isProcessing = false;
+
+  Future<void> _handleStartService() async {
+    setState(() => _isProcessing = true);
+    final success = await Mt5ServiceLauncher.startService();
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      ref.read(mt5RefreshCounterProvider.notifier).increment();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? '🚀 MT5 Service berhasil dijalankan!'
+                : '⚠️ Gagal menjalankan MT5 Service. Pastikan Python & MT5 terinstall.',
+          ),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleStopService() async {
+    setState(() => _isProcessing = true);
+    final stopped = await Mt5ServiceLauncher.stopService();
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      ref.read(mt5RefreshCounterProvider.notifier).increment();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            stopped
+                ? '🛑 MT5 Service berhasil dihentikan (Killed).'
+                : '⚠️ Service dihentikan.',
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final connectionAsync = ref.watch(mt5ConnectionStatusProvider);
     final accountAsync = ref.watch(mt5AccountRefreshableProvider);
 
@@ -53,9 +100,7 @@ class Mt5StatusBarWidget extends ConsumerWidget {
               currency: account.currency,
               login: account.login,
               onRefresh: () {
-                ref
-                    .read(mt5RefreshCounterProvider.notifier)
-                    .increment();
+                ref.read(mt5RefreshCounterProvider.notifier).increment();
               },
             );
           },
@@ -65,11 +110,72 @@ class Mt5StatusBarWidget extends ConsumerWidget {
   }
 
   Widget _buildOfflineChip() {
-    return _buildStatusChip(
-      color: Colors.white30,
-      icon: Icons.circle_outlined,
-      label: 'MT5 Offline',
-      sublabel: 'Bridge tidak aktif',
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.circle_outlined, color: Colors.white38, size: 10),
+          const SizedBox(width: 6),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'MT5 Offline',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+              Text(
+                'Service mati',
+                style: TextStyle(color: Colors.white38, fontSize: 9),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          _isProcessing
+              ? const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF00E676)),
+                )
+              : InkWell(
+                  onTap: _handleStartService,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF00E676)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, color: Color(0xFF00E676), size: 12),
+                        SizedBox(width: 2),
+                        Text(
+                          'Run Service',
+                          style: TextStyle(
+                            color: Color(0xFF00E676),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ],
+      ),
     );
   }
 
@@ -149,7 +255,36 @@ class Mt5StatusBarWidget extends ConsumerWidget {
           // Refresh button
           GestureDetector(
             onTap: onRefresh,
-            child: const Icon(Icons.refresh, color: Colors.white38, size: 13),
+            child: const Icon(Icons.refresh, color: Colors.white60, size: 14),
+          ),
+          const SizedBox(width: 6),
+          // Kill / Stop Service button
+          InkWell(
+            onTap: _handleStopService,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.power_settings_new_rounded, color: Colors.redAccent, size: 11),
+                  SizedBox(width: 2),
+                  Text(
+                    'Kill',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
