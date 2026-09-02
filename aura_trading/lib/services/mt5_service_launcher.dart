@@ -55,6 +55,10 @@ class Mt5ServiceLauncher {
       _processHandle = await Process.start(
         pythonCmd,
         [targetScript],
+        environment: {
+          'PYTHONIOENCODING': 'utf-8',
+          'PYTHONUTF8': '1',
+        },
         mode: ProcessStartMode.detachedWithStdio,
       );
 

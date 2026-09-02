@@ -217,7 +217,12 @@ def shutdown():
 
 
 if __name__ == '__main__':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
     print("=" * 60)
-    print("🚀 AURA MT5 Local Bridge Service starting on http://127.0.0.1:8088")
+    print("[MT5 Bridge] AURA MT5 Local Bridge Service starting on http://127.0.0.1:8088")
     print("=" * 60)
     app.run(host='127.0.0.1', port=8088, debug=False)
+
