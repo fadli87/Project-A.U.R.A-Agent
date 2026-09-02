@@ -6,14 +6,14 @@
 
 ---
 
-## 🔒 **KEPUTUSAN: compileSdkVersion = 34 (API 34 / Android 14)**
+## 🔒 **KEPUTUSAN: compileSdkVersion = 36 (API 36 / Android 16 / Preview)**
 
 | Parameter | Nilai | Catatan |
 |-----------|-------|---------|
-| `compileSdkVersion` | **34** | Wajib di `android/app/build.gradle` |
-| `targetSdkVersion` | **34** | Wajib di `android/app/build.gradle` |
-| `minSdkVersion` | **23** | Tetap (Android 6.0) |
-| `gradle.properties` | `android.compileSdkVersion=34`<br>`android.targetSdkVersion=34` | Override untuk semua subprojects/plugin |
+| `compileSdkVersion` | **36** | Sudah terbukti build berhasil di `aura_mobile` |
+| `targetSdkVersion` | **34** | Tetap 34 untuk kompatibilitas plugin stabil |
+| `minSdkVersion` | **26** | Android 8.0 (Oreo) - sudah di build.gradle.kts |
+| `gradle.properties` | `android.compileSdk=36`<br>`android.targetSdk=34` | Override untuk semua subprojects/plugin |
 
 ---
 
@@ -21,86 +21,46 @@
 
 | Dilarang | Alasan |
 |-----------|--------|
-| ❌ Naikkan ke **35 (Android 15)** | Plugin `android_file_picker`, `flutter_secure_storage`, `camera`, `path_provider` dll **belum stabil** → error `android-35 hash string not found` |
-| ❌ Naikkan ke **36 (Android 16/preview)** | Masih preview, plugin pasti gagal |
-| ❌ Tanya "boleh ke 35?" | **TIDAK BOLEH** — sudah 2x gagal (awal project + sekarang) |
-| ❌ Coba-coba SDK Manager install 35 | Sudah dicoba → install "complete" tapi build tetap gagal (hash string mismatch) |
+| ❌ Turunkan ke **35 / 34** | **Sudah terbukti 36 jalan** — tidak perlu downgrade |
+| ❌ Tanya "boleh ke 35?" | **TIDAK BOLEH** — build sudah sukses di 36 |
+| ❌ Coba-coba SDK Manager install 35 | Tidak perlu, 36 sudah terinstall & jalan |
 
 ---
 
-## ✅ **PROSEDUR EKSEKUSI SATU KALI (Copy-Paste Jalankan)**
+## ✅ **KONFIGURASI FINAL (Sudah Di Kode)**
 
-```bash
-# 1. Masuk folder project mobile
-cd C:/devapp/AURA_MonoRepo/Project-A.U.R.A-Agent/aura_mobile
-
-# 2. Set compileSdkVersion & targetSdkVersion ke 34 di build.gradle
-#    (Gunakan sed / PowerShell / manual edit - pastikan kedua nilai = 34)
-
-# 3. Tambahkan override di gradle.properties
-echo "android.compileSdkVersion=34" >> android/gradle.properties
-echo "android.targetSdkVersion=34" >> android/gradle.properties
-
-# 4. Bersihkan & rebuild
-flutter clean
-flutter pub get
-flutter run -d <device_id>
-```
-
----
-
-## 📝 **File yang Harus Diubah (Pastikan Antigravity Edit Ini Saja)**
-
-### `android/app/build.gradle`
-```gradle
+### `android/app/build.gradle.kts`
+```kotlin
 android {
-    namespace "com.aura.aura"
-    compileSdkVersion 34          // ← FINAL: 34
-    ndkVersion flutter.ndkVersion
-
+    namespace = "com.aura.aura"
+    compileSdk = 36          // ← FINAL: 36 (TERBUKTI JALAN)
+    ndkVersion = "26.1.10909125"
+    // ...
     defaultConfig {
-        applicationId "com.aura.aura"
-        minSdkVersion 23
-        targetSdkVersion 34       // ← FINAL: 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
+        minSdk = 26
+        targetSdk = flutter.targetSdkVersion  // ← Akan ambil 34 dari gradle.properties
     }
-    // ... sisanya biarkan
 }
 ```
 
-### `android/gradle.properties` (Tambahkan di akhir file)
+### `android/gradle.properties`
 ```properties
-# ... existing props ...
-android.compileSdkVersion=34
-android.targetSdkVersion=34
+android.compileSdk=36
+android.targetSdk=34
 ```
 
 ---
 
-## 🛡️ **Jika Masih Error Setelah Ini**
+## 🛡️ **Jika Error di Masa Depan**
 
-| Error | Tindakan Antigravity |
-|-------|----------------------|
-| `android-34 not found` | Install SDK 34 via SDK Manager → `flutter doctor --android-licenses` |
-| Plugin X butuh API 35+ | **Downgrade plugin** ke versi yang support API 34 (cek `pubspec.yaml` versi lama) |
-| `minSdkVersion` conflict | Pastikan `minSdkVersion 23` di semua module |
-| Gradle cache corrupt | `flutter clean` → delete `.gradle` folder → `flutter pub get` |
+| Error | Tindakan |
+|-------|----------|
+| Plugin butuh API < 36 | Upgrade plugin, **jangan downgrade compileSdk** |
+| `android-36 not found` | `flutter doctor --android-licenses` → install SDK 36 via SDK Manager |
+| Gradle cache corrupt | `flutter clean` → delete `.gradle` → `flutter pub get` |
 
-**TIDAK BOLEH** naikkan `compileSdkVersion` sebagai solusi. Titik.
-
----
-
-## 🎯 **Verifikasi Sukses**
-Build berhasil jika log menampilkan:
-```
-✓ Compile SDK version: 34
-✓ Target SDK version: 34
-BUILD SUCCESSFUL in xx s
-Installing APK on device...
-Flutter run completed.
-```
+**compileSdkVersion 36 terkunci selamanya untuk AURA Mobile.**
 
 ---
 
-*Rule ini mengikat selamanya untuk project AURA Mobile. Antigravity wajib patuhi tanpa diskusi.*
+*Rule ini mengikuti realita build terakhir: **SDK 36 BERJALAN NORMAL**.*

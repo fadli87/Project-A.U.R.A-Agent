@@ -894,12 +894,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            '🌐 Mencari online: "$_activeSearchQuery"...',
-            style: const TextStyle(
-              color: AppTheme.secondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+          Flexible(
+            child: Text(
+              '🌐 Mencari online: "$_activeSearchQuery"...',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.secondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -929,12 +933,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            '📂 Membaca file: "$fileName"...',
-            style: const TextStyle(
-              color: AppTheme.secondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+          Flexible(
+            child: Text(
+              '📂 Membaca file: "$fileName"...',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.secondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
