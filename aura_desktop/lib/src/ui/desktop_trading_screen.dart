@@ -188,16 +188,16 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // PANEL 1 (LEFT 55%): Interactive Chart & Indicator Summary
+                // PANEL 1 (LEFT 42%): Interactive Real Candlestick Chart
                 Expanded(
-                  flex: 55,
+                  flex: 42,
                   child: _buildChartPanel(candlesAsync, selectedAsset),
                 ),
                 const VerticalDivider(width: 1, color: Colors.white10),
 
-                // PANEL 2 (MIDDLE 25%): Watchlist & Risk Calculator
+                // PANEL 2 (MIDDLE 38%): Watchlist, Risk, Jurnal, MT5, Kalender
                 Expanded(
-                  flex: 25,
+                  flex: 38,
                   child: _buildWatchlistAndRiskPanel(watchlistAsync, selectedAsset),
                 ),
                 const VerticalDivider(width: 1, color: Colors.white10),
