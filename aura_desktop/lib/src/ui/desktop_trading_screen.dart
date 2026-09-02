@@ -472,37 +472,51 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
                     ? const RiskDashboardWidget()
                     : _selectedMiddleTab == 3
                         ? _buildMt5Panel()
-                              ),
-                              const SizedBox(height: 6),
-                              Expanded(
-                                child: watchlistAsync.when(
-                                  data: (tickers) {
-                                    return ListView.builder(
-                                      itemCount: tickers.length,
-                                      itemBuilder: (context, index) {
-                                        final item = tickers[index];
-                                        return WatchlistTile(
-                                          ticker: item,
-                                          isSelected: item.symbol == selectedAsset.symbol,
-                                          onTap: () {
-                                            ref.read(selectedAssetProvider.notifier).select((
-                                              symbol: item.symbol,
-                                              category: item.category,
-                                            ));
+                        : _selectedMiddleTab == 4
+                            ? const SingleChildScrollView(child: EconomicCalendarWidget())
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const RiskCardWidget(),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Market Watchlist',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Expanded(
+                                    child: watchlistAsync.when(
+                                      data: (tickers) {
+                                        return ListView.builder(
+                                          itemCount: tickers.length,
+                                          itemBuilder: (context, index) {
+                                            final item = tickers[index];
+                                            return WatchlistTile(
+                                              ticker: item,
+                                              isSelected: item.symbol == selectedAsset.symbol,
+                                              onTap: () {
+                                                ref.read(selectedAssetProvider.notifier).select((
+                                                  symbol: item.symbol,
+                                                  category: item.category,
+                                                ));
+                                              },
+                                            );
                                           },
                                         );
                                       },
-                                    );
-                                  },
-                                  loading: () => const Center(
-                                    child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                                      loading: () => const Center(
+                                        child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                                      ),
+                                      error: (err, stack) => Text('Watchlist Error: $err',
+                                          style: const TextStyle(color: Colors.redAccent)),
+                                    ),
                                   ),
-                                  error: (err, stack) => Text('Watchlist Error: $err',
-                                      style: const TextStyle(color: Colors.redAccent)),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
           ),
         ],
       ),
