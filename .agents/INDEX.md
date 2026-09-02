@@ -57,12 +57,13 @@ cat .agents/guides/TRADING_ASSISTANT_REQUIREMENTS.md
 
 ### 3. Pilih Task Implementasi Berikutnya (Prioritas)
 
-| Prioritas | Task | Guide | File Target |
-|-----------|------|-------|-------------|
-| 🔴 **Tinggi** | Verifikasi & perbaiki RiskCard → MT5 Execution | `RISK_CARD_TO_MT5_INTEGRATION_GUIDE.md` | `aura_trading/lib/presentation/widgets/risk_card.dart`, `mt5_order_dialog.dart` |
-| 🔴 **Tinggi** | Inject konteks MT5 live ke AI Coach | `AI_COACH_MT5_CONTEXT_INTEGRATION_GUIDE.md` | `aura_trading/lib/ai/context_builder.dart`, `trading_tools.dart`, `trading_coach_prompt.dart` |
-| 🟡 **Sedang** | Bangun Economic Calendar Widget | `ECONOMIC_CALENDAR_WIDGET_GUIDE.md` | `aura_trading/lib/presentation/widgets/economic_calendar_widget.dart` |
-| 🟡 **Sedang** | IDX Fundamental Screener | `TRADING_ASSISTANT_REQUIREMENTS.md` (Phase 1) | `aura_trading/lib/presentation/widgets/fundamental_screener.dart` |
+| Prioritas | Task | Guide | File Target | Status |
+|-----------|------|-------|-------------|--------|
+| 🔴 **Tinggi** | Verifikasi & perbaiki RiskCard → MT5 Execution | `RISK_CARD_TO_MT5_INTEGRATION_GUIDE.md` | `aura_trading/lib/presentation/widgets/risk_card.dart`, `mt5_order_dialog.dart` | ✅ Selesai |
+| 🔴 **Tinggi** | Inject konteks MT5 live ke AI Coach | `AI_COACH_MT5_CONTEXT_INTEGRATION_GUIDE.md` | `aura_trading/lib/ai/context_builder.dart`, `trading_tools.dart`, `trading_coach_prompt.dart` | ✅ Selesai |
+| 🟡 **Sedang** | Bangun Economic Calendar Widget | `ECONOMIC_CALENDAR_WIDGET_GUIDE.md` | `aura_trading/lib/presentation/widgets/economic_calendar_widget.dart` | ✅ Selesai |
+| 🟡 **Sedang** | 1-Click Run & Kill MT5 Service | `TRADING_ASSISTANT_MT5_INTEGRATION.md` | `aura_trading/lib/services/mt5_service_launcher.dart` | ✅ Selesai |
+| 🟢 **Lanjutan**| IDX Fundamental Screener | `TRADING_ASSISTANT_REQUIREMENTS.md` (Phase 1) | `aura_trading/lib/presentation/widgets/fundamental_screener.dart` | ⏳ Terjadwal |
 
 ---
 
@@ -70,16 +71,19 @@ cat .agents/guides/TRADING_ASSISTANT_REQUIREMENTS.md
 
 | Komponen | Lokasi | Status |
 |----------|--------|--------|
-| **MT5 Bridge (Python)** | `tools/mt5_bridge/mt5_service.py` | ✅ Siap jalan di port 8088 |
+| **MT5 Bridge (Python)** | `tools/mt5_bridge/mt5_service.py` | ✅ Siap jalan di port 8088 + /shutdown |
+| **Mt5ServiceLauncher** | `aura_trading/lib/services/mt5_service_launcher.dart` | ✅ 1-click Run & Kill service dari UI |
 | **Mt5Client / Repository / Models** | `aura_trading/lib/data/sources/mt5/` | ✅ Lengkap + Decimal |
 | **Riverpod Providers (MT5)** | `aura_trading/lib/presentation/providers/mt5_provider.dart` | ✅ Auto-polling + manual refresh |
 | **Mt5OrderDialog** | `aura_trading/lib/presentation/widgets/mt5_order_dialog.dart` | ✅ Multi-layer confirmation |
 | **Mt5PositionsWidget** | `aura_trading/lib/presentation/widgets/mt5_positions_widget.dart` | ✅ Live PnL + close button |
-| **Mt5StatusBarWidget** | `aura_trading/lib/presentation/widgets/mt5_status_bar.dart` | ✅ Header bar: Balance/Equity/Free Margin |
-| **RiskCardWidget** | `aura_trading/lib/presentation/widgets/risk_card.dart` | ✅ Sudah terhubung ke Mt5OrderDialog |
+| **Mt5StatusBarWidget** | `aura_trading/lib/presentation/widgets/mt5_status_bar.dart` | ✅ Live stats + 1-click Run/Kill buttons |
+| **EconomicCalendarWidget** | `aura_trading/lib/presentation/widgets/economic_calendar_widget.dart` | ✅ Currency filter + AI explain |
+| **RiskCardWidget** | `aura_trading/lib/presentation/widgets/risk_card.dart` | ✅ Terhubung ke Mt5OrderDialog |
 | **Paper Trading Engine** | `aura_trading/lib/domain/paper_trading_engine.dart` | ✅ Virtual accounts Forex/IDX |
 | **Backtesting & Strategy** | `aura_trading/lib/domain/strategy_backtester.dart` | ✅ Equity curve, backtest panel |
 | **Trade Journal + Risk Dashboard** | `aura_trading/lib/presentation/widgets/` | ✅ Lengkap |
+
 
 ---
 

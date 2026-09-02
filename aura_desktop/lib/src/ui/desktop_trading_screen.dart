@@ -449,13 +449,17 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
               color: const Color(0xFF1E1E2C),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Row(
-              children: [
-                _buildMiddleTabButton(0, Icons.show_chart, 'Watchlist'),
-                _buildMiddleTabButton(1, Icons.menu_book, 'Jurnal'),
-                _buildMiddleTabButton(2, Icons.shield, 'Dashboard'),
-                _buildMiddleTabButton(3, Icons.swap_vert, 'MT5'),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildMiddleTabButton(0, Icons.show_chart, 'Watchlist'),
+                  _buildMiddleTabButton(1, Icons.menu_book, 'Jurnal'),
+                  _buildMiddleTabButton(2, Icons.shield, 'Dashboard'),
+                  _buildMiddleTabButton(3, Icons.swap_vert, 'MT5'),
+                  _buildMiddleTabButton(4, Icons.calendar_month, 'Kalender'),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -468,14 +472,6 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
                     ? const RiskDashboardWidget()
                     : _selectedMiddleTab == 3
                         ? _buildMt5Panel()
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const RiskCardWidget(),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Market Watchlist',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                               const SizedBox(height: 6),
                               Expanded(

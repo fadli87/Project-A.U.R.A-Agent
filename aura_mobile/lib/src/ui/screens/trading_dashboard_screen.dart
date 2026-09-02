@@ -174,24 +174,24 @@ class _TradingDashboardScreenState
                       ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Mobile Segmented Tab Switcher (Watchlist, Jurnal, Dashboard, MT5)
+                             // Mobile Segmented Tab Switcher (Watchlist, Jurnal, Dashboard, MT5, Kalender)
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E1E2C),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  children: [
-                    _buildTabButton(0, Icons.show_chart, 'Watchlist'),
-                    _buildTabButton(1, Icons.menu_book, 'Jurnal'),
-                    _buildTabButton(2, Icons.shield, 'Dashboard'),
-                    _buildTabButton(3, Icons.swap_vert, 'MT5'),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildTabButton(0, Icons.show_chart, 'Watchlist'),
+                      _buildTabButton(1, Icons.menu_book, 'Jurnal'),
+                      _buildTabButton(2, Icons.shield, 'Dashboard'),
+                      _buildTabButton(3, Icons.swap_vert, 'MT5'),
+                      _buildTabButton(4, Icons.calendar_month, 'Kalender'),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -283,6 +283,8 @@ class _TradingDashboardScreenState
                     ],
                   ),
                 ),
+              ] else if (_selectedTab == 4) ...[
+                const EconomicCalendarWidget(),
               ],
               const SizedBox(height: 80), // Padding for FAB
             ],

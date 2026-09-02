@@ -8,7 +8,9 @@ export 'data/models/price_ticker.dart';
 export 'data/models/position.dart';
 export 'data/models/trade_journal.dart';
 export 'data/models/strategy.dart';
-export 'data/models/backtest_result.dart';
+export 'data/models/economic_event.dart';
+export 'presentation/widgets/economic_calendar_widget.dart';
+
 
 export 'data/sources/yahoo_finance_api.dart';
 export 'data/sources/twelve_data_api.dart';

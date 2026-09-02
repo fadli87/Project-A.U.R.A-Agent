@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/sources/unified/market_data_repository.dart';
 import '../../data/models/price_ticker.dart';
 import '../../data/models/candle.dart';
+import '../../data/models/economic_event.dart';
+import '../../data/sources/news/forex_factory_calendar.dart';
 
 final marketDataRepositoryProvider = Provider<MarketDataRepository>((ref) {
   return MarketDataRepository();
@@ -67,4 +69,11 @@ final candleHistoryProvider = FutureProvider.autoDispose<List<Candle>>((ref) asy
   final asset = ref.watch(selectedAssetProvider);
   final timeframe = ref.watch(selectedTimeframeProvider);
   return repo.getCandles(asset.symbol, asset.category, interval: timeframe);
+});
+
+/// Economic Calendar Provider
+final economicCalendarProvider =
+    FutureProvider.autoDispose<List<EconomicEvent>>((ref) async {
+  final calendar = ForexFactoryCalendar();
+  return calendar.fetchCalendar();
 });
