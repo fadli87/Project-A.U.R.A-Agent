@@ -204,71 +204,144 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
   ) {
     return Container(
       height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       color: const Color(0xFF161624),
-      child: Row(
-        children: [
-          const Icon(Icons.candlestick_chart, color: Color(0xFF6C63FF), size: 24),
-          const SizedBox(width: 12),
-          const Text(
-            'AURA Desktop Trading Lab',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(width: 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left side controls
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.candlestick_chart, color: Color(0xFF6C63FF), size: 22),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'AURA Desktop Trading Lab',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
 
-          // Selected Symbol Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.5)),
-            ),
-            child: Text(
-              '${selectedAsset.symbol} (${selectedAsset.category.name.toUpperCase()})',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+                      // Selected Symbol Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          '${selectedAsset.symbol} (${selectedAsset.category.name.toUpperCase()})',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+
+                      // Timeframe Selector
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: ['15m', '1h', '1d'].map((tf) {
+                          final isSelected = tf == selectedTimeframe;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: ChoiceChip(
+                              label: Text(tf.toUpperCase()),
+                              selected: isSelected,
+                              onSelected: (_) {
+                                ref.read(selectedTimeframeProvider.notifier).setTimeframe(tf);
+                              },
+                              selectedColor: const Color(0xFF6C63FF),
+                              backgroundColor: Colors.white.withValues(alpha: 0.05),
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : Colors.white60,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Right side indicators (MT5 Status Bar + Session Heatmap)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Mt5StatusBarWidget(),
+                      const SizedBox(width: 12),
+                      const FittedBox(
+                        child: SessionHeatmapWidget(isCompact: true),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 20),
+          );
+        },
+      ),
+    );
+  }
 
-          // Timeframe Selector
-          Row(
-            children: ['15m', '1h', '1d'].map((tf) {
-              final isSelected = tf == selectedTimeframe;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  label: Text(tf.toUpperCase()),
-                  selected: isSelected,
-                  onSelected: (_) {
-                    ref.read(selectedTimeframeProvider.notifier).setTimeframe(tf);
-                  },
-                  selectedColor: const Color(0xFF6C63FF),
-                  backgroundColor: Colors.white.withValues(alpha: 0.05),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white60,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
+  /// MT5 Tab panel — shows live open positions + tips.
+  Widget _buildMt5Panel() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Mt5PositionsWidget(),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.2)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Color(0xFF6C63FF), size: 14),
+                    SizedBox(width: 6),
+                    Text(
+                      'Cara pakai MT5 Bridge',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            }).toList(),
-          ),
-
-          const Spacer(),
-
-          // Session Heatmap Widget
-          const FittedBox(
-            child: SessionHeatmapWidget(isCompact: true),
+                SizedBox(height: 8),
+                Text(
+                  '1. Pastikan MT5 Terminal sudah terbuka di Windows.\n'
+                  '2. Jalankan: python tools/mt5_bridge/mt5_service.py\n'
+                  '3. Bridge berjalan di http://127.0.0.1:8088\n'
+                  '4. Status koneksi tampil di header bar atas.',
+                  style: TextStyle(color: Colors.white60, fontSize: 10, height: 1.6),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -364,6 +437,7 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
                 _buildMiddleTabButton(0, Icons.show_chart, 'Watchlist'),
                 _buildMiddleTabButton(1, Icons.menu_book, 'Jurnal'),
                 _buildMiddleTabButton(2, Icons.shield, 'Dashboard'),
+                _buildMiddleTabButton(3, Icons.swap_vert, 'MT5'),
               ],
             ),
           ),
@@ -375,45 +449,47 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
                 ? const TradeJournalWidget()
                 : _selectedMiddleTab == 2
                     ? const RiskDashboardWidget()
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const RiskCardWidget(),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Market Watchlist',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          const SizedBox(height: 6),
-                          Expanded(
-                            child: watchlistAsync.when(
-                              data: (tickers) {
-                                return ListView.builder(
-                                  itemCount: tickers.length,
-                                  itemBuilder: (context, index) {
-                                    final item = tickers[index];
-                                    return WatchlistTile(
-                                      ticker: item,
-                                      isSelected: item.symbol == selectedAsset.symbol,
-                                      onTap: () {
-                                        ref.read(selectedAssetProvider.notifier).select((
-                                          symbol: item.symbol,
-                                          category: item.category,
-                                        ));
+                    : _selectedMiddleTab == 3
+                        ? _buildMt5Panel()
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const RiskCardWidget(),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Market Watchlist',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: watchlistAsync.when(
+                                  data: (tickers) {
+                                    return ListView.builder(
+                                      itemCount: tickers.length,
+                                      itemBuilder: (context, index) {
+                                        final item = tickers[index];
+                                        return WatchlistTile(
+                                          ticker: item,
+                                          isSelected: item.symbol == selectedAsset.symbol,
+                                          onTap: () {
+                                            ref.read(selectedAssetProvider.notifier).select((
+                                              symbol: item.symbol,
+                                              category: item.category,
+                                            ));
+                                          },
+                                        );
                                       },
                                     );
                                   },
-                                );
-                              },
-                              loading: () => const Center(
-                                child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                                  loading: () => const Center(
+                                    child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                                  ),
+                                  error: (err, stack) => Text('Watchlist Error: $err',
+                                      style: const TextStyle(color: Colors.redAccent)),
+                                ),
                               ),
-                              error: (err, stack) => Text('Watchlist Error: $err',
-                                  style: const TextStyle(color: Colors.redAccent)),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
           ),
         ],
       ),
@@ -427,24 +503,26 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
         onTap: () => setState(() => _selectedMiddleTab = index),
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: isSelected ? Colors.white : Colors.white60),
-              const SizedBox(width: 4),
+              Icon(icon, size: 12, color: isSelected ? Colors.white : Colors.white60),
+              const SizedBox(width: 3),
               Flexible(
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                   style: TextStyle(
                     color: isSelected ? Colors.white : Colors.white60,
                     fontWeight: FontWeight.bold,
-                    fontSize: 10.5,
+                    fontSize: 10,
                   ),
                 ),
               ),

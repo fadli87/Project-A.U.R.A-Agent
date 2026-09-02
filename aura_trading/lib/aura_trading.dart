@@ -27,6 +27,7 @@ export 'ai/prompts/trading_coach_prompt.dart';
 export 'ai/trading_tools.dart';
 
 export 'presentation/providers/market_data_provider.dart';
+export 'presentation/providers/mt5_provider.dart';
 export 'presentation/widgets/candlestick_chart.dart';
 export 'presentation/widgets/watchlist_tile.dart';
 export 'presentation/widgets/risk_card.dart';
@@ -36,3 +37,5 @@ export 'presentation/widgets/risk_dashboard_widget.dart';
 export 'presentation/widgets/equity_curve_chart.dart';
 export 'presentation/widgets/backtest_panel_widget.dart';
 export 'presentation/widgets/mt5_order_dialog.dart';
+export 'presentation/widgets/mt5_positions_widget.dart';
+export 'presentation/widgets/mt5_status_bar.dart';
