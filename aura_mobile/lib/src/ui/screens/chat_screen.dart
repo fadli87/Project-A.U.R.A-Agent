@@ -1034,6 +1034,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.candlestick_chart, color: Color(0xFF6C63FF)),
+              title: const Text('AURA Trading Lab'),
+              subtitle: const Text('Kalkulator Risiko, Chart & MT5'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushNamed('/trading');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.settings_outlined,
                   color: AppTheme.textSecondary),
               title: const Text('Pengaturan'),

@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.aura.aura"
-    compileSdk = 36
+    compileSdk = 34
     ndkVersion = "26.1.10909125"
 
     compileOptions {

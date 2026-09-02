@@ -166,6 +166,12 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
             ],
           ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.candlestick_chart, color: Color(0xFF6C63FF)),
+            tooltip: 'AURA Trading Lab',
+            onPressed: () => Navigator.of(context).pushNamed('/trading'),
+          ),
+          const SizedBox(width: 4),
           // Status indicator
           _StatusDot(status: state.status),
         ],

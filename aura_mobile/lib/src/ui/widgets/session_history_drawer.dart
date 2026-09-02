@@ -83,6 +83,34 @@ class SessionHistoryDrawer extends ConsumerWidget {
 
             const SizedBox(height: 8),
 
+            // ── Trading Lab Button ─────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                tileColor: const Color(0xFF6C63FF).withValues(alpha: 0.12),
+                leading: const Icon(Icons.candlestick_chart, color: Color(0xFF6C63FF)),
+                title: const Text(
+                  'AURA Trading Lab',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Forex, Gold, Saham IDX & MT5',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamed('/trading');
+                },
+              ),
+            ),
+
             // ── Session List ────────────────────────────────────────
             Expanded(
               child: sessionsAsync.when(
