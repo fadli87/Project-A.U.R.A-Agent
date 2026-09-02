@@ -399,25 +399,41 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     final sb = StringBuffer();
     
     // Separate chat memories and document memories
-    final chatMemories = memories.where((m) => m.sourceType != 'document').toList();
+    final chatMemories = memories
+        .where((m) =>
+            m.sourceType != 'document' &&
+            !m.content.contains('[Error Inferensi') &&
+            !m.content.startsWith('[Error'))
+        .toList();
     final docMemories = memories.where((m) => m.sourceType == 'document').toList();
     
     if (chatMemories.isNotEmpty) {
       sb.writeln('[RELEVANT CHAT MEMORIES]');
-      for (final m in chatMemories) {
+      for (final m in chatMemories.take(3)) {
+        String cleanContent = m.content
+            .replaceAll(RegExp(r'<think>[\s\S]*?<\/think>'), '')
+            .trim();
+        if (cleanContent.isEmpty) continue;
+        if (cleanContent.length > 160) {
+          cleanContent = '${cleanContent.substring(0, 160)}...';
+        }
         final roleLabel = m.role == 'user' ? 'User previously said' : 'Assistant previously said';
-        sb.writeln('- $roleLabel: "${m.content.trim()}"');
+        sb.writeln('- $roleLabel: "$cleanContent"');
       }
       sb.writeln('[END CHAT MEMORIES]\n');
     }
     
     if (docMemories.isNotEmpty) {
       sb.writeln('[RELEVANT DOCUMENT CHUNKS]');
-      for (final m in docMemories) {
+      for (final m in docMemories.take(2)) {
         final docName = await _db.getDocumentName(m.sourceId) ?? 'Dokumen Tidak Dikenal';
-        sb.writeln('Dari dokumen "' + docName + '":');
+        String docContent = m.content.trim();
+        if (docContent.length > 250) {
+          docContent = '${docContent.substring(0, 250)}...';
+        }
+        sb.writeln('Dari dokumen "$docName":');
         sb.writeln('"""');
-        sb.writeln(m.content.trim());
+        sb.writeln(docContent);
         sb.writeln('"""');
         sb.writeln();
       }

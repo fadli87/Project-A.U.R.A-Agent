@@ -123,7 +123,7 @@ class SessionHeatmapWidget extends StatelessWidget {
   Widget _buildCompactBadge(String name, bool isOpen) {
     final activeColor = isOpen ? const Color(0xFF00E676) : Colors.white24;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
       decoration: BoxDecoration(
         color: isOpen
             ? const Color(0xFF00E676).withValues(alpha: 0.15)
@@ -137,20 +137,20 @@ class SessionHeatmapWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(
               color: activeColor,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 3),
           Text(
-            name,
+            name == 'New York' ? 'NY' : name,
             style: TextStyle(
               color: isOpen ? Colors.white : Colors.white54,
               fontWeight: FontWeight.bold,
-              fontSize: 10.5,
+              fontSize: 10,
             ),
           ),
         ],

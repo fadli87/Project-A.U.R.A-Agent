@@ -229,64 +229,75 @@ class _Mt5StatusBarWidgetState extends ConsumerState<Mt5StatusBarWidget> {
     required int login,
     required VoidCallback onRefresh,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFF00E676).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Connection dot
-          const Icon(Icons.circle, color: Color(0xFF00E676), size: 8),
-          const SizedBox(width: 6),
-          // Account info columns
-          _AccountStat(label: 'Balance', value: '$balance $currency'),
-          _AccountDivider(),
-          _AccountStat(label: 'Equity', value: '$equity $currency'),
-          _AccountDivider(),
-          _AccountStat(label: 'Free Margin', value: '$freeMargin $currency'),
-          _AccountDivider(),
-          _AccountStat(label: 'Login', value: '#$login'),
-          const SizedBox(width: 4),
-          // Refresh button
-          GestureDetector(
-            onTap: onRefresh,
-            child: const Icon(Icons.refresh, color: Colors.white60, size: 14),
-          ),
-          const SizedBox(width: 6),
-          // Kill / Stop Service button
-          InkWell(
-            onTap: _handleStopService,
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.power_settings_new_rounded, color: Colors.redAccent, size: 11),
-                  SizedBox(width: 2),
-                  Text(
-                    'Kill',
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+    return Tooltip(
+      message: 'MT5 Account Details:\n• Balance: $balance $currency\n• Equity: $equity $currency\n• Free Margin: $freeMargin $currency\n• Account: #$login',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00E676).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border:
+              Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Connection dot
+            const Icon(Icons.circle, color: Color(0xFF00E676), size: 7),
+            const SizedBox(width: 5),
+            const Text(
+              'MT5 Live',
+              style: TextStyle(
+                color: Color(0xFF00E676),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-        ],
+            _AccountDivider(),
+            _AccountStat(label: 'Equity', value: '$equity $currency'),
+            _AccountDivider(),
+            _AccountStat(label: 'Account', value: '#$login'),
+            const SizedBox(width: 4),
+            // Refresh button
+            InkWell(
+              onTap: onRefresh,
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.all(2.0),
+                child: Icon(Icons.refresh, color: Colors.white60, size: 14),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Kill / Stop Service button
+            InkWell(
+              onTap: _handleStopService,
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.power_settings_new_rounded, color: Colors.redAccent, size: 11),
+                    SizedBox(width: 2),
+                    Text(
+                      'Kill',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
