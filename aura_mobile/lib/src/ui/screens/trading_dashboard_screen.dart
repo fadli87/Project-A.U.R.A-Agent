@@ -468,17 +468,38 @@ class _TradingDashboardScreenState
                             if (query.isEmpty) return;
                             Navigator.pop(context);
 
-                            // Execute grounding query using TradingTools & live context
+                            // Execute grounding query using TradingTools, rule-based fallback, and live context
                             final tools = TradingTools();
                             String reply = '';
                             final lower = query.toLowerCase();
 
-                            if (lower.contains('posisi') ||
+                            // 1. Instant Rule-Based Concepts (Sub-4B Optimization)
+                            final ruleAnswer = TradingCoachPrompt.getRuleBasedAnswer(query);
+                            if (ruleAnswer != null) {
+                              reply = ruleAnswer;
+                            } else if (lower.contains('posisi') ||
                                 lower.contains('akun') ||
                                 lower.contains('mt5') ||
-                                lower.contains('balance')) {
+                                lower.contains('balance') ||
+                                lower.contains('equity')) {
                               reply = await tools.getAccountContext({});
-                            } else if (lower.contains('indikator') || lower.contains('rsi')) {
+                            } else if (lower.contains('lot') ||
+                                lower.contains('risk') ||
+                                lower.contains('modal') ||
+                                lower.contains('sl')) {
+                              final lotJson = await tools.calculatePositionSize({
+                                'equity': 10000,
+                                'riskPct': 2.0,
+                                'entryPrice': 2650.0,
+                                'stopLoss': 2630.0,
+                                'symbol': selectedAsset.symbol,
+                                'assetType': selectedAsset.category.name,
+                              });
+                              reply = '🛡️ Kalkulasi Risiko & Lot Ideal:\n$lotJson';
+                            } else if (lower.contains('indikator') ||
+                                lower.contains('rsi') ||
+                                lower.contains('macd') ||
+                                lower.contains('ema')) {
                               reply = await tools.getTechnicalIndicators({
                                 'symbol': selectedAsset.symbol,
                                 'category': selectedAsset.category.name,

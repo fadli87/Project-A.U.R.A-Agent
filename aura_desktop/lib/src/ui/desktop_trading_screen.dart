@@ -85,6 +85,12 @@ class _DesktopTradingScreenState extends ConsumerState<DesktopTradingScreen> {
         }
       }
 
+      // 0. Instant Rule-Based Concepts (Sub-4B Optimization - 0 latency, 0 tokens)
+      final ruleAnswer = TradingCoachPrompt.getRuleBasedAnswer(userText);
+      if (ruleAnswer != null) {
+        aiReply = ruleAnswer;
+      }
+
       // 2. Intelligent Tool & Conversational Fallback
       if (aiReply.isEmpty) {
         if (lowerText.contains('posisi') ||

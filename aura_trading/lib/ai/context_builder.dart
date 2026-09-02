@@ -21,7 +21,11 @@ class AiTradingContext {
   });
 
   /// Format ringkas untuk system prompt (hemat token).
-  String toPromptContext() {
+  /// [compact] = true menghasilkan format super hemat token untuk mobile sub-4B model.
+  String toPromptContext({bool compact = false}) {
+    if (compact) {
+      return _toCompactPromptContext();
+    }
     final sb = StringBuffer();
 
     // Account Summary
@@ -68,6 +72,27 @@ class AiTradingContext {
 
     sb.write('Timestamp Data: $timestamp');
     return sb.toString();
+  }
+
+  String _toCompactPromptContext() {
+    final sb = StringBuffer();
+    if (account != null) {
+      sb.writeln(
+          'AKUN: Bal: \$${account!.balance.toStringAsFixed(0)}, Eq: \$${account!.equity.toStringAsFixed(0)}, Free: \$${account!.freeMargin.toStringAsFixed(0)} | Margin Level: ${_marginLevel()}');
+    }
+    if (openPositions.isNotEmpty) {
+      sb.writeln('POSISI (${openPositions.length}):');
+      for (final p in openPositions.take(2)) {
+        final pnlPrefix = p.profit >= Decimal.zero ? '+' : '';
+        sb.writeln(
+            '• ${p.symbol} ${p.type} ${p.volume}L @ ${p.openPrice} | PnL: $pnlPrefix\$${p.profit.toStringAsFixed(0)}');
+      }
+    }
+    if (watchlistPrices.isNotEmpty) {
+      final sample = watchlistPrices.entries.take(3).map((e) => '${e.key}: \$${e.value.price}').join(' | ');
+      sb.writeln('HARGA: $sample');
+    }
+    return sb.toString().trim();
   }
 
   String _marginLevel() {

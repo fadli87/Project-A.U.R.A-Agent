@@ -180,4 +180,57 @@ class TradingTools {
       return jsonEncode({'status': 'error', 'message': e.toString()});
     }
   }
+
+  /// Dispatch tool execution by tool name and arguments.
+  Future<String> execute(String toolName, Map<String, dynamic> args) async {
+    switch (toolName) {
+      case 'getCurrentPrice':
+        return getCurrentPrice(args);
+      case 'getTechnicalIndicators':
+        return getTechnicalIndicators(args);
+      case 'calculatePositionSize':
+        return calculatePositionSize(args);
+      case 'getAccountContext':
+        return getAccountContext(args);
+      default:
+        return jsonEncode({'status': 'error', 'message': 'Unknown tool: $toolName'});
+    }
+  }
+
+  /// Parses and executes simplified non-JSON tool call format:
+  /// TOOL: calculatePositionSize
+  /// equity: 10000
+  /// riskPct: 2.0
+  Future<String> parseAndExecute(String raw) async {
+    final lines = raw.split('\n');
+    final toolLine = lines.firstWhere((l) => l.trim().startsWith('TOOL:'), orElse: () => '');
+    if (toolLine.isEmpty) {
+      return jsonEncode({'status': 'error', 'message': 'Format tool call tidak valid'});
+    }
+
+    final toolName = toolLine.replaceFirst('TOOL:', '').trim();
+    final params = <String, dynamic>{};
+
+    for (final line in lines) {
+      if (line.trim().startsWith('TOOL:')) continue;
+      if (line.contains(':')) {
+        final parts = line.split(':');
+        final key = parts[0].trim();
+        final val = parts.sublist(1).join(':').trim();
+
+        if (val.toLowerCase() == 'true') {
+          params[key] = true;
+        } else if (val.toLowerCase() == 'false') {
+          params[key] = false;
+        } else if (double.tryParse(val) != null) {
+          params[key] = double.parse(val);
+        } else {
+          params[key] = val;
+        }
+      }
+    }
+
+    return execute(toolName, params);
+  }
 }
+
