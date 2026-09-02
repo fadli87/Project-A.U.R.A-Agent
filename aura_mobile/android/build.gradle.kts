@@ -18,7 +18,7 @@ subprojects {
 subprojects {
     afterEvaluate {
         val extension = extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        extension?.compileSdkVersion(35)
+        extension?.compileSdkVersion(36)
     }
 }
 
