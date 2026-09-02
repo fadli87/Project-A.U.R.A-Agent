@@ -83,6 +83,9 @@ class MemoryNotifier extends _$MemoryNotifier {
 
     try {
       final queryEmbedding = await EmbeddingService.instance.embed(query);
+      if (queryEmbedding.every((v) => v == 0.0)) {
+        return [];
+      }
 
       final box = ObjectBoxStore.instance.memoryBox;
 

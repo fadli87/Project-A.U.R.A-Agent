@@ -611,6 +611,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final buffer = StringBuffer();
     final isGemma = modelName.toLowerCase().contains('gemma');
 
+    String sanitizeMessage(String text) {
+      String clean = text.replaceAll(RegExp(r'<think>[\s\S]*?<\/think>'), '').trim();
+      if (clean.length > 300) {
+        clean = '${clean.substring(0, 300)}...';
+      }
+      return clean;
+    }
+
     if (isGemma) {
       if (systemPrompt.isNotEmpty) {
         buffer.writeln('<start_of_turn>user');
@@ -618,17 +626,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         buffer.writeln('<end_of_turn>');
       }
       for (final msg in history) {
+        if (msg.content.contains('[Error Inferensi')) continue;
+        final cleanText = sanitizeMessage(msg.content);
+        if (cleanText.isEmpty) continue;
+
         if (msg.role == MessageRole.user) {
           buffer.writeln('<start_of_turn>user');
-          buffer.writeln(msg.content);
+          buffer.writeln(cleanText);
           buffer.writeln('<end_of_turn>');
         } else if (msg.role == MessageRole.assistant) {
           buffer.writeln('<start_of_turn>model');
-          buffer.writeln(msg.content);
+          buffer.writeln(cleanText);
           buffer.writeln('<end_of_turn>');
         } else if (msg.role == MessageRole.tool) {
           buffer.writeln('<start_of_turn>user');
-          buffer.writeln(msg.content);
+          buffer.writeln(cleanText);
           buffer.writeln('<end_of_turn>');
         }
       }
@@ -640,17 +652,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         buffer.writeln('<|im_end|>');
       }
       for (final msg in history) {
+        if (msg.content.contains('[Error Inferensi')) continue;
+        final cleanText = sanitizeMessage(msg.content);
+        if (cleanText.isEmpty) continue;
+
         if (msg.role == MessageRole.user) {
           buffer.writeln('<|im_start|>user');
-          buffer.writeln(msg.content);
+          buffer.writeln(cleanText);
           buffer.writeln('<|im_end|>');
         } else if (msg.role == MessageRole.assistant) {
           buffer.writeln('<|im_start|>assistant');
-          buffer.writeln(msg.content);
+          buffer.writeln(cleanText);
           buffer.writeln('<|im_end|>');
         } else if (msg.role == MessageRole.tool) {
           buffer.writeln('<|im_start|>user');
-          buffer.writeln(msg.content);
+          buffer.writeln(cleanText);
           buffer.writeln('<|im_end|>');
         }
       }
@@ -724,10 +740,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         final buffer = StringBuffer();
 
-        // Load completed history (limit to last 8 messages to fit in the context size limit)
-        var history = ref.read(chatProvider).messages.where((m) => !m.isStreaming).toList();
-        if (history.length > 8) {
-          history = history.sublist(history.length - 8);
+        // Load completed history (limit to last 4 messages to fit safely in context size)
+        var history = ref.read(chatProvider).messages
+            .where((m) => !m.isStreaming && !m.content.contains('[Error Inferensi'))
+            .toList();
+        if (history.length > 4) {
+          history = history.sublist(history.length - 4);
         }
         final modelName = ref.read(modelProvider).activeModel?.name ?? '';
         final formattedPrompt = _buildFormattedPrompt(history, systemPrompt, modelName);
