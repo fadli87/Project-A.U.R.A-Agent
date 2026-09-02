@@ -174,7 +174,11 @@ class _TradingDashboardScreenState
                       ),
                     ),
                   ),
-                             // Mobile Segmented Tab Switcher (Watchlist, Jurnal, Dashboard, MT5, Kalender)
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Mobile Segmented Tab Switcher (Watchlist, Jurnal, Dashboard, MT5, Kalender)
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
