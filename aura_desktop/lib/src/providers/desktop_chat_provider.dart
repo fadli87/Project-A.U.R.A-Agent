@@ -642,7 +642,7 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
             provider == 'openai' ? 'openai_api_key' : 'gemini_api_key',
           ) ?? '';
           if (apiKey.isEmpty) {
-            throw Exception('API Key untuk ' + provider + ' kosong. Silakan isi di Settings.');
+            throw Exception('API Key untuk $provider kosong. Silakan isi di Settings.');
           }
           final modelName = await SecureStorageService.instance.read('openai_model') ?? 'gpt-4o-mini';
 

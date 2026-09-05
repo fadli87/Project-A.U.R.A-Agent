@@ -72,15 +72,15 @@ class _NetworkMonitorScreenState extends ConsumerState<NetworkMonitorScreen>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TabBar(
                   controller: _tabController,
                   indicator: BoxDecoration(
-                    color: const Color(0xFF4FC3F7).withOpacity(0.2),
+                    color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF4FC3F7).withOpacity(0.5)),
+                    border: Border.all(color: const Color(0xFF4FC3F7).withValues(alpha: 0.5)),
                   ),
                   labelColor: const Color(0xFF4FC3F7),
                   unselectedLabelColor: Colors.white38,
@@ -201,9 +201,9 @@ class _DriveTestTab extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.12),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.4)),
+                border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
