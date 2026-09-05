@@ -1,4 +1,4 @@
-# 🔌 [ANALISIS & DESAIN INTEGRASI] AURA <-> METATRADER 5 (MT5) PLATFORM
+t# 🔌 [ANALISIS & DESAIN INTEGRASI] AURA <-> METATRADER 5 (MT5) PLATFORM
 
 > **Kategori**: Dokumentasi Arsitektur Integrasi MT5 (Forex & Gold Broker Execution)  
 > *Lokasi Berkas*: Root Project (`Project-A.U.R.A-Agent/TRADING_ASSISTANT_MT5_INTEGRATION.md`)  
