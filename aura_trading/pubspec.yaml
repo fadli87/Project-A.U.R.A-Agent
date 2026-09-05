@@ -29,6 +29,8 @@ dependencies:
   decimal: ^3.0.1
 
 
+  path_provider: any
+  rational: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

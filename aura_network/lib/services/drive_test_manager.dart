@@ -149,7 +149,7 @@ class DriveTestManager {
     Position? position;
     try {
       position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       ).timeout(const Duration(seconds: 5));
     } catch (_) {}
 

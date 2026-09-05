@@ -1,4 +1,3 @@
-import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura_trading/aura_trading.dart';
 

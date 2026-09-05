@@ -633,39 +633,34 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                       const SizedBox(height: 12),
                                       const Text('Aktifkan Provider:', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                                       const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: RadioListTile<String>(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: const Text('Gemini', style: TextStyle(fontSize: 12, color: Colors.white)),
-                                              value: 'gemini',
-                                              groupValue: activeCloudProvider,
-                                              activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  SecureStorageService.instance.write('active_cloud_provider', val);
-                                                }
-                                              },
+                                      RadioGroup<String>(
+                                        groupValue: activeCloudProvider,
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setDialogState(() => activeCloudProvider = val);
+                                            SecureStorageService.instance.write('active_cloud_provider', val);
+                                          }
+                                        },
+                                        child: const Row(
+                                          children: [
+                                            Expanded(
+                                              child: RadioListTile<String>(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text('Gemini', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                                value: 'gemini',
+                                                activeColor: Color(0xFF7C4DFF),
+                                              ),
                                             ),
-                                          ),
-                                          Expanded(
-                                            child: RadioListTile<String>(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: const Text('OpenAI', style: TextStyle(fontSize: 12, color: Colors.white)),
-                                              value: 'openai',
-                                              groupValue: activeCloudProvider,
-                                              activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  SecureStorageService.instance.write('active_cloud_provider', val);
-                                                }
-                                              },
+                                            Expanded(
+                                              child: RadioListTile<String>(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text('OpenAI', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                                value: 'openai',
+                                                activeColor: Color(0xFF7C4DFF),
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                       const SizedBox(height: 12),
                                       const Text('Gemini API Key', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),

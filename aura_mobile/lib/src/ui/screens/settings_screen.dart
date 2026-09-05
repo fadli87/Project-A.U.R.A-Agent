@@ -443,37 +443,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Gemini', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
-                        value: 'gemini',
-                        groupValue: settings.activeCloudProvider,
-                        activeColor: AppTheme.primary,
-                        onChanged: (val) {
-                          if (val != null) {
-                            ref.read(settingsProvider.notifier).setActiveCloudProvider(val);
-                          }
-                        },
+                RadioGroup<String>(
+                  groupValue: settings.activeCloudProvider,
+                  onChanged: (val) {
+                    if (val != null) {
+                      ref.read(settingsProvider.notifier).setActiveCloudProvider(val);
+                    }
+                  },
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('Gemini', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                          value: 'gemini',
+                          activeColor: AppTheme.primary,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('OpenAI', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
-                        value: 'openai',
-                        groupValue: settings.activeCloudProvider,
-                        activeColor: AppTheme.primary,
-                        onChanged: (val) {
-                          if (val != null) {
-                            ref.read(settingsProvider.notifier).setActiveCloudProvider(val);
-                          }
-                        },
+                      Expanded(
+                        child: RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('OpenAI', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                          value: 'openai',
+                          activeColor: AppTheme.primary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const Divider(color: AppTheme.border, height: 24),
 

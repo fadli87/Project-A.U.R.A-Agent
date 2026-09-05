@@ -1,8 +1,5 @@
-import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura_trading/aura_trading.dart';
-import 'package:aura_trading/data/sources/local/trading_database.dart';
-import 'package:aura_trading/domain/paper_trading_engine.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

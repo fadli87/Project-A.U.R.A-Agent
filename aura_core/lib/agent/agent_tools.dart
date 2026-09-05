@@ -248,7 +248,7 @@ class SearchWebDeepTool extends AgentTool {
       
       var url = titleMatch.group(1) ?? '';
       if (url.startsWith('/l/?')) {
-        final uri = Uri.parse('https://html.duckduckgo.com' + url);
+        final uri = Uri.parse('https://html.duckduckgo.com$url');
         final uddg = uri.queryParameters['uddg'];
         if (uddg != null) {
           url = Uri.decodeComponent(uddg);
@@ -281,7 +281,7 @@ class SearchWebDeepTool extends AgentTool {
     try {
       var searchUrl = baseUrl;
       if (!searchUrl.endsWith('/')) searchUrl += '/';
-      searchUrl += '?q=' + Uri.encodeComponent(query) + '&format=json';
+      searchUrl += '?q=${Uri.encodeComponent(query)}&format=json';
 
       final request = await client.getUrl(Uri.parse(searchUrl));
       request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
@@ -307,7 +307,7 @@ class SearchWebDeepTool extends AgentTool {
         return parsed;
       }
     } catch (e) {
-      debugPrint('SearXNG fallback error: ' + e.toString());
+      debugPrint('SearXNG fallback error: $e');
     } finally {
       client.close();
     }
@@ -328,7 +328,7 @@ class SearchWebDeepTool extends AgentTool {
 
     try {
       final request = await client.getUrl(
-        Uri.parse('https://html.duckduckgo.com/html/?q=' + Uri.encodeComponent(query)),
+        Uri.parse('https://html.duckduckgo.com/html/?q=${Uri.encodeComponent(query)}'),
       );
       request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       final response = await request.close();
@@ -337,7 +337,7 @@ class SearchWebDeepTool extends AgentTool {
         results = _parseDuckDuckGo(body);
       }
     } catch (e) {
-      debugPrint('DuckDuckGo Lite fetch failed, trying SearXNG: ' + e.toString());
+      debugPrint('DuckDuckGo Lite fetch failed, trying SearXNG: $e');
     } finally {
       client.close();
     }
@@ -351,14 +351,14 @@ class SearchWebDeepTool extends AgentTool {
     }
 
     final sb = StringBuffer();
-    sb.writeln('Hasil Pencarian Online untuk "' + query + '":');
+    sb.writeln('Hasil Pencarian Online untuk "$query":');
     
     for (final res in results) {
-      final entry = '- [' + (res['title'] ?? '') + '](' + (res['url'] ?? '') + '): ' + (res['snippet'] ?? '') + '\n';
+      final entry = '- [${res['title'] ?? ''}](${res['url'] ?? ''}): ${res['snippet'] ?? ''}\n';
       if (sb.length + entry.length > 500) {
         final remainingBudget = 500 - sb.length;
         if (remainingBudget > 30) {
-          sb.write(entry.substring(0, remainingBudget) + '...\n');
+          sb.write('${entry.substring(0, remainingBudget)}...\n');
         }
         break;
       }
@@ -785,7 +785,7 @@ class ReadLocalFileTool extends AgentTool {
       if (!isWhitelisted) {
         return jsonEncode({
           'status': 'error',
-          'message': 'Akses Ditolak: Path "' + pathStr + '" tidak berada di dalam folder yang di-whitelist. Silakan tambahkan folder induknya ke Whitelist Folder Terpercaya di Settings terlebih dahulu.',
+          'message': 'Akses Ditolak: Path "$pathStr" tidak berada di dalam folder yang di-whitelist. Silakan tambahkan folder induknya ke Whitelist Folder Terpercaya di Settings terlebih dahulu.',
         });
       }
 
@@ -793,7 +793,7 @@ class ReadLocalFileTool extends AgentTool {
       if (!await targetFile.exists()) {
         return jsonEncode({
           'status': 'error',
-          'message': 'File tidak ditemukan pada path "' + pathStr + '".',
+          'message': 'File tidak ditemukan pada path "$pathStr".',
         });
       }
 
@@ -823,7 +823,7 @@ class ReadLocalFileTool extends AgentTool {
     } catch (e) {
       return jsonEncode({
         'status': 'error',
-        'message': 'Gagal membaca berkas: ' + e.toString(),
+        'message': 'Gagal membaca berkas: $e',
       });
     }
   }
