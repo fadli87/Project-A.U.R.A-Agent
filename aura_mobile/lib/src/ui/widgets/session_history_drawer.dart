@@ -111,6 +111,36 @@ class SessionHistoryDrawer extends ConsumerWidget {
               ),
             ),
 
+            const SizedBox(height: 6),
+
+            // ── Network Monitor Button ─────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                tileColor: const Color(0xFF00E5FF).withValues(alpha: 0.12),
+                leading: const Icon(Icons.cell_tower, color: Color(0xFF00E5FF)),
+                title: const Text(
+                  'Network Monitor',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Cellular, WiFi/LAN, Drive & Speed Test',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamed('/network');
+                },
+              ),
+            ),
+
             // ── Session List ────────────────────────────────────────
             Expanded(
               child: sessionsAsync.when(

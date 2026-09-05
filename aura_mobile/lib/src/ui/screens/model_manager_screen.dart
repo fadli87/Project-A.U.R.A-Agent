@@ -171,6 +171,11 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
             tooltip: 'AURA Trading Lab',
             onPressed: () => Navigator.of(context).pushNamed('/trading'),
           ),
+          IconButton(
+            icon: const Icon(Icons.cell_tower, color: Color(0xFF00E5FF)),
+            tooltip: 'Network Monitor',
+            onPressed: () => Navigator.of(context).pushNamed('/network'),
+          ),
           const SizedBox(width: 4),
           // Status indicator
           _StatusDot(status: state.status),

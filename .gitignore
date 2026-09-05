@@ -41,6 +41,9 @@ macos/Flutter/GeneratedPluginRegistrant.swift
 .DS_Store
 Thumbs.db
 desktop.ini
+secure_credentials.json
+__pycache__/
+*.pyc
 
 # pubspec.lock — keep untuk reproducible builds di team
 # pubspec.lock
@@ -49,4 +52,5 @@ desktop.ini
 *.gguf
 *.bin
 *.onnx
-models/
+/models/
+**/assets/models/

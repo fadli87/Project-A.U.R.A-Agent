@@ -1069,6 +1069,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.cell_tower, color: Color(0xFF00E5FF)),
+              title: const Text('Network Monitor'),
+              subtitle: const Text('Cellular, WiFi/LAN, Drive & Speed Test'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushNamed('/network');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.settings_outlined,
                   color: AppTheme.textSecondary),
               title: const Text('Pengaturan'),

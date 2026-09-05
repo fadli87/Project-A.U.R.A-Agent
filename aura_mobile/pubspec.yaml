@@ -53,6 +53,8 @@ dependencies:
     path: ../aura_core
   aura_trading:
     path: ../aura_trading
+  aura_network:
+    path: ../aura_network
   file_picker: ^12.0.0
   tflite_flutter: ^0.12.1
   shared_preferences: ^2.3.0

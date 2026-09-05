@@ -1,0 +1,65 @@
+name: aura_network
+description: Network monitoring package for AURA — cellular signal, WiFi/LAN analyzer, drive test, and speed test (UL/DL). Shared between aura_mobile and aura_desktop.
+version: 0.1.0
+homepage: https://github.com/fadli87/Project-A.U.R.A-Agent
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.12.2 <4.0.0'
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^3.0.0
+
+  # Permissions (sensitif: lokasi, phone state)
+  permission_handler: ^11.3.1
+
+  # GPS untuk drive test
+  geolocator: ^14.0.3
+
+  # Background service untuk drive test logging
+  flutter_background_service: ^5.1.0
+
+  # Map untuk signal heatmap
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+
+  # Storage untuk drive test log
+  sqlite3: ^2.4.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.0
+  path: ^1.9.1
+
+  # Export
+  csv: ^6.0.0          # CSV export drive test log
+  xml: ^6.5.0          # KML export untuk Google Earth
+
+  # Speed test UL/DL
+  flutter_network_speed_test: ^0.2.0
+
+  # Network connectivity info
+  connectivity_plus: ^6.0.0
+
+  # HTTP untuk ping, traceroute, dll
+  http: ^1.2.0
+
+  # Utilities
+  collection: ^1.18.0
+  intl: ^0.19.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.aura.network
+        pluginClass: AuraNetworkPlugin
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  test: ^1.24.0
