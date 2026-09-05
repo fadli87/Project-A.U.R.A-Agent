@@ -20,7 +20,7 @@ class LanDevicesList extends ConsumerWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF1A1F3A), Color(0xFF0D1B2A)],
         ),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -37,7 +37,7 @@ class LanDevicesList extends ConsumerWidget {
                     if (state.result != null)
                       Text(
                         state.result!.subnetCidr,
-                        style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, fontFamily: 'Inter'),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11, fontFamily: 'Inter'),
                       ),
                   ],
                 ),
@@ -56,12 +56,12 @@ class LanDevicesList extends ConsumerWidget {
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.08),
+                color: Colors.blue.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 'ℹ️ Hanya subnet lokal (${state.result?.subnetCidr ?? "N/A"}) — tidak scan ke jaringan luar',
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10, fontFamily: 'Inter'),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontFamily: 'Inter'),
               ),
             ),
             const SizedBox(height: 12),
@@ -78,7 +78,7 @@ class LanDevicesList extends ConsumerWidget {
             if (state.result != null) ...[
               Text(
                 '${state.result!.devices.length} device ditemukan (${state.result!.scanDuration.inSeconds}s)',
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontFamily: 'Inter'),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11, fontFamily: 'Inter'),
               ),
               const SizedBox(height: 8),
               ...state.result!.devices.map((d) => _DeviceTile(device: d)),
@@ -100,7 +100,7 @@ class _DeviceTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -117,7 +117,7 @@ class _DeviceTile extends StatelessWidget {
                 ),
                 Text(
                   device.macDisplay,
-                  style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 10, fontFamily: 'Inter'),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10, fontFamily: 'Inter'),
                 ),
               ],
             ),

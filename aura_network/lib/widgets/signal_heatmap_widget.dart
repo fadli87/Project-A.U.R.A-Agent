@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/drive_test_log.dart';
-import '../models/cell_signal_info.dart';
 import '../providers/drive_test_provider.dart';
 
 /// Signal heatmap widget — peta dengan titik drive test diwarnai berdasarkan kualitas sinyal.
@@ -49,7 +48,7 @@ class SignalHeatmapWidget extends ConsumerWidget {
               circles: points.map((p) => CircleMarker(
                 point: LatLng(p.latitude, p.longitude),
                 radius: 7,
-                color: _signalColor(p.rsrpDbm).withOpacity(0.75),
+                color: _signalColor(p.rsrpDbm).withValues(alpha: 0.75),
                 borderStrokeWidth: 1.5,
                 borderColor: _signalColor(p.rsrpDbm),
                 useRadiusInMeter: false,
@@ -69,7 +68,7 @@ class SignalHeatmapWidget extends ConsumerWidget {
                         shape: BoxShape.circle,
                         color: Colors.white,
                         border: Border.all(color: const Color(0xFF4FC3F7), width: 3),
-                        boxShadow: [BoxShadow(color: const Color(0xFF4FC3F7).withOpacity(0.5), blurRadius: 8, spreadRadius: 2)],
+                        boxShadow: [BoxShadow(color: const Color(0xFF4FC3F7).withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2)],
                       ),
                     ),
                   ),

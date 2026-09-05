@@ -1,5 +1,6 @@
 /// Models untuk drive test logging (sinyal seluler + GPS).
 /// Log disimpan ke SQLite, diekspor ke CSV & KML.
+library;
 
 // ---------------------------------------------------------------------------
 // DriveSession

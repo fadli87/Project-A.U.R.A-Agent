@@ -1,5 +1,6 @@
 /// Models untuk hasil network diagnostic tools (ping, DNS, traceroute).
 /// Tools ini "aman" — tidak butuh izin khusus.
+library;
 
 // ---------------------------------------------------------------------------
 // Ping

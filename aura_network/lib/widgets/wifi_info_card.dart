@@ -13,7 +13,7 @@ class WifiInfoCard extends ConsumerWidget {
 
     return wifiAsync.when(
       loading: () => _buildShimmer(),
-      error: (_, __) => _buildDisconnected(),
+      error: (_, _) => _buildDisconnected(),
       data: (info) => info.isConnected ? _buildConnected(info) : _buildDisconnected(),
     );
   }
@@ -28,7 +28,7 @@ class WifiInfoCard extends ConsumerWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF1A1F3A), Color(0xFF0D1B2A)],
         ),
-        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -49,9 +49,9 @@ class WifiInfoCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: color.withOpacity(0.5)),
+                    border: Border.all(color: color.withValues(alpha: 0.5)),
                   ),
                   child: Text(info.signalQuality.label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Inter')),
                 ),
@@ -83,7 +83,7 @@ class WifiInfoCard extends ConsumerWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: const Color(0xFF1A1F3A),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: const Row(
         children: [
@@ -113,10 +113,10 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(text, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12, fontFamily: 'Inter')),
+      child: Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12, fontFamily: 'Inter')),
     );
   }
 }

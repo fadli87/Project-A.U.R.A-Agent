@@ -36,17 +36,17 @@ class _SignalCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A1F3A).withOpacity(0.9),
-            const Color(0xFF0D1B2A).withOpacity(0.95),
+            const Color(0xFF1A1F3A).withValues(alpha: 0.9),
+            const Color(0xFF0D1B2A).withValues(alpha: 0.95),
           ],
         ),
         border: Border.all(
-          color: Color(quality.colorValue).withOpacity(0.4),
+          color: Color(quality.colorValue).withValues(alpha: 0.4),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(quality.colorValue).withOpacity(0.15),
+            color: Color(quality.colorValue).withValues(alpha: 0.15),
             blurRadius: 20,
             spreadRadius: 2,
           ),
@@ -77,7 +77,7 @@ class _SignalCard extends StatelessWidget {
                     Text(
                       snapshot.networkType,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 12,
                         fontFamily: 'Inter',
                       ),
@@ -131,9 +131,9 @@ class _NetworkTypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.15),
+        color: _color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _color.withOpacity(0.5)),
+        border: Border.all(color: _color.withValues(alpha: 0.5)),
       ),
       child: Text(
         _shortLabel,
@@ -178,7 +178,7 @@ class _SignalBarsRow extends StatelessWidget {
                 width: 10,
                 height: 12.0 + i * 6,
                 decoration: BoxDecoration(
-                  color: active ? color : color.withOpacity(0.2),
+                  color: active ? color : color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -202,7 +202,7 @@ class _SignalBarsRow extends StatelessWidget {
               Text(
                 '$rsrp dBm',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 12,
                   fontFamily: 'Inter',
                 ),
@@ -244,12 +244,12 @@ class _MetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10, fontFamily: 'Inter')),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontFamily: 'Inter')),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter')),
         ],
@@ -293,12 +293,12 @@ class _DetailChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.07),
+        color: Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         '$label: $value',
-        style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11, fontFamily: 'Inter'),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11, fontFamily: 'Inter'),
       ),
     );
   }

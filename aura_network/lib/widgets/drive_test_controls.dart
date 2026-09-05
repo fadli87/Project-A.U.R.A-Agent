@@ -28,8 +28,8 @@ class DriveTestControls extends ConsumerWidget {
         ),
         border: Border.all(
           color: state.isRunning
-              ? const Color(0xFF4CAF50).withOpacity(0.5)
-              : Colors.white.withOpacity(0.1),
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.1),
           width: 1.5,
         ),
       ),
@@ -85,7 +85,7 @@ class DriveTestControls extends ConsumerWidget {
                 margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.15),
+                  color: Colors.orange.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -106,7 +106,7 @@ class DriveTestControls extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -139,7 +139,7 @@ class DriveTestControls extends ConsumerWidget {
                       icon: const Icon(Icons.stop_circle_outlined),
                       label: const Text('Hentikan Drive Test'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.withOpacity(0.15),
+                        backgroundColor: Colors.red.withValues(alpha: 0.15),
                         foregroundColor: Colors.red,
                         side: const BorderSide(color: Colors.red, width: 1),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -151,7 +151,7 @@ class DriveTestControls extends ConsumerWidget {
                       icon: const Icon(Icons.play_circle_outlined),
                       label: const Text('Mulai Drive Test'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50).withOpacity(0.15),
+                        backgroundColor: const Color(0xFF4CAF50).withValues(alpha: 0.15),
                         foregroundColor: const Color(0xFF4CAF50),
                         side: const BorderSide(color: Color(0xFF4CAF50), width: 1),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -172,7 +172,7 @@ class DriveTestControls extends ConsumerWidget {
                       label: const Text('CSV', style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white60,
-                        side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
@@ -186,7 +186,7 @@ class DriveTestControls extends ConsumerWidget {
                       label: const Text('KML', style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white60,
-                        side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
@@ -218,7 +218,7 @@ class DriveTestControls extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.8)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha: 0.8)),
             child: const Text('Hentikan', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -252,7 +252,7 @@ class _TimerTile extends StatelessWidget {
     return Column(
       children: [
         Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Inter')),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10, fontFamily: 'Inter')),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontFamily: 'Inter')),
       ],
     );
   }
@@ -287,13 +287,13 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: 10,
         height: 10,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: widget.color.withOpacity(_anim.value),
-          boxShadow: [BoxShadow(color: widget.color.withOpacity(_anim.value * 0.5), blurRadius: 8, spreadRadius: 2)],
+          color: widget.color.withValues(alpha: _anim.value),
+          boxShadow: [BoxShadow(color: widget.color.withValues(alpha: _anim.value * 0.5), blurRadius: 8, spreadRadius: 2)],
         ),
       ),
     );

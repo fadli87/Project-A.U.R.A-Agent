@@ -22,7 +22,7 @@ class SpeedTestWidget extends ConsumerWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF1A1F3A), Color(0xFF0D1B2A)],
         ),
-        border: Border.all(color: const Color(0xFF4FC3F7).withOpacity(0.25), width: 1.5),
+        border: Border.all(color: const Color(0xFF4FC3F7).withValues(alpha: 0.25), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -45,9 +45,9 @@ class SpeedTestWidget extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.15),
+                      color: Colors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
                     ),
                     child: Text(
                       'cached',
@@ -66,9 +66,9 @@ class SpeedTestWidget extends ConsumerWidget {
                 margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withOpacity(0.3),
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF4FC3F7).withOpacity(0.4)),
+                  border: Border.all(color: const Color(0xFF4FC3F7).withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [
@@ -78,7 +78,7 @@ class SpeedTestWidget extends ConsumerWidget {
                       child: Text(
                         '📡 Mengirim/menerima data ke server eksternal untuk mengukur kecepatan',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.85),
+                          color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 11,
                           fontFamily: 'Inter',
                         ),
@@ -102,7 +102,7 @@ class SpeedTestWidget extends ConsumerWidget {
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
                       value: state.progress,
-                      backgroundColor: Colors.white.withOpacity(0.08),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
                       color: const Color(0xFF4FC3F7),
                       borderRadius: BorderRadius.circular(4),
                       minHeight: 6,
@@ -148,7 +148,7 @@ class SpeedTestWidget extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 state.result!.serverName,
-                style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 10, fontFamily: 'Inter'),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 10, fontFamily: 'Inter'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -164,10 +164,10 @@ class SpeedTestWidget extends ConsumerWidget {
                     ? () => notifier.runTest()
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4FC3F7).withOpacity(0.15),
+                  backgroundColor: const Color(0xFF4FC3F7).withValues(alpha: 0.15),
                   foregroundColor: const Color(0xFF4FC3F7),
-                  disabledBackgroundColor: Colors.white.withOpacity(0.05),
-                  disabledForegroundColor: Colors.white.withOpacity(0.3),
+                  disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
+                  disabledForegroundColor: Colors.white.withValues(alpha: 0.3),
                   side: const BorderSide(color: Color(0xFF4FC3F7), width: 1),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -222,7 +222,7 @@ class _SpeedGauge extends StatelessWidget {
             mbps > 0 ? '${mbps.toStringAsFixed(1)} Mbps' : '--- Mbps',
             key: ValueKey(mbps.toStringAsFixed(1)),
             style: TextStyle(
-              color: mbps > 0 ? color : Colors.white.withOpacity(0.3),
+              color: mbps > 0 ? color : Colors.white.withValues(alpha: 0.3),
               fontSize: 15,
               fontWeight: FontWeight.bold,
               fontFamily: 'Inter',
@@ -231,7 +231,7 @@ class _SpeedGauge extends StatelessWidget {
         ),
         Text(
           label,
-          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontFamily: 'Inter'),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11, fontFamily: 'Inter'),
         ),
       ],
     );
@@ -252,13 +252,13 @@ class _GaugePainter extends CustomPainter {
     final radius = size.width / 2 - 4;
 
     final trackPaint = Paint()
-      ..color = color.withOpacity(0.1)
+      ..color = color.withValues(alpha: 0.1)
       ..strokeWidth = 8
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final fillPaint = Paint()
-      ..color = isActive ? color : color.withOpacity(0.6)
+      ..color = isActive ? color : color.withValues(alpha: 0.6)
       ..strokeWidth = 8
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -292,7 +292,7 @@ class _BottomMetric extends StatelessWidget {
     return Column(
       children: [
         Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Inter')),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10, fontFamily: 'Inter')),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontFamily: 'Inter')),
       ],
     );
   }

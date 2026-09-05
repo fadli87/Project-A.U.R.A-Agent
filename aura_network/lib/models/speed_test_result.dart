@@ -1,5 +1,6 @@
 /// Models untuk speed test UL (Upload) / DL (Download).
 /// Disclosure: speed test mengirim/menerima data ke server eksternal.
+library;
 
 // ---------------------------------------------------------------------------
 // Phase enum

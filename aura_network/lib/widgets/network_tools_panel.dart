@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/ping_result.dart';
 import '../providers/network_monitor_provider.dart';
-import '../services/network_tools.dart';
 
 /// Panel tools jaringan: Ping, DNS Lookup, Traceroute.
 class NetworkToolsPanel extends ConsumerStatefulWidget {
@@ -59,7 +58,7 @@ class _NetworkToolsPanelState extends ConsumerState<NetworkToolsPanel> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF1A1F3A), Color(0xFF0D1B2A)],
         ),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -75,16 +74,16 @@ class _NetworkToolsPanelState extends ConsumerState<NetworkToolsPanel> {
               style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
               decoration: InputDecoration(
                 labelText: 'Host / IP / Domain',
-                labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontFamily: 'Inter'),
+                labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontFamily: 'Inter'),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.06),
+                fillColor: Colors.white.withValues(alpha: 0.06),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -126,7 +125,7 @@ class _NetworkToolsPanelState extends ConsumerState<NetworkToolsPanel> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12, fontFamily: 'Inter')),
@@ -161,10 +160,10 @@ class _ToolButton extends StatelessWidget {
           : Icon(icon, size: 16),
       label: Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 12)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF4FC3F7).withOpacity(0.12),
+        backgroundColor: const Color(0xFF4FC3F7).withValues(alpha: 0.12),
         foregroundColor: const Color(0xFF4FC3F7),
-        disabledBackgroundColor: Colors.white.withOpacity(0.03),
-        disabledForegroundColor: Colors.white.withOpacity(0.2),
+        disabledBackgroundColor: Colors.white.withValues(alpha: 0.03),
+        disabledForegroundColor: Colors.white.withValues(alpha: 0.2),
         side: const BorderSide(color: Color(0xFF4FC3F7), width: 1),
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -192,10 +191,10 @@ class _PingResultCard extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'PING — ${result.host}',
-              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
             ),
             if (result.resolvedIp != null && result.resolvedIp != result.host)
-              Text(' (${result.resolvedIp})', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, fontFamily: 'Inter')),
+              Text(' (${result.resolvedIp})', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11, fontFamily: 'Inter')),
           ],
         ),
         const SizedBox(height: 8),
@@ -223,7 +222,7 @@ class _PingResultCard extends StatelessWidget {
                   height: 16,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: ok ? const Color(0xFF4CAF50) : Colors.red.withOpacity(0.5),
+                    color: ok ? const Color(0xFF4CAF50) : Colors.red.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -255,10 +254,10 @@ class _DnsResultCard extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'DNS — ${result.domain}',
-              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
             ),
             if (result.lookupMs != null)
-              Text(' (${result.lookupMs}ms)', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, fontFamily: 'Inter')),
+              Text(' (${result.lookupMs}ms)', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11, fontFamily: 'Inter')),
           ],
         ),
         const SizedBox(height: 8),
@@ -284,10 +283,10 @@ class _ResultChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(text, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11, fontFamily: 'Inter')),
+      child: Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11, fontFamily: 'Inter')),
     );
   }
 }

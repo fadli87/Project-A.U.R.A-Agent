@@ -13,7 +13,7 @@
 /// - Speed test: mengirim data ke server eksternal — UI wajib tampilkan disclosure
 /// - LAN scan: hanya subnet lokal, tidak agresif
 
-library aura_network;
+library;
 
 // Models
 export 'models/cell_signal_info.dart';
