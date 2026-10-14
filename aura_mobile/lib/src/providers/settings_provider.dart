@@ -15,6 +15,7 @@ class _PrefKeys {
   static const desktopPin = 'desktop_pin';
   static const activeCloudProvider = 'active_cloud_provider';
   static const openaiModel = 'openai_model';
+  static const comboModel = 'combo_model';
 }
 
 /// State untuk pengaturan aplikasi
@@ -30,6 +31,7 @@ class SettingsState {
     this.desktopPin = '',
     this.activeCloudProvider = 'gemini',
     this.openaiModel = 'gpt-4o-mini',
+    this.comboModel = 'gemini/gemini-2.5-flash,openai/gpt-4o',
   });
 
   /// Batas iterasi agentic loop per giliran (Rule 06-backup-safety-cap.md)
@@ -52,6 +54,7 @@ class SettingsState {
   final String desktopPin;
   final String activeCloudProvider;
   final String openaiModel;
+  final String comboModel;
 
   /// Apakah sudah >7 hari sejak backup terakhir
   bool get shouldRemindBackup {
@@ -78,6 +81,7 @@ class SettingsState {
     String? desktopPin,
     String? activeCloudProvider,
     String? openaiModel,
+    String? comboModel,
     bool clearBackupTimestamp = false,
   }) {
     return SettingsState(
@@ -93,6 +97,7 @@ class SettingsState {
       desktopPin: desktopPin ?? this.desktopPin,
       activeCloudProvider: activeCloudProvider ?? this.activeCloudProvider,
       openaiModel: openaiModel ?? this.openaiModel,
+      comboModel: comboModel ?? this.comboModel,
     );
   }
 }
@@ -117,6 +122,7 @@ class SettingsNotifier extends _$SettingsNotifier {
     final pin = prefs.getString(_PrefKeys.desktopPin) ?? '';
     final cloudProvider = prefs.getString(_PrefKeys.activeCloudProvider) ?? 'gemini';
     final model = prefs.getString(_PrefKeys.openaiModel) ?? 'gpt-4o-mini';
+    final combo = prefs.getString(_PrefKeys.comboModel) ?? 'gemini/gemini-2.5-flash,openai/gpt-4o';
 
     state = SettingsState(
       maxAgentIterations: maxIter.clamp(4, 16),
@@ -129,6 +135,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       desktopPin: pin,
       activeCloudProvider: cloudProvider,
       openaiModel: model,
+      comboModel: combo,
     );
   }
 
@@ -196,5 +203,11 @@ class SettingsNotifier extends _$SettingsNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_PrefKeys.openaiModel, value.trim());
     state = state.copyWith(openaiModel: value.trim());
+  }
+
+  Future<void> setComboModel(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_PrefKeys.comboModel, value.trim());
+    state = state.copyWith(comboModel: value.trim());
   }
 }

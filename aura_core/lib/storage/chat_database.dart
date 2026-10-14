@@ -105,7 +105,7 @@ class ChatDatabase {
   static Sqlite3DatabaseWrapper? _db;
   static String? _dbPath;
 
-  static const _dbVersion = 5;
+  static const _dbVersion = 6;
 
   /// Initialize database path before calling [database]
   static void init(String path) {
@@ -156,6 +156,8 @@ class ChatDatabase {
         timestamp      INTEGER NOT NULL,
         tool_call_json TEXT,
         tool_result    TEXT,
+        tool_call_id   TEXT,
+        tool_name      TEXT,
         FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
       )
     ''');
@@ -240,6 +242,18 @@ class ChatDatabase {
     if (oldVersion < 5) {
       await _createFase13Tables(db);
     }
+    if (oldVersion < 6) {
+      await _upgradeToVersion6(db);
+    }
+  }
+
+  Future<void> _upgradeToVersion6(Sqlite3DatabaseWrapper db) async {
+    try {
+      await db.execute('ALTER TABLE messages ADD COLUMN tool_call_id TEXT');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE messages ADD COLUMN tool_name TEXT');
+    } catch (_) {}
   }
 
   Future<void> _upgradeToVersion3(Sqlite3DatabaseWrapper db) async {
@@ -334,6 +348,8 @@ class ChatDatabase {
       'timestamp': message.timestamp.millisecondsSinceEpoch,
       'tool_call_json': message.toolCallJson,
       'tool_result': message.toolResult,
+      'tool_call_id': message.toolCallId,
+      'tool_name': message.toolName,
     });
   }
 

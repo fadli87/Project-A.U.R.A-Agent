@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:aura_core/aura_core.dart';
 import '../services/local_llm_service.dart';
+import 'desktop_settings_provider.dart';
+import 'resolve_desktop_model.dart';
 
 class DesktopChatState {
   final List<ChatSession> sessions;
@@ -518,7 +520,11 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
     }
   }
 
-  Future<void> sendMessage(String text, {bool useCloud = false}) async {
+  Future<void> sendMessage(
+    String text, {
+    bool useCloud = false,
+    DesktopSettingsState? cloudSettings,
+  }) async {
     if (text.trim().isEmpty || state.activeSession == null) return;
     
     final userMsg = ChatMessage(
@@ -637,40 +643,67 @@ class DesktopChatNotifier extends StateNotifier<DesktopChatState> {
         // Call Cloud or Local LLM Service
         final Map<String, dynamic> result;
         if (useCloud) {
-          final provider = await SecureStorageService.instance.read('active_cloud_provider') ?? 'gemini';
-          final apiKey = await SecureStorageService.instance.read(
-            provider == 'openai' ? 'openai_api_key' : 'gemini_api_key',
-          ) ?? '';
-          if (apiKey.isEmpty) {
-            throw Exception('API Key untuk $provider kosong. Silakan isi di Settings.');
-          }
-          final modelName = await SecureStorageService.instance.read('openai_model') ?? 'gpt-4o-mini';
+          // Baca semua provider keys dari SecureStorage
+          final geminiKey     = await SecureStorageService.instance.read('gemini_api_key')    ?? '';
+          final openaiKey     = await SecureStorageService.instance.read('openai_api_key')    ?? '';
+          final anthropicKey  = await SecureStorageService.instance.read('anthropic_api_key') ?? '';
+          final groqKey       = await SecureStorageService.instance.read('groq_api_key')      ?? '';
 
-          final CloudInferenceEngine engine;
-          if (provider == 'openai') {
-            engine = OpenAIInferenceEngine(modelName: modelName);
-          } else {
-            engine = GeminiInferenceEngine();
-          }
+          // Resolve model string via desktop settings (atau fallback default)
+          final settings = cloudSettings ?? const DesktopSettingsState();
+          final modelOrCombo = resolveDesktopModelOrCombo(settings);
 
-          // Format messages for cloud inference format
-          final cloudMessages = apiMessages.map((m) {
-            return {
-              'role': m['role'],
-              'content': m['content'],
-            };
-          }).toList();
-
-          final responseText = await engine.generate(
-            messages: cloudMessages,
-            temperature: 0.7,
-            maxTokens: 512,
-            apiKey: apiKey,
-          ).join('');
-
-          result = {
-            'content': responseText + (provider == 'openai' ? ' <!-- openai -->' : ' <!-- gemini -->'),
+          // Bangun apiKeys map — hanya masukkan key yang tidak kosong
+          final apiKeys = <String, String>{
+            if (geminiKey.isNotEmpty)    'gemini':    geminiKey,
+            if (openaiKey.isNotEmpty)    'openai':    openaiKey,
+            if (anthropicKey.isNotEmpty) 'anthropic': anthropicKey,
+            if (groqKey.isNotEmpty)      'groq':      groqKey,
           };
+
+          // Validasi: minimal 1 key harus ada
+          if (apiKeys.isEmpty) {
+            throw Exception(
+              'Tidak ada API Key yang tersedia. '
+              'Silakan isi minimal satu key di Settings → Cloud Provider.',
+            );
+          }
+
+          // Konversi apiMessages (List<Map>) ke List<ChatMessage> untuk LlmRouterClient
+          // System prompt sudah ada di apiMessages[0] dengan role 'system'
+          final systemPromptText = apiMessages.isNotEmpty && apiMessages.first['role'] == 'system'
+              ? apiMessages.first['content'] ?? ''
+              : '';
+          final chatMessages = apiMessages
+              .where((m) => m['role'] != 'system')
+              .map((m) {
+                final role = m['role'] == 'assistant'
+                    ? MessageRole.assistant
+                    : MessageRole.user;
+                return ChatMessage(
+                  id: 0,
+                  sessionId: state.activeSession!.id,
+                  role: role,
+                  content: m['content'] ?? '',
+                  timestamp: DateTime.now(),
+                );
+              })
+              .toList();
+
+          final routerClient = LlmRouterClient();
+          final buffer = StringBuffer();
+          await for (final event in routerClient.streamGenerate(
+            modelOrCombo: modelOrCombo,
+            messages: chatMessages,
+            apiKeys: apiKeys,
+            systemPrompt: systemPromptText.isNotEmpty ? systemPromptText : null,
+          )) {
+            if (event is RouterTextDelta) {
+              buffer.write(event.text);
+            }
+          }
+
+          result = {'content': buffer.toString()};
         } else {
           result = await LocalLlmService.generateChatReply(
             baseUrl: state.baseUrl,

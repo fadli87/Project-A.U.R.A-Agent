@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import 'src/providers/desktop_chat_provider.dart';
 import 'src/providers/desktop_knowledge_provider.dart';
 import 'src/providers/desktop_trusted_folders_provider.dart';
+import 'src/providers/desktop_settings_provider.dart';
 import 'src/services/desktop_platform_service.dart';
 import 'src/services/desktop_secure_storage.dart';
 import 'src/ui/desktop_trading_screen.dart';
@@ -115,8 +116,13 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
     // Cloud settings variables
     final geminiKeyController = TextEditingController();
     final openaiKeyController = TextEditingController();
+    final anthropicKeyController = TextEditingController();
+    final groqKeyController = TextEditingController();
+    final comboController = TextEditingController();
     bool obscureGeminiKey = true;
     bool obscureOpenaiKey = true;
+    bool obscureAnthropicKey = true;
+    bool obscureGroqKey = true;
     String? geminiValidationResult;
     String? openaiValidationResult;
     bool isValidatingGemini = false;
@@ -126,13 +132,19 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
     bool keysLoaded = false;
 
     void loadCloudSettings(void Function(void Function()) setDialogState) async {
-      final geminiKey = await SecureStorageService.instance.read('gemini_api_key') ?? '';
-      final openaiKey = await SecureStorageService.instance.read('openai_api_key') ?? '';
-      final provider = await SecureStorageService.instance.read('active_cloud_provider') ?? 'gemini';
-      final model = await SecureStorageService.instance.read('openai_model') ?? 'gpt-4o-mini';
+      final geminiKey  = await SecureStorageService.instance.read('gemini_api_key')    ?? '';
+      final openaiKey  = await SecureStorageService.instance.read('openai_api_key')    ?? '';
+      final anthropicK = await SecureStorageService.instance.read('anthropic_api_key') ?? '';
+      final groqKey    = await SecureStorageService.instance.read('groq_api_key')      ?? '';
+      final provider   = await SecureStorageService.instance.read('desktop_active_cloud_provider') ?? 'gemini';
+      final model      = await SecureStorageService.instance.read('desktop_openai_model') ?? 'gpt-4o-mini';
+      final combo      = await SecureStorageService.instance.read('desktop_combo_model') ?? 'gemini/gemini-2.5-flash,openai/gpt-4o';
       setDialogState(() {
-        geminiKeyController.text = geminiKey;
-        openaiKeyController.text = openaiKey;
+        geminiKeyController.text    = geminiKey;
+        openaiKeyController.text    = openaiKey;
+        anthropicKeyController.text = anthropicK;
+        groqKeyController.text      = groqKey;
+        comboController.text        = combo;
         activeCloudProvider = provider;
         openaiModel = model;
         keysLoaded = true;
@@ -638,26 +650,75 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                         onChanged: (val) {
                                           if (val != null) {
                                             setDialogState(() => activeCloudProvider = val);
-                                            SecureStorageService.instance.write('active_cloud_provider', val);
+                                            ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
                                           }
                                         },
-                                        child: const Row(
+                                        child: Wrap(
                                           children: [
-                                            Expanded(
-                                              child: RadioListTile<String>(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text('Gemini', style: TextStyle(fontSize: 12, color: Colors.white)),
-                                                value: 'gemini',
-                                                activeColor: Color(0xFF7C4DFF),
-                                              ),
+                                            RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Gemini', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'gemini',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
+                                                }
+                                              },
                                             ),
-                                            Expanded(
-                                              child: RadioListTile<String>(
-                                                contentPadding: EdgeInsets.zero,
-                                                title: Text('OpenAI', style: TextStyle(fontSize: 12, color: Colors.white)),
-                                                value: 'openai',
-                                                activeColor: Color(0xFF7C4DFF),
-                                              ),
+                                            RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('OpenAI', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'openai',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
+                                                }
+                                              },
+                                            ),
+                                            RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Anthropic', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'anthropic',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
+                                                }
+                                              },
+                                            ),
+                                            RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Groq', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'groq',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
+                                                }
+                                              },
+                                            ),
+                                            RadioListTile<String>(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Combo', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                              value: 'combo',
+                                              groupValue: activeCloudProvider,
+                                              activeColor: const Color(0xFF7C4DFF),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setDialogState(() => activeCloudProvider = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
+                                                }
+                                              },
                                             ),
                                           ],
                                         ),
@@ -772,6 +833,163 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                             ),
                                         ],
                                       ),
+                                      // ── Anthropic Key ─────────────────────────────────────
+                                      const SizedBox(height: 16),
+                                      const Text('Anthropic API Key', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
+                                              controller: anthropicKeyController,
+                                              obscureText: obscureAnthropicKey,
+                                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                                              decoration: InputDecoration(
+                                                hintText: 'sk-ant-...',
+                                                hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                                fillColor: const Color(0xFF13131A),
+                                                filled: true,
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(obscureAnthropicKey ? Icons.visibility_off : Icons.visibility, size: 18),
+                                                  onPressed: () => setDialogState(() => obscureAnthropicKey = !obscureAnthropicKey),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.15),
+                                              foregroundColor: const Color(0xFF7C4DFF),
+                                            ),
+                                            onPressed: () async {
+                                              final key = anthropicKeyController.text.trim();
+                                              if (key.isNotEmpty) {
+                                                await SecureStorageService.instance.write('anthropic_api_key', key);
+                                              }
+                                            },
+                                            child: const Text('Simpan', style: TextStyle(fontSize: 11)),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                            onPressed: () async {
+                                              await SecureStorageService.instance.delete('anthropic_api_key');
+                                              setDialogState(() => anthropicKeyController.clear());
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      // ── Groq Key ──────────────────────────────────────────
+                                      const SizedBox(height: 16),
+                                      const Text('Groq API Key', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
+                                              controller: groqKeyController,
+                                              obscureText: obscureGroqKey,
+                                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                                              decoration: InputDecoration(
+                                                hintText: 'gsk_...',
+                                                hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                                                fillColor: const Color(0xFF13131A),
+                                                filled: true,
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(obscureGroqKey ? Icons.visibility_off : Icons.visibility, size: 18),
+                                                  onPressed: () => setDialogState(() => obscureGroqKey = !obscureGroqKey),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF7C4DFF).withValues(alpha: 0.15),
+                                              foregroundColor: const Color(0xFF7C4DFF),
+                                            ),
+                                            onPressed: () async {
+                                              final key = groqKeyController.text.trim();
+                                              if (key.isNotEmpty) {
+                                                await SecureStorageService.instance.write('groq_api_key', key);
+                                              }
+                                            },
+                                            child: const Text('Simpan', style: TextStyle(fontSize: 11)),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                            onPressed: () async {
+                                              await SecureStorageService.instance.delete('groq_api_key');
+                                              setDialogState(() => groqKeyController.clear());
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      // ── Combo Model (tampil hanya jika provider == 'combo') ─
+                                      if (activeCloudProvider == 'combo') ...[
+                                        const SizedBox(height: 16),
+                                        const Text('Combo Model Chain', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 6,
+                                          children: [
+                                            ChoiceChip(
+                                              label: const Text('Gemini → OpenAI', style: TextStyle(fontSize: 11)),
+                                              selected: comboController.text == 'gemini/gemini-2.5-flash,openai/gpt-4o',
+                                              onSelected: (selected) {
+                                                if (selected) {
+                                                  const val = 'gemini/gemini-2.5-flash,openai/gpt-4o';
+                                                  setDialogState(() => comboController.text = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setComboModel(val);
+                                                }
+                                              },
+                                            ),
+                                            ChoiceChip(
+                                              label: const Text('OpenAI → Gemini', style: TextStyle(fontSize: 11)),
+                                              selected: comboController.text == 'openai/gpt-4o,gemini/gemini-2.5-flash',
+                                              onSelected: (selected) {
+                                                if (selected) {
+                                                  const val = 'openai/gpt-4o,gemini/gemini-2.5-flash';
+                                                  setDialogState(() => comboController.text = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setComboModel(val);
+                                                }
+                                              },
+                                            ),
+                                            ChoiceChip(
+                                              label: const Text('Semua Provider', style: TextStyle(fontSize: 11)),
+                                              selected: comboController.text.contains('anthropic') && comboController.text.contains('groq'),
+                                              onSelected: (selected) {
+                                                if (selected) {
+                                                  const val = 'gemini/gemini-2.5-flash,openai/gpt-4o,anthropic/claude-3-5-sonnet-20241022,groq/llama-3.3-70b-versatile';
+                                                  setDialogState(() => comboController.text = val);
+                                                  ref.read(desktopSettingsProvider.notifier).setComboModel(val);
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextField(
+                                          controller: comboController,
+                                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                                          onChanged: (val) {
+                                            ref.read(desktopSettingsProvider.notifier).setComboModel(val);
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: 'contoh: gemini/gemini-2.5-flash,openai/gpt-4o',
+                                            hintStyle: const TextStyle(color: Colors.grey, fontSize: 11),
+                                            fillColor: const Color(0xFF13131A),
+                                            filled: true,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                        ),
+                                      ],
                                       if (activeCloudProvider == 'openai') ...[
                                         const SizedBox(height: 12),
                                         const Text('OpenAI Model', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
@@ -1758,7 +1976,11 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
           // Enter only: send chat
           final text = _messageController.text;
           if (text.trim().isNotEmpty && !chatState.isLoading) {
-            chatNotifier.sendMessage(text, useCloud: useCloudAssistant);
+            chatNotifier.sendMessage(
+              text,
+              useCloud: useCloudAssistant,
+              cloudSettings: ref.read(desktopSettingsProvider),
+            );
             _messageController.clear();
           }
           return KeyEventResult.handled;
@@ -1824,7 +2046,11 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           onTap: chatState.isLoading ? null : () {
                             final text = _messageController.text;
                             if (text.trim().isNotEmpty) {
-                              chatNotifier.sendMessage(text, useCloud: useCloudAssistant);
+                              chatNotifier.sendMessage(
+                                text,
+                                useCloud: useCloudAssistant,
+                                cloudSettings: ref.read(desktopSettingsProvider),
+                              );
                               _messageController.clear();
                             }
                           },

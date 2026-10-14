@@ -9,6 +9,8 @@ class ChatMessage {
     this.isStreaming = false,
     this.toolCallJson,
     this.toolResult,
+    this.toolCallId,
+    this.toolName,
   });
 
   final int id;
@@ -26,6 +28,12 @@ class ChatMessage {
   /// Non-null if this message is a tool execution result (observation)
   final String? toolResult;
 
+  /// Non-null if this message is a tool response, indicating the ID of the tool call
+  final String? toolCallId;
+
+  /// Non-null if this message is a tool response, indicating the name of the tool executed
+  final String? toolName;
+
   bool get isUser => role == MessageRole.user;
   bool get isAssistant => role == MessageRole.assistant;
   bool get isTool => role == MessageRole.tool;
@@ -39,6 +47,8 @@ class ChatMessage {
     bool? isStreaming,
     String? toolCallJson,
     String? toolResult,
+    String? toolCallId,
+    String? toolName,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -49,6 +59,8 @@ class ChatMessage {
       isStreaming: isStreaming ?? this.isStreaming,
       toolCallJson: toolCallJson ?? this.toolCallJson,
       toolResult: toolResult ?? this.toolResult,
+      toolCallId: toolCallId ?? this.toolCallId,
+      toolName: toolName ?? this.toolName,
     );
   }
 
@@ -62,6 +74,8 @@ class ChatMessage {
       'timestamp': timestamp.millisecondsSinceEpoch,
       'tool_call_json': toolCallJson,
       'tool_result': toolResult,
+      'tool_call_id': toolCallId,
+      'tool_name': toolName,
     };
   }
 
@@ -75,6 +89,8 @@ class ChatMessage {
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
       toolCallJson: map['tool_call_json'] as String?,
       toolResult: map['tool_result'] as String?,
+      toolCallId: map['tool_call_id'] as String?,
+      toolName: map['tool_name'] as String?,
     );
   }
 

@@ -176,6 +176,11 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen>
             tooltip: 'Network Monitor',
             onPressed: () => Navigator.of(context).pushNamed('/network'),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
+            tooltip: 'Pengaturan',
+            onPressed: () => Navigator.of(context).pushNamed('/settings'),
+          ),
           const SizedBox(width: 4),
           // Status indicator
           _StatusDot(status: state.status),

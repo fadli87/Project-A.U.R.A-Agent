@@ -13,6 +13,7 @@ import 'src/ui/screens/chat_screen.dart';
 import 'src/ui/screens/model_manager_screen.dart';
 import 'src/ui/screens/trading_dashboard_screen.dart';
 import 'src/ui/screens/network_monitor_screen.dart';
+import 'src/ui/screens/settings_screen.dart';
 import 'src/ui/theme/app_theme.dart';
 import 'src/providers/chat_provider.dart';
 
@@ -138,6 +139,7 @@ class _AuraAppState extends ConsumerState<AuraApp> {
         '/chat': (context) => const ChatScreen(),
         '/trading': (context) => const TradingDashboardScreen(),
         '/network': (context) => const NetworkMonitorScreen(),
+        '/settings': (context) => const SettingsScreen(),
       },
     );
   }

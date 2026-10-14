@@ -148,6 +148,19 @@ class ModelResolver {
           }
         }
       }
+      final lower = entry.toLowerCase();
+      if (lower.startsWith('gemini')) {
+        return ModelInfo(provider: 'gemini', model: entry);
+      }
+      if (lower.startsWith('gpt') || lower.startsWith('o1') || lower.startsWith('o3')) {
+        return ModelInfo(provider: 'openai', model: entry);
+      }
+      if (lower.startsWith('claude')) {
+        return ModelInfo(provider: 'anthropic', model: entry);
+      }
+      if (lower.startsWith('deepseek')) {
+        return ModelInfo(provider: 'deepseek', model: entry);
+      }
       return null;
     }
 
@@ -170,26 +183,7 @@ class ModelResolver {
     // 1. Strip [1m] marker
     str = stripModelContextMarker(str);
 
-    // 2. Format standar: "provider/model"
-    if (str.contains('/')) {
-      final parts = str.split('/');
-      final provider = resolveProviderAlias(parts[0]);
-      final model = parts.sublist(1).join('/');
-      return ModelInfo(provider: provider, model: model);
-    }
-
-    // 3. Cek apakah ini model alias (misal: "gpt-4o" -> "openai/gpt-4o")
-    if (aliasLookup != null) {
-      final target = aliasLookup!(str);
-      if (target != null && target.contains('/')) {
-        final parts = target.split('/');
-        final provider = resolveProviderAlias(parts[0]);
-        final model = parts.sublist(1).join('/');
-        return ModelInfo(provider: provider, model: model);
-      }
-    }
-
-    // 4. Cek apakah ini nama combo
+    // 2. Cek apakah ini nama combo atau comma-separated models
     if (comboLookup != null) {
       final sub = comboLookup!(str);
       if (sub != null && sub.isNotEmpty) {
@@ -207,12 +201,46 @@ class ModelResolver {
       }
     }
 
+    // 3. Format standar: "provider/model"
+    if (str.contains('/')) {
+      final parts = str.split('/');
+      final provider = resolveProviderAlias(parts[0]);
+      final model = parts.sublist(1).join('/');
+      return ModelInfo(provider: provider, model: model);
+    }
+
+    // 4. Cek apakah ini model alias (misal: "gpt-4o" -> "openai/gpt-4o")
+    if (aliasLookup != null) {
+      final target = aliasLookup!(str);
+      if (target != null && target.contains('/')) {
+        final parts = target.split('/');
+        final provider = resolveProviderAlias(parts[0]);
+        final model = parts.sublist(1).join('/');
+        return ModelInfo(provider: provider, model: model);
+      }
+    }
+
     // 5. Cek bare provider alias (misal: "oa" -> provider "openai" dengan model "")
     final canonical = resolveProviderAlias(str);
     if (knownProviders.contains(canonical)) {
       if (isProviderActive == null || isProviderActive!(canonical)) {
         return ModelInfo(provider: canonical, model: '');
       }
+    }
+
+    // 5.1 Infer provider from common model name prefix if not specified
+    final lower = str.toLowerCase();
+    if (lower.startsWith('gemini')) {
+      return ModelInfo(provider: 'gemini', model: str);
+    }
+    if (lower.startsWith('gpt') || lower.startsWith('o1') || lower.startsWith('o3')) {
+      return ModelInfo(provider: 'openai', model: str);
+    }
+    if (lower.startsWith('claude')) {
+      return ModelInfo(provider: 'anthropic', model: str);
+    }
+    if (lower.startsWith('deepseek')) {
+      return ModelInfo(provider: 'deepseek', model: str);
     }
 
     // 6. Fallback ke provider aktif dari daftar 8 provider terkurasi A.U.R.A

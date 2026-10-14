@@ -54,3 +54,8 @@ __pycache__/
 *.onnx
 /models/
 **/assets/models/
+
+# Archives & logs
+*.zip
+*.log
+

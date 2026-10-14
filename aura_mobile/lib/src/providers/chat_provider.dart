@@ -132,7 +132,7 @@ class ChatNotifier extends _$ChatNotifier {
   }
 
   /// Finalize the streaming message and persist it
-  Future<void> finalizeAssistantResponse() async {
+  Future<void> finalizeAssistantResponse({String? toolCallJson}) async {
     final messages = List<ChatMessage>.from(state.messages);
     final lastIdx = messages.lastIndexWhere((m) => m.isAssistant && m.isStreaming);
     if (lastIdx < 0) return;
@@ -141,6 +141,7 @@ class ChatNotifier extends _$ChatNotifier {
     final finalized = messages[lastIdx].copyWith(
       content: cleanedContent,
       isStreaming: false,
+      toolCallJson: toolCallJson ?? messages[lastIdx].toolCallJson,
     );
     final savedId = await _db.saveMessage(finalized);
     messages[lastIdx] = finalized.copyWith(id: savedId);
@@ -152,7 +153,7 @@ class ChatNotifier extends _$ChatNotifier {
   }
 
   /// Add a tool observation message (result fed back to model)
-  Future<void> addToolObservation(String toolName, String result) async {
+  Future<void> addToolObservation(String toolName, String result, {String? toolCallId}) async {
     final sessionId = state.sessionId!;
     final obs = ChatMessage(
       id: 0,
@@ -161,6 +162,8 @@ class ChatNotifier extends _$ChatNotifier {
       content: '[$toolName] $result',
       timestamp: DateTime.now(),
       toolResult: result,
+      toolCallId: toolCallId,
+      toolName: toolName,
     );
     final savedId = await _db.saveMessage(obs);
     state = state.copyWith(

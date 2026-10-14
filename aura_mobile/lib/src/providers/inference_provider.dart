@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'model_provider.dart';
@@ -49,6 +50,89 @@ class InferenceMetrics {
   }
 }
 
+/// Helper untuk memastikan model string memiliki prefix provider yang tepat,
+/// mencegah salah rute di ModelResolver jika ada multiple API keys aktif.
+///
+/// Logika sentinel:
+/// - [SettingsState.activeCloudProvider] == 'combo'  →  baca [SettingsState.comboModel]
+///   lalu normalisasi setiap elemen (bare provider name → default model konkret).
+/// - Single provider (gemini / openai / anthropic / groq) → model default konkret.
+///
+/// Tidak ada pseudo-keyword seperti 'combo:auto' atau 'combo:smart'.
+String resolveCloudModelOrCombo(SettingsState settings) {
+  final provider = settings.activeCloudProvider.trim().toLowerCase();
+
+  // ── Mode Combo: sentinel 'combo' ─────────────────────────────────────────
+  if (provider == 'combo') {
+    final rawCombo = settings.comboModel.trim();
+    final target = rawCombo.isNotEmpty
+        ? rawCombo
+        : 'gemini/gemini-2.5-flash,openai/gpt-4o';
+
+    return target
+        .split(',')
+        .map((part) => _normalizeProviderPart(part.trim()))
+        .where((p) => p.isNotEmpty)
+        .join(',');
+  }
+
+  // ── Mode Single Provider ──────────────────────────────────────────────────
+  if (provider == 'openai' || provider == 'oa') {
+    final m = settings.openaiModel.isNotEmpty ? settings.openaiModel : 'gpt-4o';
+    return m.contains('/') ? m : 'openai/$m';
+  }
+  if (provider == 'gemini' || provider == 'gc') {
+    return 'gemini/gemini-2.5-flash';
+  }
+  if (provider == 'anthropic' || provider == 'claude') {
+    return 'anthropic/claude-3-5-sonnet-20241022';
+  }
+  if (provider == 'groq' || provider == 'gq') {
+    return 'groq/llama-3.3-70b-versatile';
+  }
+
+  // Passthrough: sudah berformat 'provider/model' atau 'p1/m1,p2/m2'
+  if (provider.contains('/') || provider.contains(',')) {
+    return provider;
+  }
+
+  // Unknown provider → fail-fast: biarkan router melempar FormatException
+  return '$provider/$provider';
+}
+
+/// Normalisasi satu elemen combo: bare provider name → default model konkret.
+/// Elemen yang sudah memiliki slash '/' dikembalikan utuh.
+String _normalizeProviderPart(String part) {
+  if (part.isEmpty) return '';
+  if (part.contains('/')) return part;
+
+  switch (part.toLowerCase()) {
+    case 'gemini':
+    case 'gc':
+      return 'gemini/gemini-2.5-flash';
+    case 'openai':
+    case 'oa':
+      return 'openai/gpt-4o';
+    case 'anthropic':
+    case 'claude':
+      return 'anthropic/claude-3-5-sonnet-20241022';
+    case 'groq':
+    case 'gq':
+      return 'groq/llama-3.3-70b-versatile';
+    default:
+      // Unknown bare name → fail-fast di router
+      return '$part/$part';
+  }
+}
+
+/// Provider singleton untuk LlmRouterClient
+final llmRouterClientProvider = Provider<LlmRouterClient>((ref) {
+  return LlmRouterClient(
+    defaultStallTimeout: const Duration(seconds: 30),
+    reasoningStallTimeout: const Duration(seconds: 60),
+  );
+});
+
 /// State for the inference / generation provider
 class InferenceState {
   const InferenceState({
@@ -58,6 +142,8 @@ class InferenceState {
     this.metrics = const InferenceMetrics(),
     this.errorMessage,
     this.useCloudAssistant = false,
+    this.fallbackNotice,
+    this.activeProvider,
   });
 
   final InferenceStatus status;
@@ -66,6 +152,8 @@ class InferenceState {
   final InferenceMetrics metrics;
   final String? errorMessage;
   final bool useCloudAssistant;
+  final String? fallbackNotice;
+  final String? activeProvider;
 
   bool get isGenerating => status == InferenceStatus.generating;
   bool get isIdle => status == InferenceStatus.idle;
@@ -79,7 +167,10 @@ class InferenceState {
     InferenceMetrics? metrics,
     String? errorMessage,
     bool? useCloudAssistant,
+    String? fallbackNotice,
+    String? activeProvider,
     bool clearError = false,
+    bool clearFallbackNotice = false,
   }) {
     return InferenceState(
       status: status ?? this.status,
@@ -88,6 +179,8 @@ class InferenceState {
       metrics: metrics ?? this.metrics,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       useCloudAssistant: useCloudAssistant ?? this.useCloudAssistant,
+      fallbackNotice: clearFallbackNotice ? null : (fallbackNotice ?? this.fallbackNotice),
+      activeProvider: activeProvider ?? this.activeProvider,
     );
   }
 }
@@ -95,7 +188,7 @@ class InferenceState {
 /// Manages local LLM inference, streaming tokens, metrics, and cancellation.
 @riverpod
 class InferenceNotifier extends _$InferenceNotifier {
-  StreamSubscription<String>? _streamSub;
+  StreamSubscription<dynamic>? _streamSub;
   Stopwatch? _stopwatch;
   int _manualTokenCount = 0;
   http.Client? _desktopClient;
@@ -201,7 +294,9 @@ class InferenceNotifier extends _$InferenceNotifier {
   }) async {
     final modelState = ref.read(modelProvider);
     final settings = ref.read(settingsProvider);
-    if (!modelState.isReady || modelState.activeModel == null) {
+
+    // Jika cloud assistant tidak aktif, pastikan model lokal GGUF sudah dimuat
+    if (!state.useCloudAssistant && (!modelState.isReady || modelState.activeModel == null)) {
       state = state.copyWith(
         status: InferenceStatus.error,
         errorMessage: 'Tidak ada model GGUF yang aktif. Silakan muat model terlebih dahulu.',
@@ -222,26 +317,28 @@ class InferenceNotifier extends _$InferenceNotifier {
       effectiveSystemPrompt = memoryContext + (effectiveSystemPrompt.isNotEmpty ? '\n$effectiveSystemPrompt' : '');
     }
 
-    // Cloud Routing Check (Fase 14)
+    // Cloud Routing Check (Fase 14 & Rule 17)
     if (state.useCloudAssistant) {
-      final apiKey = await SecureStorageService.instance.read(
-        settings.activeCloudProvider == 'openai' ? 'openai_api_key' : 'gemini_api_key',
-      ) ?? '';
-      if (apiKey.isEmpty) {
+      final apiKeys = await loadActiveApiKeys();
+      if (apiKeys.isEmpty) {
         state = state.copyWith(
           status: InferenceStatus.error,
-          errorMessage: 'API Key untuk ${settings.activeCloudProvider} kosong. Silakan isi di Pengaturan.',
+          errorMessage: 'API Key Cloud kosong. Silakan isi API Key di Pengaturan.',
         );
         return;
       }
+      final modelOrCombo = resolveCloudModelOrCombo(settings);
       await _generateCloud(
-        provider: settings.activeCloudProvider,
-        apiKey: apiKey,
+        apiKeys: apiKeys,
         prompt: prompt,
         systemPrompt: effectiveSystemPrompt,
         maxTokens: maxTokens,
         temperature: temperature,
-        openaiModel: settings.openaiModel,
+        modelOrCombo: modelOrCombo,
+        preferredProvider: settings.activeCloudProvider,
+        topP: topP,
+        topK: topK,
+        repeatPenalty: repeatPenalty,
       );
       return;
     }
@@ -280,17 +377,98 @@ class InferenceNotifier extends _$InferenceNotifier {
       return;
     }
 
+    await _generateLocalWithController(
+      prompt: prompt,
+      systemPrompt: effectiveSystemPrompt,
+      maxTokens: maxTokens,
+      temperature: temperature,
+      topP: topP,
+      topK: topK,
+      repeatPenalty: repeatPenalty,
+    );
+  }
+
+  /// Stop the ongoing inference immediately
+  Future<void> stop() async {
+    if (state.isGenerating) {
+      try {
+        final controller = ref.read(modelProvider.notifier).controller;
+        await controller.stop();
+      } catch (e) {
+        debugPrint('Error stopping controller: $e');
+      }
+
+      await _streamSub?.cancel();
+      _streamSub = null;
+      _desktopClient?.close();
+      _desktopClient = null;
+      _stopwatch?.stop();
+
+      state = state.copyWith(status: InferenceStatus.cancelled);
+    }
+  }
+
+  /// Reset the inference state to idle
+  void reset() {
+    _streamSub?.cancel();
+    _streamSub = null;
+    _stopwatch?.stop();
+    state = InferenceState(useCloudAssistant: state.useCloudAssistant);
+  }
+
+  Future<Map<String, String>> loadActiveApiKeys() async {
+    final keys = <String, String>{};
+    try {
+      final geminiKey = await SecureStorageService.instance.read('gemini_api_key');
+      if (geminiKey != null && geminiKey.trim().isNotEmpty) {
+        keys['gemini'] = geminiKey.trim();
+      }
+      final openaiKey = await SecureStorageService.instance.read('openai_api_key');
+      if (openaiKey != null && openaiKey.trim().isNotEmpty) {
+        keys['openai'] = openaiKey.trim();
+      }
+      final groqKey = await SecureStorageService.instance.read('groq_api_key');
+      if (groqKey != null && groqKey.trim().isNotEmpty) {
+        keys['groq'] = groqKey.trim();
+      }
+      final anthropicKey = await SecureStorageService.instance.read('anthropic_api_key');
+      if (anthropicKey != null && anthropicKey.trim().isNotEmpty) {
+        keys['anthropic'] = anthropicKey.trim();
+      }
+    } catch (e) {
+      debugPrint('Error loading API keys from secure storage: $e');
+    }
+    return keys;
+  }
+
+  Future<void> _generateLocalWithController({
+    required String prompt,
+    required String systemPrompt,
+    required int maxTokens,
+    required double temperature,
+    required double topP,
+    required int topK,
+    required double repeatPenalty,
+  }) async {
+    final modelState = ref.read(modelProvider);
+    if (!modelState.isReady || modelState.activeModel == null) {
+      state = state.copyWith(
+        status: InferenceStatus.error,
+        errorMessage: 'Fallback gagal: Belum ada model GGUF lokal yang dimuat.',
+      );
+      return;
+    }
+
     final formattedPrompt = formatPrompt(
       prompt,
-      systemPrompt: effectiveSystemPrompt.isNotEmpty ? effectiveSystemPrompt : null,
+      systemPrompt: systemPrompt.isNotEmpty ? systemPrompt : null,
     );
 
-    state = InferenceState(
+    state = state.copyWith(
       status: InferenceStatus.generating,
       prompt: prompt,
       text: '',
       metrics: const InferenceMetrics(),
-      useCloudAssistant: state.useCloudAssistant,
     );
 
     _stopwatch = Stopwatch()..start();
@@ -355,7 +533,7 @@ class InferenceNotifier extends _$InferenceNotifier {
           _stopwatch?.stop();
           state = state.copyWith(
             status: InferenceStatus.error,
-            errorMessage: 'Inference Error: ${error.toString()}',
+            errorMessage: 'Local Inference Error: ${error.toString()}',
           );
         },
         cancelOnError: true,
@@ -364,47 +542,22 @@ class InferenceNotifier extends _$InferenceNotifier {
       _stopwatch?.stop();
       state = state.copyWith(
         status: InferenceStatus.error,
-        errorMessage: 'Gagal memulai inferensi: ${e.toString()}',
+        errorMessage: 'Gagal inferensi lokal: ${e.toString()}',
       );
     }
   }
 
-  /// Stop the ongoing inference immediately
-  Future<void> stop() async {
-    if (state.isGenerating) {
-      try {
-        final controller = ref.read(modelProvider.notifier).controller;
-        await controller.stop();
-      } catch (e) {
-        debugPrint('Error stopping controller: $e');
-      }
-
-      await _streamSub?.cancel();
-      _streamSub = null;
-      _desktopClient?.close();
-      _desktopClient = null;
-      _stopwatch?.stop();
-
-      state = state.copyWith(status: InferenceStatus.cancelled);
-    }
-  }
-
-  /// Reset the inference state to idle
-  void reset() {
-    _streamSub?.cancel();
-    _streamSub = null;
-    _stopwatch?.stop();
-    state = InferenceState(useCloudAssistant: state.useCloudAssistant);
-  }
-
   Future<void> _generateCloud({
-    required String provider,
-    required String apiKey,
+    required Map<String, String> apiKeys,
     required String prompt,
     required String systemPrompt,
     required int maxTokens,
     required double temperature,
-    required String openaiModel,
+    required String modelOrCombo,
+    required String preferredProvider,
+    double topP = 0.9,
+    int topK = 40,
+    double repeatPenalty = 1.1,
   }) async {
     state = InferenceState(
       status: InferenceStatus.generating,
@@ -412,6 +565,7 @@ class InferenceNotifier extends _$InferenceNotifier {
       text: '',
       metrics: const InferenceMetrics(),
       useCloudAssistant: state.useCloudAssistant,
+      activeProvider: preferredProvider,
     );
 
     _stopwatch = Stopwatch()..start();
@@ -423,50 +577,60 @@ class InferenceNotifier extends _$InferenceNotifier {
     _desktopClient?.close();
     _streamSub?.cancel();
 
+    final routerClient = ref.read(llmRouterClientProvider);
+
+    final messages = [
+      if (systemPrompt.isNotEmpty)
+        ChatMessage(
+          id: 0,
+          sessionId: 0,
+          role: MessageRole.system,
+          content: systemPrompt,
+          timestamp: DateTime.now(),
+        ),
+      ChatMessage(
+        id: 0,
+        sessionId: 0,
+        role: MessageRole.user,
+        content: prompt,
+        timestamp: DateTime.now(),
+      ),
+    ];
+
     try {
-      final messages = [
-        if (systemPrompt.isNotEmpty)
-          {'role': 'system', 'content': systemPrompt},
-        {'role': 'user', 'content': prompt},
-      ];
-
-      final CloudInferenceEngine engine;
-      if (provider == 'openai') {
-        engine = OpenAIInferenceEngine(modelName: openaiModel);
-      } else {
-        engine = GeminiInferenceEngine();
-      }
-
-      final tokenStream = engine.generate(
+      final tokenStream = routerClient.streamGenerate(
+        modelOrCombo: modelOrCombo,
         messages: messages,
+        apiKeys: apiKeys,
         temperature: temperature,
         maxTokens: maxTokens,
-        apiKey: apiKey,
       );
 
       _streamSub = tokenStream.listen(
-        (token) {
-          tokenCount++;
-          if (tokenCount == 1 && _stopwatch != null) {
-            timeToFirstToken = _stopwatch!.elapsed;
+        (chunk) {
+          if (chunk is RouterTextDelta) {
+            tokenCount++;
+            if (tokenCount == 1 && _stopwatch != null) {
+              timeToFirstToken = _stopwatch!.elapsed;
+            }
+
+            buffer.write(chunk.text);
+            final elapsed = _stopwatch?.elapsed ?? Duration.zero;
+            final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
+            final tps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
+
+            final processedText = EmojiParser.replaceShortcodes(buffer.toString());
+
+            state = state.copyWith(
+              text: processedText,
+              metrics: InferenceMetrics(
+                tokensGenerated: tokenCount,
+                tokensPerSecond: tps,
+                elapsedDuration: elapsed,
+                timeToFirstToken: timeToFirstToken,
+              ),
+            );
           }
-
-          buffer.write(token);
-          final elapsed = _stopwatch?.elapsed ?? Duration.zero;
-          final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
-          final tps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
-
-          final processedText = EmojiParser.replaceShortcodes(buffer.toString());
-
-          state = state.copyWith(
-            text: processedText,
-            metrics: InferenceMetrics(
-              tokensGenerated: tokenCount,
-              tokensPerSecond: tps,
-              elapsedDuration: elapsed,
-              timeToFirstToken: timeToFirstToken,
-            ),
-          );
         },
         onDone: () {
           _stopwatch?.stop();
@@ -474,7 +638,7 @@ class InferenceNotifier extends _$InferenceNotifier {
           final elapsedSeconds = elapsed.inMilliseconds / 1000.0;
           final finalTps = elapsedSeconds > 0 ? (tokenCount / elapsedSeconds) : 0.0;
 
-          buffer.write(provider == 'openai' ? ' <!-- openai -->' : ' <!-- gemini -->');
+          buffer.write(' <!-- $preferredProvider -->');
 
           state = state.copyWith(
             status: InferenceStatus.completed,
@@ -486,12 +650,28 @@ class InferenceNotifier extends _$InferenceNotifier {
             ),
           );
         },
-        onError: (error) {
+        onError: (error) async {
           _stopwatch?.stop();
-          state = state.copyWith(
-            status: InferenceStatus.error,
-            errorMessage: 'Cloud Inference Error: ${error.toString()}',
-          );
+          if (error is LocalFallbackException) {
+            state = state.copyWith(
+              fallbackNotice: error.decision.userFacingMessage,
+            );
+            // Automatic fallback to local model (Rule 17)
+            await _generateLocalWithController(
+              prompt: prompt,
+              systemPrompt: systemPrompt,
+              maxTokens: maxTokens,
+              temperature: temperature,
+              topP: topP,
+              topK: topK,
+              repeatPenalty: repeatPenalty,
+            );
+          } else {
+            state = state.copyWith(
+              status: InferenceStatus.error,
+              errorMessage: 'Cloud Inference Error: ${error.toString()}',
+            );
+          }
         },
         cancelOnError: true,
       );

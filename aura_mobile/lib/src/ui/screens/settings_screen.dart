@@ -29,12 +29,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   final TextEditingController _geminiKeyController = TextEditingController();
   final TextEditingController _openaiKeyController = TextEditingController();
+  final TextEditingController _anthropicKeyController = TextEditingController();
+  final TextEditingController _groqKeyController = TextEditingController();
+  late final TextEditingController _comboController;
   bool _obscureGeminiKey = true;
   bool _obscureOpenaiKey = true;
+  bool _obscureAnthropicKey = true;
+  bool _obscureGroqKey = true;
   String? _geminiValidationResult;
   String? _openaiValidationResult;
+  String? _anthropicValidationResult;
+  String? _groqValidationResult;
   bool _isValidatingGemini = false;
   bool _isValidatingOpenai = false;
+  bool _isValidatingAnthropic = false;
+  bool _isValidatingGroq = false;
 
   @override
   void initState() {
@@ -43,16 +52,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _ipController = TextEditingController(text: settings.desktopIp);
     _portController = TextEditingController(text: settings.desktopPort);
     _pinController = TextEditingController(text: settings.desktopPin);
+    _comboController = TextEditingController(text: settings.comboModel);
     _loadSecureKeys();
   }
 
   Future<void> _loadSecureKeys() async {
     final geminiKey = await SecureStorageService.instance.read('gemini_api_key') ?? '';
     final openaiKey = await SecureStorageService.instance.read('openai_api_key') ?? '';
+    final anthropicKey = await SecureStorageService.instance.read('anthropic_api_key') ?? '';
+    final groqKey = await SecureStorageService.instance.read('groq_api_key') ?? '';
     if (mounted) {
       setState(() {
         _geminiKeyController.text = geminiKey;
         _openaiKeyController.text = openaiKey;
+        _anthropicKeyController.text = anthropicKey;
+        _groqKeyController.text = groqKey;
       });
     }
   }
@@ -62,8 +76,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _ipController.dispose();
     _portController.dispose();
     _pinController.dispose();
+    _comboController.dispose();
     _geminiKeyController.dispose();
     _openaiKeyController.dispose();
+    _anthropicKeyController.dispose();
+    _groqKeyController.dispose();
     super.dispose();
   }
 
@@ -125,6 +142,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _validateAnthropicKey() async {
+    final key = _anthropicKeyController.text.trim();
+    if (key.isEmpty) {
+      setState(() => _anthropicValidationResult = 'Kunci API kosong');
+      return;
+    }
+    setState(() {
+      _isValidatingAnthropic = true;
+      _anthropicValidationResult = null;
+    });
+
+    await SecureStorageService.instance.write('anthropic_api_key', key);
+
+    if (mounted) {
+      setState(() {
+        _isValidatingAnthropic = false;
+        _anthropicValidationResult = 'Tersimpan';
+      });
+    }
+  }
+
+  Future<void> _validateGroqKey() async {
+    final key = _groqKeyController.text.trim();
+    if (key.isEmpty) {
+      setState(() => _groqValidationResult = 'Kunci API kosong');
+      return;
+    }
+    setState(() {
+      _isValidatingGroq = true;
+      _groqValidationResult = null;
+    });
+
+    await SecureStorageService.instance.write('groq_api_key', key);
+
+    if (mounted) {
+      setState(() {
+        _isValidatingGroq = false;
+        _groqValidationResult = 'Tersimpan';
+      });
+    }
+  }
+
   Future<void> _deleteGeminiKey() async {
     await SecureStorageService.instance.delete('gemini_api_key');
     if (mounted) {
@@ -141,6 +200,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _openaiKeyController.clear();
         _openaiValidationResult = null;
+      });
+    }
+  }
+
+  Future<void> _deleteAnthropicKey() async {
+    await SecureStorageService.instance.delete('anthropic_api_key');
+    if (mounted) {
+      setState(() {
+        _anthropicKeyController.clear();
+        _anthropicValidationResult = null;
+      });
+    }
+  }
+
+  Future<void> _deleteGroqKey() async {
+    await SecureStorageService.instance.delete('groq_api_key');
+    if (mounted) {
+      setState(() {
+        _groqKeyController.clear();
+        _groqValidationResult = null;
       });
     }
   }
@@ -433,26 +512,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Gunakan Google Gemini atau OpenAI sebagai asisten cadangan berdaya tinggi secara manual.',
+                  'Gunakan Google Gemini, OpenAI, atau 9Router (Multi-Provider Combo) sebagai asisten berdaya tinggi.',
                   style: TextStyle(color: AppTheme.textMuted, fontSize: 11, height: 1.4),
                 ),
                 const SizedBox(height: 16),
                 
                 const Text(
-                  'Aktifkan Provider:',
+                  'Aktifkan Provider / Router:',
                   style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 RadioGroup<String>(
-                  groupValue: settings.activeCloudProvider,
+                  groupValue: settings.activeCloudProvider == 'combo'
+                      ? 'combo'
+                      : settings.activeCloudProvider,
                   onChanged: (val) {
                     if (val != null) {
                       ref.read(settingsProvider.notifier).setActiveCloudProvider(val);
                     }
                   },
-                  child: const Row(
+                  child: const Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      Expanded(
+                      SizedBox(
+                        width: 120,
                         child: RadioListTile<String>(
                           contentPadding: EdgeInsets.zero,
                           title: Text('Gemini', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
@@ -460,7 +544,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           activeColor: AppTheme.primary,
                         ),
                       ),
-                      Expanded(
+                      SizedBox(
+                        width: 120,
                         child: RadioListTile<String>(
                           contentPadding: EdgeInsets.zero,
                           title: Text('OpenAI', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
@@ -468,9 +553,105 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           activeColor: AppTheme.primary,
                         ),
                       ),
+                      SizedBox(
+                        width: 150,
+                        child: RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('9Router / Combo', style: TextStyle(fontSize: 13, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                          value: 'combo',
+                          activeColor: AppTheme.primary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                if (settings.activeCloudProvider == 'combo') ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.alt_route, size: 16, color: AppTheme.primary),
+                            SizedBox(width: 8),
+                            Text(
+                              '9Router Routing & Failover',
+                              style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Pilih preset router cerdas atau ketik kombinasi model berurutan (fallback otomatis saat kuota/rate limit habis).',
+                          style: TextStyle(color: AppTheme.textMuted, fontSize: 11, height: 1.3),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Gemini → OpenAI', style: TextStyle(fontSize: 11)),
+                              selected: settings.comboModel == 'gemini/gemini-2.5-flash,openai/gpt-4o',
+                              onSelected: (selected) {
+                                if (selected) {
+                                  const val = 'gemini/gemini-2.5-flash,openai/gpt-4o';
+                                  _comboController.text = val;
+                                  ref.read(settingsProvider.notifier).setComboModel(val);
+                                }
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('OpenAI → Gemini', style: TextStyle(fontSize: 11)),
+                              selected: settings.comboModel == 'openai/gpt-4o,gemini/gemini-2.5-flash',
+                              onSelected: (selected) {
+                                if (selected) {
+                                  const val = 'openai/gpt-4o,gemini/gemini-2.5-flash';
+                                  _comboController.text = val;
+                                  ref.read(settingsProvider.notifier).setComboModel(val);
+                                }
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Semua Provider Aktif', style: TextStyle(fontSize: 11)),
+                              selected: settings.comboModel == 'gemini/gemini-2.5-flash,openai/gpt-4o,anthropic/claude-3-5-sonnet-20241022,groq/llama-3.3-70b-versatile',
+                              onSelected: (selected) {
+                                if (selected) {
+                                  const val = 'gemini/gemini-2.5-flash,openai/gpt-4o,anthropic/claude-3-5-sonnet-20241022,groq/llama-3.3-70b-versatile';
+                                  _comboController.text = val;
+                                  ref.read(settingsProvider.notifier).setComboModel(val);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _comboController,
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: 'Definisi Model / Combo 9Router',
+                            labelStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                            hintText: 'contoh: gemini/gemini-2.5-flash,openai/gpt-4o',
+                            hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          onChanged: (val) {
+                            ref.read(settingsProvider.notifier).setComboModel(val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Divider(color: AppTheme.border, height: 24),
 
                 const Text('Gemini API Key', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
@@ -624,6 +805,132 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ],
+                const Divider(color: AppTheme.border, height: 32),
+
+                // Anthropic API Key
+                const Text('Anthropic API Key (Opsional untuk 9Router)', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _anthropicKeyController,
+                        obscureText: _obscureAnthropicKey,
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan API Key Anthropic (sk-ant-...)...',
+                          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureAnthropicKey ? Icons.visibility_off : Icons.visibility,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscureAnthropicKey = !_obscureAnthropicKey),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 20),
+                      onPressed: _deleteAnthropicKey,
+                      tooltip: 'Hapus Key',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isValidatingAnthropic ? null : _validateAnthropicKey,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                        foregroundColor: AppTheme.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: _isValidatingAnthropic
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Simpan Key', style: TextStyle(fontSize: 12)),
+                    ),
+                    if (_anthropicValidationResult != null)
+                      Text(
+                        _anthropicValidationResult!,
+                        style: TextStyle(
+                          color: _anthropicValidationResult == 'Tersimpan' ? AppTheme.statusReady : AppTheme.error,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+                const Divider(color: AppTheme.border, height: 32),
+
+                // Groq API Key
+                const Text('Groq API Key (Opsional untuk 9Router)', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _groqKeyController,
+                        obscureText: _obscureGroqKey,
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan API Key Groq (gsk_...)...',
+                          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureGroqKey ? Icons.visibility_off : Icons.visibility,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscureGroqKey = !_obscureGroqKey),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 20),
+                      onPressed: _deleteGroqKey,
+                      tooltip: 'Hapus Key',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isValidatingGroq ? null : _validateGroqKey,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                        foregroundColor: AppTheme.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: _isValidatingGroq
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Simpan Key', style: TextStyle(fontSize: 12)),
+                    ),
+                    if (_groqValidationResult != null)
+                      Text(
+                        _groqValidationResult!,
+                        style: TextStyle(
+                          color: _groqValidationResult == 'Tersimpan' ? AppTheme.statusReady : AppTheme.error,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

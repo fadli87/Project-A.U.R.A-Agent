@@ -15,3 +15,13 @@ export 'storage/backup_service.dart';
 export 'storage/secure_storage_service.dart';
 export 'utils/emoji_parser.dart';
 export 'objectbox.g.dart';
+
+// LLM Router subsystem
+export 'src/llm_router/models/llm_router_models.dart';
+export 'src/llm_router/format_translator.dart';
+export 'src/llm_router/model_resolver.dart';
+export 'src/llm_router/combo_strategy.dart';
+export 'src/llm_router/fusion.dart';
+export 'src/llm_router/stall_detection.dart';
+export 'src/llm_router/retry_backoff.dart';
+export 'src/llm_router/router_client.dart';

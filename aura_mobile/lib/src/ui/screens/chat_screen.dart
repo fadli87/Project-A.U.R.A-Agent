@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import '../../providers/memory_provider.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,51 @@ import '../theme/app_theme.dart';
 import '../widgets/device_status_bar.dart';
 import '../widgets/session_history_drawer.dart';
 import 'settings_screen.dart';
+
+class _ToolExecutionItem {
+  final String name;
+  final Map<String, dynamic> arguments;
+  final String rawJson;
+  final String? toolCallId;
+
+  const _ToolExecutionItem({
+    required this.name,
+    required this.arguments,
+    required this.rawJson,
+    this.toolCallId,
+  });
+}
+
+/// Memangkas riwayat percakapan untuk context prompt, dengan memastikan tidak
+/// memotong di antara assistant tool-call dan tool-observation pasangannya.
+List<ChatMessage> pruneHistoryForContext(List<ChatMessage> messages, {int maxMessages = 6}) {
+  final valid = messages
+      .where((m) => !m.isStreaming && !m.content.contains('[Error Inferensi'))
+      .toList();
+  if (valid.length <= maxMessages) return valid;
+
+  int startIndex = valid.length - maxMessages;
+
+  // Jika startIndex mendarat di pesan tool, mundur ke belakang agar
+  // seluruh rentetan tool-call dan responnya tetap utuh.
+  while (startIndex > 0 && valid[startIndex].role == MessageRole.tool) {
+    startIndex--;
+  }
+
+  // Jika setelah mundur atau sejak awal startIndex mendarat pada tool
+  // (misal index 0 adalah tool), maju ke pesan non-tool berikutnya
+  // agar tidak pernah ada orphan tool message di awal context.
+  while (startIndex < valid.length && valid[startIndex].role == MessageRole.tool) {
+    startIndex++;
+  }
+
+  if (startIndex >= valid.length) {
+    final lastUser = valid.lastIndexWhere((m) => m.role == MessageRole.user);
+    return lastUser >= 0 ? valid.sublist(lastUser) : [valid.last];
+  }
+
+  return valid.sublist(startIndex);
+}
 
 /// Main chat interface with real-time token streaming
 class ChatScreen extends ConsumerStatefulWidget {
@@ -589,7 +635,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     await chatNotifier.addUserMessage(text);
 
-    if (!modelState.isReady || modelState.activeModel == null) {
+    final isCloud = ref.read(inferenceProvider).useCloudAssistant;
+    if (!isCloud && (!modelState.isReady || modelState.activeModel == null)) {
       chatNotifier.beginAssistantResponse();
       chatNotifier.appendToken(
         'Peringatan: Belum ada model GGUF yang dimuat. Silakan kembali ke layar utama dan pilih serta muat model terlebih dahulu.',
@@ -739,127 +786,221 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         inferenceNotifier.startManualMetrics();
 
         final buffer = StringBuffer();
+        final cloudToolCalls = <RouterToolCall>[];
 
-        // Load completed history (limit to last 4 messages to fit safely in context size)
-        var history = ref.read(chatProvider).messages
-            .where((m) => !m.isStreaming && !m.content.contains('[Error Inferensi'))
-            .toList();
-        if (history.length > 4) {
-          history = history.sublist(history.length - 4);
-        }
+        // Smart history trimming: preserves tool call / response pairing (no orphan tools)
+        final history = pruneHistoryForContext(ref.read(chatProvider).messages, maxMessages: 6);
         final modelName = ref.read(modelProvider).activeModel?.name ?? '';
         final formattedPrompt = _buildFormattedPrompt(history, systemPrompt, modelName);
 
-        try {
-          final stream = controller.generate(
-            prompt: formattedPrompt,
-            maxTokens: 512,
-          );
+        final isCloud = ref.read(inferenceProvider).useCloudAssistant;
 
-          await for (final token in stream) {
-            buffer.write(token);
-            chatNotifier.appendToken(token);
-            inferenceNotifier.onTokenReceived();
-          }
-        } catch (e) {
-          chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
-          inferenceNotifier.stopManualMetrics();
-          await chatNotifier.finalizeAssistantResponse();
-          break;
-        }
+        if (isCloud) {
+          try {
+            final apiKeys = await ref.read(inferenceProvider.notifier).loadActiveApiKeys();
+            final settings = ref.read(settingsProvider);
+            final modelOrCombo = resolveCloudModelOrCombo(settings);
 
-        inferenceNotifier.stopManualMetrics();
-        await chatNotifier.finalizeAssistantResponse();
-
-        // 🔍🔍 Cek apakah output mengandung tool-call 🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍
-        final fullResponse = buffer.toString();
-        final toolCallReq = _toolRegistry.parseToolCall(fullResponse);
-
-        if (toolCallReq == null) {
-          // Tidak ada tool-call ➔ ini jawaban final, loop selesai
-          break;
-        }
-
-        // 🔍🔍 Ada tool-call: handle permission lalu execute 🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍
-        final tool = _toolRegistry.getTool(toolCallReq.name);
-        if (tool == null) {
-          // Tool tidak dikenal ➔ hentikan loop dengan pesan
-          await chatNotifier.addToolObservation(
-            toolCallReq.name,
-            'Error: tool "${toolCallReq.name}" tidak dikenal.',
-          );
-          break;
-        }
-
-        if (tool.isSensitive) {
-          // Sensitive tool: tampilkan PermissionApprovalCard, tunggu user
-          if (!mounted) break;
-          final allowed = await PermissionApprovalCard.show(
-            context,
-            toolName: tool.name,
-            toolDescription: tool.description,
-            parameters: toolCallReq.arguments,
-          );
-
-          if (!allowed) {
-            // User menolak ➔ hentikan loop, tampilkan pesan
-            await chatNotifier.addToolObservation(
-              tool.name,
-              'Aksi dibatalkan oleh pengguna.',
+            final routerClient = ref.read(llmRouterClientProvider);
+            final stream = routerClient.streamGenerate(
+              messages: history,
+              systemPrompt: systemPrompt,
+              modelOrCombo: modelOrCombo,
+              apiKeys: apiKeys,
+              maxTokens: 1024,
             );
+
+            await for (final event in stream) {
+              if (event is RouterTextDelta) {
+                buffer.write(event.text);
+                chatNotifier.appendToken(event.text);
+                inferenceNotifier.onTokenReceived();
+              } else if (event is RouterToolCall) {
+                cloudToolCalls.add(event);
+              }
+            }
+          } on LocalFallbackException catch (e) {
+            // Rule 17: User-facing fallback notice
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.decision.userFacingMessage),
+                  backgroundColor: Colors.orange.shade800,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            final localModelState = ref.read(modelProvider);
+            if (!localModelState.isReady || localModelState.activeModel == null) {
+              chatNotifier.appendToken(
+                '\n[Fallback Lokal Gagal: Belum ada model GGUF lokal yang dimuat sebagai jaring pengaman.]',
+              );
+              inferenceNotifier.stopManualMetrics();
+              await chatNotifier.finalizeAssistantResponse();
+              break;
+            }
+            buffer.clear();
+            try {
+              final stream = controller.generate(
+                prompt: formattedPrompt,
+                maxTokens: 512,
+              );
+              await for (final token in stream) {
+                buffer.write(token);
+                chatNotifier.appendToken(token);
+                inferenceNotifier.onTokenReceived();
+              }
+            } catch (localErr) {
+              chatNotifier.appendToken('\n[Error Inferensi: ${localErr.toString()}]');
+              inferenceNotifier.stopManualMetrics();
+              await chatNotifier.finalizeAssistantResponse();
+              break;
+            }
+          } catch (e) {
+            chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
+            inferenceNotifier.stopManualMetrics();
+            await chatNotifier.finalizeAssistantResponse();
+            break;
+          }
+        } else {
+          try {
+            final stream = controller.generate(
+              prompt: formattedPrompt,
+              maxTokens: 512,
+            );
+
+            await for (final token in stream) {
+              buffer.write(token);
+              chatNotifier.appendToken(token);
+              inferenceNotifier.onTokenReceived();
+            }
+          } catch (e) {
+            chatNotifier.appendToken('\n[Error Inferensi: ${e.toString()}]');
+            inferenceNotifier.stopManualMetrics();
+            await chatNotifier.finalizeAssistantResponse();
             break;
           }
         }
 
-        // Execute tool (aman atau sudah diizinkan)
-        final enrichedArgs = Map<String, dynamic>.from(toolCallReq.arguments);
-        enrichedArgs['sessionId'] = ref.read(chatProvider).sessionId;
-        enrichedArgs['searxngUrl'] = ref.read(settingsProvider).searxngUrl;
+        inferenceNotifier.stopManualMetrics();
+        final toolCallJson = cloudToolCalls.isNotEmpty
+            ? jsonEncode(cloudToolCalls.map((tc) => {
+                'id': tc.id,
+                'type': 'function',
+                'function': {
+                  'name': tc.name,
+                  'arguments': tc.argumentsJson,
+                },
+              }).toList())
+            : null;
+        await chatNotifier.finalizeAssistantResponse(toolCallJson: toolCallJson);
 
-        if (tool.name == 'search_web_deep') {
-          if (mounted) {
-            setState(() {
-              _activeSearchQuery = toolCallReq.arguments['query'] as String?;
-            });
+        // 🔍🔍 Kumpulkan tool-call (cloud paralel atau prose lokal) 🔍🔍
+        final requestsToExecute = <_ToolExecutionItem>[];
+
+        if (cloudToolCalls.isNotEmpty) {
+          for (final tc in cloudToolCalls) {
+            Map<String, dynamic> args = {};
+            try {
+              final decoded = jsonDecode(tc.argumentsJson);
+              if (decoded is Map<String, dynamic>) args = decoded;
+            } catch (_) {}
+            requestsToExecute.add(_ToolExecutionItem(
+              name: tc.name,
+              arguments: args,
+              rawJson: tc.argumentsJson,
+              toolCallId: tc.id,
+            ));
+          }
+        } else {
+          final fullResponse = buffer.toString();
+          final proseReq = _toolRegistry.parseToolCall(fullResponse);
+          if (proseReq != null) {
+            requestsToExecute.add(_ToolExecutionItem(
+              name: proseReq.name,
+              arguments: proseReq.arguments,
+              rawJson: proseReq.rawJson,
+              toolCallId: null,
+            ));
           }
         }
 
-        if (tool.name == 'read_local_file') {
-          if (mounted) {
-            setState(() {
-              _activeReadFile = toolCallReq.arguments['path'] as String?;
-            });
-          }
+        if (requestsToExecute.isEmpty) {
+          // Tidak ada tool-call ➔ ini jawaban final, loop selesai
+          break;
         }
 
-        String toolResult;
-        try {
-          toolResult = await tool.execute(enrichedArgs);
-        } catch (e) {
-          toolResult = 'Error eksekusi tool: ${e.toString()}';
-        } finally {
-          if (tool.name == 'search_web_deep') {
-            if (mounted) {
-              setState(() {
-                _activeSearchQuery = null;
-              });
+        // 🔍🔍 Eksekusi semua tool-call yang diminta 🔍🔍
+        bool shouldHandoff = false;
+        for (final item in requestsToExecute) {
+          final tool = _toolRegistry.getTool(item.name);
+          if (tool == null) {
+            await chatNotifier.addToolObservation(
+              item.name,
+              'Error: tool "${item.name}" tidak dikenal.',
+              toolCallId: item.toolCallId,
+            );
+            continue;
+          }
+
+          if (tool.isSensitive) {
+            if (!mounted) break;
+            final allowed = await PermissionApprovalCard.show(
+              context,
+              toolName: tool.name,
+              toolDescription: tool.description,
+              parameters: item.arguments,
+            );
+
+            if (!allowed) {
+              await chatNotifier.addToolObservation(
+                tool.name,
+                'Aksi dibatalkan oleh pengguna.',
+                toolCallId: item.toolCallId,
+              );
+              continue;
             }
           }
 
-          if (tool.name == 'read_local_file') {
-            if (mounted) {
-              setState(() {
-                _activeReadFile = null;
-              });
+          final toolArgs = item.arguments;
+          final enrichedArgs = Map<String, dynamic>.from(toolArgs);
+          enrichedArgs['sessionId'] = ref.read(chatProvider).sessionId;
+          enrichedArgs['searxngUrl'] = ref.read(settingsProvider).searxngUrl;
+
+          if (tool.name == 'search_web_deep' && mounted) {
+            setState(() => _activeSearchQuery = toolArgs['query'] as String?);
+          }
+          if (tool.name == 'read_local_file' && mounted) {
+            setState(() => _activeReadFile = toolArgs['path'] as String?);
+          }
+
+          String toolResult;
+          try {
+            toolResult = await tool.execute(enrichedArgs);
+          } catch (e) {
+            toolResult = 'Error eksekusi tool: ${e.toString()}';
+          } finally {
+            if (tool.name == 'search_web_deep' && mounted) {
+              setState(() => _activeSearchQuery = null);
             }
+            if (tool.name == 'read_local_file' && mounted) {
+              setState(() => _activeReadFile = null);
+            }
+          }
+
+          // Tambahkan observasi ke chat dengan ID tool-call masing-masing
+          await chatNotifier.addToolObservation(
+            tool.name,
+            toolResult,
+            toolCallId: item.toolCallId,
+          );
+
+          if (tool.name == 'search_web_handoff') {
+            shouldHandoff = true;
           }
         }
 
-        // Tambahkan observasi ke chat dan jadikan konteks untuk iterasi berikutnya
-        await chatNotifier.addToolObservation(tool.name, toolResult);
-
-        // Jika tool adalah search_web_handoff, segera hentikan loop
-        if (tool.name == 'search_web_handoff') {
+        if (shouldHandoff) {
           break;
         }
       }
