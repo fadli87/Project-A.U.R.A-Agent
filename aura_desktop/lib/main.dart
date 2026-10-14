@@ -659,66 +659,31 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                               contentPadding: EdgeInsets.zero,
                                               title: const Text('Gemini', style: TextStyle(fontSize: 12, color: Colors.white)),
                                               value: 'gemini',
-                                              groupValue: activeCloudProvider,
                                               activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
-                                                }
-                                              },
                                             ),
                                             RadioListTile<String>(
                                               contentPadding: EdgeInsets.zero,
                                               title: const Text('OpenAI', style: TextStyle(fontSize: 12, color: Colors.white)),
                                               value: 'openai',
-                                              groupValue: activeCloudProvider,
                                               activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
-                                                }
-                                              },
                                             ),
                                             RadioListTile<String>(
                                               contentPadding: EdgeInsets.zero,
                                               title: const Text('Anthropic', style: TextStyle(fontSize: 12, color: Colors.white)),
                                               value: 'anthropic',
-                                              groupValue: activeCloudProvider,
                                               activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
-                                                }
-                                              },
                                             ),
                                             RadioListTile<String>(
                                               contentPadding: EdgeInsets.zero,
                                               title: const Text('Groq', style: TextStyle(fontSize: 12, color: Colors.white)),
                                               value: 'groq',
-                                              groupValue: activeCloudProvider,
                                               activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
-                                                }
-                                              },
                                             ),
                                             RadioListTile<String>(
                                               contentPadding: EdgeInsets.zero,
                                               title: const Text('Combo', style: TextStyle(fontSize: 12, color: Colors.white)),
                                               value: 'combo',
-                                              groupValue: activeCloudProvider,
                                               activeColor: const Color(0xFF7C4DFF),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setDialogState(() => activeCloudProvider = val);
-                                                  ref.read(desktopSettingsProvider.notifier).setActiveProvider(val);
-                                                }
-                                              },
                                             ),
                                           ],
                                         ),

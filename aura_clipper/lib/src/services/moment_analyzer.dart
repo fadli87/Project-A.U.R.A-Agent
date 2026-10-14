@@ -67,7 +67,7 @@ Berikan output murni dalam format JSON array yang berisi objek dengan properti:
     final messages = [
       ChatMessage(
         id: 0,
-        sessionId: 'clipper',
+        sessionId: 0,
         role: MessageRole.user,
         content: prompt,
         timestamp: DateTime.now(),
