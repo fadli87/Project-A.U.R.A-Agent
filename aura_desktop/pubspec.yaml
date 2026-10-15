@@ -47,6 +47,8 @@ dependencies:
     path: ../aura_core
   aura_trading:
     path: ../aura_trading
+  aura_clipper:
+    path: ../aura_clipper
 
 dev_dependencies:
   flutter_test:

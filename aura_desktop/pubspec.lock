@@ -41,6 +41,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.1"
+  aura_clipper:
+    dependency: "direct main"
+    description:
+      path: "../aura_clipper"
+      relative: true
+    source: path
+    version: "0.0.1"
   aura_core:
     dependency: "direct main"
     description:
