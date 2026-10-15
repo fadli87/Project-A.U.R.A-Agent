@@ -29,3 +29,15 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
+
+# Media, audio, databases, models
+*.mp4
+*.mkv
+*.webm
+*.wav
+*.part
+*.json3
+*.db
+*.sqlite
+*.bin
+*.gguf

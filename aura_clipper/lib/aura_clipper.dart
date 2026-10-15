@@ -11,6 +11,7 @@ export 'src/pipeline/clipper_pipeline.dart';
 
 // Analysis
 export 'src/analysis/moment_analyzer.dart';
+export 'src/analysis/transcript_enricher.dart';
 
 // Storage & Settings
 export 'src/storage/clip_database.dart';

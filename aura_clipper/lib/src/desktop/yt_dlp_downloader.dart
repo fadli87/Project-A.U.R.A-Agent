@@ -40,7 +40,29 @@ class YtDlpDownloader implements Downloader {
     ];
   }
 
+  /// Membangun argumen yt-dlp untuk download auto subtitles (format json3).
+  static List<String> buildSubtitlesArgs({
+    required String url,
+    required String outputTemplate,
+    String language = 'id,en,all',
+  }) {
+    return [
+      '--write-auto-subs',
+      '--sub-langs',
+      language,
+      '--sub-format',
+      'json3',
+      '--skip-download',
+      '-o',
+      outputTemplate,
+      '--no-playlist',
+      '--',
+      url,
+    ];
+  }
+
   /// Membangun argumen yt-dlp untuk mendownload video.
+  /// Menambahkan --progress secara eksplisit agar progres download tetap keluar meski ada --print.
   static List<String> buildDownloadArgs({
     required String url,
     required String outputTemplate,
@@ -52,6 +74,7 @@ class YtDlpDownloader implements Downloader {
       outputTemplate,
       '--no-playlist',
       '--newline',
+      '--progress',
       '--print',
       'after_move:filepath',
       '--',
@@ -70,6 +93,22 @@ class YtDlpDownloader implements Downloader {
       }
     }
     return null;
+  }
+
+  /// Membersihkan file `.part` sementara di jobDir saat pembatalan atau error.
+  static void cleanupPartFiles(Directory jobDir) {
+    try {
+      if (jobDir.existsSync()) {
+        final entries = jobDir.listSync();
+        for (final entry in entries) {
+          if (entry is File && entry.path.endsWith('.part')) {
+            try {
+              entry.deleteSync();
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -103,78 +142,124 @@ class YtDlpDownloader implements Downloader {
       );
 
       if (metaResult.isSuccess && metaResult.stdout.trim().isNotEmpty) {
-        final json = jsonDecode(metaResult.stdout.trim()) as Map<String, dynamic>;
-        title = json['title'] as String? ?? title;
-        duration = (json['duration'] as num?)?.toInt() ?? 0;
+        // Ambil baris JSON pertama yang valid dari stdout
+        final lines = metaResult.stdout.trim().split('\n');
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              final json = jsonDecode(trimmed) as Map<String, dynamic>;
+              title = json['title'] as String? ?? title;
+              duration = (json['duration'] as num?)?.toInt() ?? 0;
 
-        if (json.containsKey('heatmap') && json['heatmap'] is List) {
-          final rawHeatmap = json['heatmap'] as List;
-          heatmap = rawHeatmap
-              .whereType<Map<String, dynamic>>()
-              .map(HeatmapPoint.fromJson)
-              .toList();
+              if (json.containsKey('heatmap') && json['heatmap'] is List) {
+                final rawHeatmap = json['heatmap'] as List;
+                heatmap = rawHeatmap
+                    .whereType<Map<String, dynamic>>()
+                    .map(HeatmapPoint.fromJson)
+                    .toList();
+              }
+              break;
+            } catch (_) {}
+          }
         }
       }
     } catch (_) {
-      // Dump json opsional jika gagal, lanjut ke proses download
+      // Dump json opsional jika gagal, lanjut ke langkah berikutnya
     }
 
     cancel?.throwIfCancelled();
 
-    // 2. Download video
+    // 2. Coba unduh subtitle/caption YouTube terlebih dahulu (json3)
+    String? captionPath;
+    try {
+      final subTemplate = p.join(jobDir.path, '%(id)s.%(ext)s');
+      final subArgs = buildSubtitlesArgs(url: url, outputTemplate: subTemplate);
+
+      await runner.run(
+        ytDlpPath,
+        subArgs,
+        workingDirectory: jobDir.path,
+        cancel: cancel,
+      );
+
+      // Cari file .json3 di dalam jobDir
+      final files = await jobDir.list().toList();
+      final json3Files = files.whereType<File>().where((f) => f.path.endsWith('.json3')).toList();
+      if (json3Files.isNotEmpty) {
+        // Ambil file subtitle yang paling relevan
+        captionPath = json3Files.first.path;
+      }
+    } catch (_) {
+      // Subtitle opsional, Whisper akan jadi fallback jika tidak ada
+    }
+
+    cancel?.throwIfCancelled();
+
+    // 3. Download video
     final outputTemplate = p.join(jobDir.path, '%(id)s.%(ext)s');
     final args = buildDownloadArgs(url: url, outputTemplate: outputTemplate);
 
     String? capturedFilePath;
 
-    final result = await runner.run(
-      ytDlpPath,
-      args,
-      workingDirectory: jobDir.path,
-      cancel: cancel,
-      onStdout: (line) {
-        final fraction = parseProgress(line);
-        if (fraction != null) {
-          onProgress?.call(fraction);
-        }
-        final trimmed = line.trim();
-        if (trimmed.isNotEmpty && !trimmed.startsWith('[download]') && !trimmed.startsWith('[info]')) {
-          capturedFilePath = trimmed;
-        }
-      },
-    );
+    try {
+      final result = await runner.run(
+        ytDlpPath,
+        args,
+        workingDirectory: jobDir.path,
+        cancel: cancel,
+        onStdout: (line) {
+          final fraction = parseProgress(line);
+          if (fraction != null) {
+            onProgress?.call(fraction);
+          }
+          final trimmed = line.trim();
+          if (trimmed.isNotEmpty &&
+              !trimmed.startsWith('[download]') &&
+              !trimmed.startsWith('[info]') &&
+              !trimmed.startsWith('WARNING:')) {
+            capturedFilePath = trimmed;
+          }
+        },
+      );
 
-    if (!result.isSuccess) {
-      throw Exception('Gagal mendownload video via yt-dlp: ${result.stderr}');
-    }
-
-    // Cari file hasil jika capturedFilePath belum valid
-    String finalPath = capturedFilePath ?? '';
-    if (finalPath.isEmpty || !await File(finalPath).exists()) {
-      final files = await jobDir.list().toList();
-      final videoFiles = files.whereType<File>().where((f) {
-        final ext = p.extension(f.path).toLowerCase();
-        return ['.mp4', '.mkv', '.webm'].contains(ext) && !f.path.endsWith('.part');
-      }).toList();
-
-      if (videoFiles.isNotEmpty) {
-        // Ambil file terbaru
-        videoFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-        finalPath = videoFiles.first.path;
+      if (!result.isSuccess) {
+        cleanupPartFiles(jobDir);
+        throw Exception('Gagal mendownload video via yt-dlp: ${result.stderr}');
       }
+
+      // Cari file hasil jika capturedFilePath belum valid
+      String finalPath = capturedFilePath ?? '';
+      if (finalPath.isEmpty || !await File(finalPath).exists()) {
+        final files = await jobDir.list().toList();
+        final videoFiles = files.whereType<File>().where((f) {
+          final ext = p.extension(f.path).toLowerCase();
+          return ['.mp4', '.mkv', '.webm'].contains(ext) && !f.path.endsWith('.part');
+        }).toList();
+
+        if (videoFiles.isNotEmpty) {
+          videoFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+          finalPath = videoFiles.first.path;
+        }
+      }
+
+      if (finalPath.isEmpty || !await File(finalPath).exists()) {
+        cleanupPartFiles(jobDir);
+        throw Exception('File video hasil download tidak ditemukan di ${jobDir.path}');
+      }
+
+      onProgress?.call(1.0);
+
+      return DownloadResult(
+        videoPath: finalPath,
+        durationSeconds: duration,
+        title: title,
+        heatmap: heatmap,
+        captionPath: captionPath,
+      );
+    } catch (e) {
+      cleanupPartFiles(jobDir);
+      rethrow;
     }
-
-    if (finalPath.isEmpty || !await File(finalPath).exists()) {
-      throw Exception('File video hasil download tidak ditemukan di ${jobDir.path}');
-    }
-
-    onProgress?.call(1.0);
-
-    return DownloadResult(
-      videoPath: finalPath,
-      durationSeconds: duration,
-      title: title,
-      heatmap: heatmap,
-    );
   }
 }

@@ -90,6 +90,43 @@ class WhisperCppTranscriber implements Transcriber {
     );
   }
 
+  /// Parse output JSON3 caption YouTube menjadi Transcript netral.
+  static Transcript parseJson3(String jsonContent) {
+    final parsed = jsonDecode(jsonContent);
+    final segments = <TranscriptSegment>[];
+
+    if (parsed is Map && parsed.containsKey('events')) {
+      final events = parsed['events'] as List;
+      for (final event in events) {
+        if (event is Map) {
+          final startMs = (event['tStartMs'] as num?)?.toDouble() ?? 0.0;
+          final durMs = (event['dDurationMs'] as num?)?.toDouble() ?? 0.0;
+          final endMs = startMs + durMs;
+
+          var text = '';
+          if (event.containsKey('segs') && event['segs'] is List) {
+            final segs = event['segs'] as List;
+            text = segs.whereType<Map>().map((s) => s['utf8']?.toString() ?? '').join();
+          }
+
+          final cleanText = text.replaceAll('\n', ' ').trim();
+          if (cleanText.isNotEmpty) {
+            segments.add(TranscriptSegment(
+              start: startMs / 1000.0,
+              end: endMs / 1000.0,
+              text: cleanText,
+            ));
+          }
+        }
+      }
+    }
+
+    return Transcript(
+      segments: segments,
+      rawText: jsonContent,
+    );
+  }
+
   @override
   Future<Transcript> transcribe(
     String videoPath, {

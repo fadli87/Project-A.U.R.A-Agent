@@ -87,5 +87,16 @@ void main() {
         throwsA(isA<OperationCancelledException>()),
       );
     });
+    test('DesktopProcessRunner.utf8Decoder decodes malformed bytes safely without throwing', () {
+      final malformedBytes = [0xC0, 0xAF, 0xFF, 0x68, 0x65, 0x6C, 0x6C, 0x6F];
+      // Should decode without throwing FormatException
+      final decoded = DesktopProcessRunner.utf8Decoder.convert(malformedBytes);
+      expect(decoded, contains('hello'));
+    });
+
+    test('DesktopProcessRunner.buildKillTreeArgs generates /PID <pid> /T /F', () {
+      final args = DesktopProcessRunner.buildKillTreeArgs(12345);
+      expect(args, equals(['/PID', '12345', '/T', '/F']));
+    });
   });
 }

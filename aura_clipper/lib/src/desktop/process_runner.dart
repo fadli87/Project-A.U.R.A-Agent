@@ -36,6 +36,28 @@ abstract interface class ProcessRunner {
 class DesktopProcessRunner implements ProcessRunner {
   const DesktopProcessRunner();
 
+  static const utf8Decoder = Utf8Decoder(allowMalformed: true);
+
+  /// Argumen taskkill untuk mematikan process tree di Windows.
+  static List<String> buildKillTreeArgs(int pid) => ['/PID', pid.toString(), '/T', '/F'];
+
+  /// Membunuh seluruh pohon proses (termasuk child processes seperti yt-dlp/ffmpeg di Windows).
+  static Future<void> killProcessTree(int pid, Process? process) async {
+    if (Platform.isWindows) {
+      try {
+        final result = await Process.run(
+          'taskkill',
+          buildKillTreeArgs(pid),
+          runInShell: false,
+        );
+        if (result.exitCode == 0) return;
+      } catch (_) {}
+    }
+    try {
+      process?.kill(ProcessSignal.sigkill);
+    } catch (_) {}
+  }
+
   @override
   Future<ProcessExecutionResult> run(
     String executable,
@@ -63,8 +85,9 @@ class DesktopProcessRunner implements ProcessRunner {
     final stdoutDone = Completer<void>();
     final stderrDone = Completer<void>();
 
+    // Utf8Decoder(allowMalformed: true) agar tidak crash jika output subprocess mengandung byte non-UTF8
     process.stdout
-        .transform(utf8.decoder)
+        .transform(const Utf8Decoder(allowMalformed: true))
         .transform(const LineSplitter())
         .listen(
       (line) {
@@ -72,12 +95,12 @@ class DesktopProcessRunner implements ProcessRunner {
         onStdout?.call(line);
       },
       onDone: () => stdoutDone.complete(),
-      onError: (err) => stdoutDone.completeError(err),
+      onError: (_) => stdoutDone.complete(),
       cancelOnError: false,
     );
 
     process.stderr
-        .transform(utf8.decoder)
+        .transform(const Utf8Decoder(allowMalformed: true))
         .transform(const LineSplitter())
         .listen(
       (line) {
@@ -85,7 +108,7 @@ class DesktopProcessRunner implements ProcessRunner {
         onStderr?.call(line);
       },
       onDone: () => stderrDone.complete(),
-      onError: (err) => stderrDone.completeError(err),
+      onError: (_) => stderrDone.complete(),
       cancelOnError: false,
     );
 
@@ -95,16 +118,12 @@ class DesktopProcessRunner implements ProcessRunner {
     if (timeout != null) {
       timeoutTimer = Timer(timeout, () {
         timedOut = true;
-        try {
-          process.kill(ProcessSignal.sigkill);
-        } catch (_) {}
+        killProcessTree(process.pid, process);
       });
     }
 
     cancel?.onCancel(() {
-      try {
-        process.kill(ProcessSignal.sigkill);
-      } catch (_) {}
+      killProcessTree(process.pid, process);
     });
 
     try {
@@ -125,9 +144,7 @@ class DesktopProcessRunner implements ProcessRunner {
       );
     } catch (e) {
       timeoutTimer?.cancel();
-      try {
-        process.kill(ProcessSignal.sigkill);
-      } catch (_) {}
+      await killProcessTree(process.pid, process);
       rethrow;
     }
   }

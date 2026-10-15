@@ -91,14 +91,17 @@ class DownloadResult {
   final int durationSeconds;
   final String title;
   final List<HeatmapPoint>? heatmap;
+  final String? captionPath;
 
   const DownloadResult({
     required this.videoPath,
     required this.durationSeconds,
     required this.title,
     this.heatmap,
+    this.captionPath,
   });
 }
+
 
 /// Satu segmen transkrip yang netral terhadap sumber (whisper / caption).
 class TranscriptSegment {

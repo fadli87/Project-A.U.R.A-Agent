@@ -37,6 +37,24 @@ void main() {
       expect(fetched.durationSeconds, 120);
     });
 
+    test('round-trip saveJob with VideoJobStatus.cancelled', () {
+      final now = DateTime.now();
+      final job = VideoJob(
+        id: 'job_cancelled_1',
+        url: 'https://youtube.com/watch?v=cancel',
+        status: VideoJobStatus.cancelled,
+        progress: 0.45,
+        errorMessage: 'Dibatalkan oleh user',
+        createdAt: now,
+      );
+
+      db.saveJob(job);
+      final fetched = db.getJob('job_cancelled_1');
+      expect(fetched, isNotNull);
+      expect(fetched!.status, VideoJobStatus.cancelled);
+      expect(fetched.errorMessage, 'Dibatalkan oleh user');
+    });
+
     test('safe fallback for unknown status string', () {
       final now = DateTime.now();
       final job = VideoJob(

@@ -27,6 +27,8 @@ class FakeDownloader implements Downloader {
 
 class FakeTranscriber implements Transcriber {
   bool shouldThrow = false;
+  String? lastLanguageReceived;
+  bool transcribeCalled = false;
 
   @override
   Future<Transcript> transcribe(
@@ -35,6 +37,8 @@ class FakeTranscriber implements Transcriber {
     CancelToken? cancel,
     void Function(double fraction)? onProgress,
   }) async {
+    transcribeCalled = true;
+    lastLanguageReceived = language;
     cancel?.throwIfCancelled();
     if (shouldThrow) throw Exception('Simulasi gagal transkripsi');
     onProgress?.call(0.5);
@@ -146,15 +150,16 @@ void main() {
         progressList.add(progress.fraction);
       }
 
-      // Urutan stage
-      expect(stages, [
-        VideoJobStatus.downloading, // awal download
-        VideoJobStatus.downloading, // akhir download
-        VideoJobStatus.transcribing, // awal transkrip
-        VideoJobStatus.transcribing, // akhir transkrip
-        VideoJobStatus.analyzing,   // awal analisis
-        VideoJobStatus.done,        // selesai
-      ]);
+      // Urutan stage dan pembuktian progres halus (Review 0.3)
+      expect(stages.first, VideoJobStatus.downloading);
+      expect(stages.last, VideoJobStatus.done);
+      expect(stages, contains(VideoJobStatus.transcribing));
+      expect(stages, contains(VideoJobStatus.analyzing));
+      expect(
+        progressList.any((p) => p > 0.0 && p < 0.33),
+        isTrue,
+        reason: 'Event progres halus download (0.165) wajib sampai ke stream UI',
+      );
 
       // Kandidat klip terisi
       expect(pipeline.candidates.length, 1);
@@ -171,6 +176,60 @@ void main() {
       final savedCandidates = db.getCandidates('job_pipeline_1');
       expect(savedCandidates.length, 1);
       expect(savedCandidates.first.title, 'Momen Viral Seru');
+    });
+
+    test('pipeline forwards language option to transcriber', () async {
+      final initialJob = VideoJob(
+        id: 'job_lang_test',
+        url: 'https://youtube.com/watch?v=abc',
+        createdAt: DateTime.now(),
+      );
+
+      await for (final _ in pipeline.run(
+        initialJob,
+        jobDir: Directory('/fake/job/dir'),
+        language: 'id',
+      )) {}
+
+      expect(transcriber.lastLanguageReceived, 'id');
+    });
+
+    test('pipeline bypasses whisper when json3 subtitle exists in jobDir', () async {
+      final tempDir = Directory.systemTemp.createTempSync('pipeline_sub_test_');
+      addTearDown(() {
+        try {
+          tempDir.deleteSync(recursive: true);
+        } catch (_) {}
+      });
+
+      // Buat file subtitle json3 di tempDir
+      final subFile = File('${tempDir.path}/video.id.json3');
+      subFile.writeAsStringSync('''
+      {
+        "events": [
+          {
+            "tStartMs": 0,
+            "dDurationMs": 10000,
+            "segs": [{"utf8": "Ini teks dari subtitle otomatis YouTube."}]
+          }
+        ]
+      }
+      ''');
+
+      final initialJob = VideoJob(
+        id: 'job_sub_test',
+        url: 'https://youtube.com/watch?v=abc',
+        createdAt: DateTime.now(),
+      );
+
+      await for (final _ in pipeline.run(
+        initialJob,
+        jobDir: tempDir,
+      )) {}
+
+      // Whisper transkripsi tidak dipanggil sama sekali karena subtitle json3 ditemukan!
+      expect(transcriber.transcribeCalled, isFalse);
+      expect(pipeline.candidates.isNotEmpty, isTrue);
     });
 
     test('stage error marks job as error in db and emits error progress', () async {
@@ -200,7 +259,7 @@ void main() {
       expect(lastProgress?.stage, VideoJobStatus.error);
     });
 
-    test('cancellation aborts pipeline early with OperationCancelledException', () async {
+    test('cancellation marks job as cancelled in db and throws OperationCancelledException', () async {
       final cancel = CancelToken();
       cancel.cancel(); // Pre-cancelled
 
@@ -210,10 +269,17 @@ void main() {
         createdAt: DateTime.now(),
       );
 
-      expect(
-        () => pipeline.run(initialJob, jobDir: Directory('/fake/dir'), cancel: cancel).toList(),
-        throwsA(isA<OperationCancelledException>()),
-      );
+      try {
+        await for (final _ in pipeline.run(initialJob, jobDir: Directory('/fake/dir'), cancel: cancel)) {}
+        fail('Seharusnya melempar OperationCancelledException');
+      } catch (e) {
+        expect(e, isA<OperationCancelledException>());
+      }
+
+      final savedJob = db.getJob('job_cancelled');
+      expect(savedJob, isNotNull);
+      expect(savedJob!.status, VideoJobStatus.cancelled);
+      expect(savedJob.errorMessage, contains('Operasi dibatalkan'));
     });
 
     test('exportClip delegates to exporter and returns path', () async {

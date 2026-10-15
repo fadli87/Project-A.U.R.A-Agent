@@ -5,6 +5,7 @@ enum VideoJobStatus {
   analyzing,
   done,
   error,
+  cancelled,
 }
 
 class VideoJob {
