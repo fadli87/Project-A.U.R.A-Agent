@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   aura_core
+  fvp
   objectbox_flutter_libs
   sqlite3_flutter_libs
 )

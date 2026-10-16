@@ -122,8 +122,8 @@ File: `aura_clipper/test/desktop/ffmpeg_exporter_real_test.dart`
 * **Log Hasil Nyata:**
   ```text
   === BUKTI NYATA EKSPOR FFMPEG & FFPROBE ===
-  Source: C:\Users\FADLIS~1\AppData\Local\Temp\ffmpeg_real_test_793f7f37\source.mp4
-  Export Clip: C:\Users\FADLIS~1\AppData\Local\Temp\ffmpeg_real_test_793f7f37\output\source_0m03s-0m09s.mp4
+  Source: %TEMP%\ffmpeg_real_test_793f7f37\source.mp4
+  Export Clip: %TEMP%\ffmpeg_real_test_793f7f37\output\source_0m03s-0m09s.mp4
   Candidate Range: 3s - 9s (Expected duration: 6.0s)
   Measured duration by ffprobe: 6.0s
   Exit Code: 0

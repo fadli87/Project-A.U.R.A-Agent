@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura_clipper/aura_clipper_desktop.dart';
 import 'package:aura_clipper/aura_clipper_ui.dart';
@@ -26,8 +27,14 @@ void main() {
     const settings = ClipperSettings();
     expect(settings.ytDlpPath, 'yt-dlp');
 
-    // UI Stubs
-    const screen = ClipperScreen();
+    // UI
+    final screen = ClipperScreen(
+      config: ClipperHostConfig(
+        modelOrCombo: 'gemini/gemini-3.5-flash-lite',
+        apiKeys: const {'gemini': 'mock_key'},
+        workDir: Directory.systemTemp,
+      ),
+    );
     expect(screen, isNotNull);
 
     // Desktop

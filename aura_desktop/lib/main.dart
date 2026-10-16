@@ -14,6 +14,7 @@ import 'src/providers/desktop_settings_provider.dart';
 import 'src/services/desktop_platform_service.dart';
 import 'src/services/desktop_secure_storage.dart';
 import 'src/ui/desktop_trading_screen.dart';
+import 'src/ui/desktop_clipper_screen.dart';
 
 
 void main() async {
@@ -86,7 +87,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool useCloudAssistant = false;
-  int _activeNavIndex = 0; // 0: AI Assistant Chat, 1: Trading Lab
+  int _activeNavIndex = 0; // 0: AI Assistant Chat, 1: Trading Lab, 2: Clipper
 
 
   void _scrollToBottom() {
@@ -1542,6 +1543,50 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _activeNavIndex = 2),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _activeNavIndex == 2
+                                  ? const Color(0xFF7C4DFF).withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _activeNavIndex == 2
+                                    ? const Color(0xFF7C4DFF)
+                                    : Colors.white10,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.content_cut,
+                                  color: _activeNavIndex == 2
+                                      ? const Color(0xFF7C4DFF)
+                                      : Colors.grey,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Clipper',
+                                  style: TextStyle(
+                                    color: _activeNavIndex == 2
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1717,11 +1762,13 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
             ),
           ),
           
-          // Main View Area (Chat or Trading Lab)
+          // Main View Area (Chat, Trading Lab, or Clipper)
           Expanded(
             child: _activeNavIndex == 1
                 ? const DesktopTradingScreen()
-                : Container(
+                : _activeNavIndex == 2
+                    ? const DesktopClipperScreen()
+                    : Container(
                     color: const Color(0xFF13131A),
                     child: Column(
                       children: [

@@ -84,7 +84,7 @@ void main() {
       final routerClient = LlmRouterClient();
       final analyzer = MomentAnalyzer(
         routerClient: routerClient,
-        modelOrCombo: Platform.environment['LLM_MODEL'] ?? 'gemini/gemini-2.5-flash',
+        modelOrCombo: Platform.environment['LLM_MODEL'] ?? 'gemini/gemini-3.5-flash-lite',
         apiKeys: {
           if (Platform.environment['GEMINI_API_KEY'] != null)
             'gemini': Platform.environment['GEMINI_API_KEY']!,
@@ -118,6 +118,10 @@ void main() {
       VideoJobStatus? lastStage;
       int lastStageElapsedSec = 0;
 
+      final focusText = Platform.environment['ANALYSIS_FOCUS'];
+      final fromSecVal = int.tryParse(Platform.environment['ANALYSIS_FROM_SEC'] ?? '');
+      final toSecVal = int.tryParse(Platform.environment['ANALYSIS_TO_SEC'] ?? '');
+
       await for (final progress in pipeline.run(
         job,
         jobDir: tempDir,
@@ -125,6 +129,9 @@ void main() {
           tokenBudget: 12000,
           maxClips: 3,
           forceWhisper: forceWhisper,
+          focus: focusText,
+          from: fromSecVal != null ? Duration(seconds: fromSecVal) : null,
+          to: toSecVal != null ? Duration(seconds: toSecVal) : null,
         ),
       )) {
         if (lastStage != progress.stage) {
@@ -160,17 +167,29 @@ void main() {
         print('Sampel awal transkrip:');
         for (var i = 0; i < previewCount; i++) {
           final seg = transcript.segments[i];
-          print('  [${seg.start.toStringAsFixed(1)}s - ${seg.end.toStringAsFixed(1)}s]: ${seg.text}');
+          final heatStr = seg.heat != null ? ', heat: ${(seg.heat! * 100).toStringAsFixed(1)}%' : '';
+          print('  [${seg.start.toStringAsFixed(1)}s - ${seg.end.toStringAsFixed(1)}s$heatStr]: ${seg.text}');
         }
       }
 
       final candidates = pipeline.candidates;
+      final chunks = MomentAnalyzer.chunkSegments(
+        transcript.segments,
+        maxCharsPerChunk: 12000 * 4,
+      );
       print('\n--- DIAGNOSTIK ANALISIS LLM ---');
+      print('Jumlah chunk transkrip: ${chunks.length}');
       print('Jumlah kandidat klip: ${candidates.length}');
+      print('Daftar seluruh kandidat klip:');
+      for (var i = 0; i < candidates.length; i++) {
+        final c = candidates[i];
+        print('  [$i] "${c.title}" (${c.startTime.inSeconds}s - ${c.endTime.inSeconds}s, durasi: ${(c.endTime - c.startTime).inSeconds}s, skor: ${c.score})');
+        print('      Alasan: ${c.reason}');
+      }
       expect(candidates.isNotEmpty, isTrue, reason: 'Smoke test harus menghasilkan minimal satu kandidat klip valid.');
 
       final bestClip = candidates.first;
-      print('Kandidat terpilih: "${bestClip.title}" (${bestClip.startTime.inSeconds}s - ${bestClip.endTime.inSeconds}s, Skor: ${bestClip.score})');
+      print('\nKandidat terpilih untuk diekspor: "${bestClip.title}" (${bestClip.startTime.inSeconds}s - ${bestClip.endTime.inSeconds}s, Skor: ${bestClip.score})');
 
       print('\n--- EKSPOR KLIP ---');
       final exportStartSec = stopwatch.elapsed.inSeconds;

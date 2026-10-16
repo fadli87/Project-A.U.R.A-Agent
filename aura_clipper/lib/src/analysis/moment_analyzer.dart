@@ -444,8 +444,9 @@ Berikan output HANYA dalam format valid JSON array tanpa teks penjelasan lain di
       } catch (e) {
         if (e is OperationCancelledException) rethrow;
         anyChunkFailedOrEmpty = true;
-        chunkErrors[chunkIndex] = 'Kesalahan router: $e';
-        rawResponses.add('--- CHUNK $chunkIndex ERROR ---\n$e');
+        final orig = e is LocalFallbackException ? ' (original: ${e.originalError})' : '';
+        chunkErrors[chunkIndex] = 'Kesalahan router: $e$orig';
+        rawResponses.add('--- CHUNK $chunkIndex ERROR ---\n$e\n$orig');
       }
     }
 
