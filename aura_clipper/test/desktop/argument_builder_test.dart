@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura_clipper/aura_clipper_desktop.dart';
 
@@ -158,6 +159,55 @@ void main() {
       expect(transcript.segments[1].start, 3.2);
       expect(transcript.segments[1].end, 8.5);
       expect(transcript.segments[1].text, 'Bagian topik utama.');
+    });
+
+    test('YtDlpDownloader buildSubtitlesArgs never contains "all" and throws if passed "all"', () {
+      final args = YtDlpDownloader.buildSubtitlesArgs(
+        url: 'https://youtu.be/123',
+        outputTemplate: '/jobs/1/%(id)s.%(ext)s',
+        language: 'id',
+      );
+      expect(args, isNot(contains('all')));
+      expect(args.contains('all'), isFalse);
+      expect(args, contains('id'));
+
+      expect(
+        () => YtDlpDownloader.buildSubtitlesArgs(
+          url: 'https://youtu.be/123',
+          outputTemplate: '/jobs/1/%(id)s.%(ext)s',
+          language: 'id,en,all',
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('YtDlpDownloader resolveCaptionFile chooses correct matching language among fixtures', () {
+      final tempDir = Directory.systemTemp.createTempSync('caption_test_');
+      try {
+        File('${tempDir.path}/vid123.en.json3').writeAsStringSync('{}');
+        File('${tempDir.path}/vid123.ru.json3').writeAsStringSync('{}');
+        File('${tempDir.path}/vid123.id-orig.json3').writeAsStringSync('{}');
+
+        // Mencari bahasa 'id' harus menemukan 'vid123.id-orig.json3'
+        final resolvedId = YtDlpDownloader.resolveCaptionFile(tempDir, 'id', videoId: 'vid123');
+        expect(resolvedId, isNotNull);
+        expect(resolvedId!.path, endsWith('vid123.id-orig.json3'));
+
+        // Mencari bahasa 'id-orig'
+        final resolvedIdOrig = YtDlpDownloader.resolveCaptionFile(tempDir, 'id-orig', videoId: 'vid123');
+        expect(resolvedIdOrig, isNotNull);
+        expect(resolvedIdOrig!.path, endsWith('vid123.id-orig.json3'));
+
+        // Mencari bahasa 'ja' yang tidak ada harus return null (jatuh ke Whisper, bukan ambil file lain)
+        final resolvedJa = YtDlpDownloader.resolveCaptionFile(tempDir, 'ja', videoId: 'vid123');
+        expect(resolvedJa, isNull);
+
+        // Jika videoId berbeda, tidak boleh tertukar
+        final resolvedDiffId = YtDlpDownloader.resolveCaptionFile(tempDir, 'id', videoId: 'vid999');
+        expect(resolvedDiffId, isNull);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
     });
   });
 }

@@ -35,11 +35,13 @@ class CancelToken {
     }
   }
 
-  void onCancel(void Function() listener) {
+  void Function() onCancel(void Function() listener) {
     if (_isCancelled) {
       listener();
+      return () {};
     } else {
       _listeners.add(listener);
+      return () => _listeners.remove(listener);
     }
   }
 
@@ -168,6 +170,7 @@ abstract interface class Downloader {
     required Directory jobDir,
     CancelToken? cancel,
     void Function(double fraction)? onProgress,
+    String? language,
   });
 }
 

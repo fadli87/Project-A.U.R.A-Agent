@@ -12,6 +12,7 @@ class ClipperSettings {
   final String language;
   final String? outputDir;
   final List<String> allowedHosts;
+  final int tokenBudget;
 
   const ClipperSettings({
     this.ytDlpPath = 'yt-dlp',
@@ -27,6 +28,7 @@ class ClipperSettings {
       'youtu.be',
       'm.youtube.com',
     ],
+    this.tokenBudget = 12000,
   });
 
   ClipperSettings copyWith({
@@ -38,6 +40,7 @@ class ClipperSettings {
     String? language,
     String? outputDir,
     List<String>? allowedHosts,
+    int? tokenBudget,
   }) {
     return ClipperSettings(
       ytDlpPath: ytDlpPath ?? this.ytDlpPath,
@@ -48,6 +51,7 @@ class ClipperSettings {
       language: language ?? this.language,
       outputDir: outputDir ?? this.outputDir,
       allowedHosts: allowedHosts ?? this.allowedHosts,
+      tokenBudget: tokenBudget ?? this.tokenBudget,
     );
   }
 
@@ -60,6 +64,7 @@ class ClipperSettings {
     'language': language,
     'output_dir': outputDir,
     'allowed_hosts': allowedHosts,
+    'token_budget': tokenBudget,
   };
 
   factory ClipperSettings.fromJson(Map<String, dynamic> json) {
@@ -73,6 +78,7 @@ class ClipperSettings {
       outputDir: json['output_dir'] as String?,
       allowedHosts: (json['allowed_hosts'] as List?)?.map((e) => e.toString()).toList() ??
           const ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'],
+      tokenBudget: json['token_budget'] as int? ?? 12000,
     );
   }
 }

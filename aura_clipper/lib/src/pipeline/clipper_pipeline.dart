@@ -4,7 +4,7 @@ import '../models/video_job.dart';
 import '../models/clip_candidate.dart';
 import '../analysis/moment_analyzer.dart';
 import '../analysis/transcript_enricher.dart';
-import '../desktop/whisper_cpp_transcriber.dart';
+import '../analysis/transcript_parsers.dart';
 import '../storage/clip_database.dart';
 import 'interfaces.dart';
 
@@ -71,6 +71,7 @@ class ClipperPipeline {
           job.url,
           jobDir: jobDir,
           cancel: cancel,
+          language: language,
           onProgress: (fraction) {
             final overallProgress = (fraction * 0.33).clamp(0.0, 0.33);
             job = job.copyWith(progress: overallProgress, updatedAt: DateTime.now());
@@ -115,27 +116,17 @@ class ClipperPipeline {
 
         Transcript rawTranscript;
 
-        // Gunakan YouTube caption (json3) jika ada; bypass Whisper untuk efisiensi
+        // Gunakan YouTube caption (json3) jika ada; bypass Whisper untuk efisiensi.
+        // Hanya menggunakan captionPath terverifikasi dari downloader, tanpa mengambil file sembarang (.first).
         File? captionFile;
         if (downloadResult.captionPath != null && File(downloadResult.captionPath!).existsSync()) {
           captionFile = File(downloadResult.captionPath!);
-        } else {
-          try {
-            final json3List = jobDir
-                .listSync()
-                .whereType<File>()
-                .where((f) => f.path.endsWith('.json3'))
-                .toList();
-            if (json3List.isNotEmpty) {
-              captionFile = json3List.first;
-            }
-          } catch (_) {}
         }
 
         if (captionFile != null) {
           try {
             final jsonContent = await captionFile.readAsString();
-            rawTranscript = WhisperCppTranscriber.parseJson3(jsonContent);
+            rawTranscript = TranscriptParsers.parseJson3(jsonContent);
             job = job.copyWith(transcriptPath: captionFile.path, updatedAt: DateTime.now());
             controller.add(const JobProgress(
               stage: VideoJobStatus.transcribing,
@@ -195,6 +186,7 @@ class ClipperPipeline {
           options: options,
           cancel: cancel,
           jobDir: jobDir,
+          videoDurationSeconds: downloadResult.durationSeconds,
         );
 
         cancel?.throwIfCancelled();

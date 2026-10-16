@@ -41,13 +41,21 @@ class YtDlpDownloader implements Downloader {
   }
 
   /// Membangun argumen yt-dlp untuk download auto subtitles (format json3).
+  /// Memastikan argumen tidak pernah memuat 'all' untuk mencegah unduhan massal & HTTP 429.
   static List<String> buildSubtitlesArgs({
     required String url,
     required String outputTemplate,
-    String language = 'id,en,all',
+    String language = 'id',
+    bool writeManualSubs = true,
+    bool writeAutoSubs = true,
   }) {
-    return [
-      '--write-auto-subs',
+    if (language.contains('all')) {
+      throw ArgumentError('Argumen language tidak boleh memuat "all" untuk mencegah unduhan massal.');
+    }
+    final args = <String>[];
+    if (writeManualSubs) args.add('--write-subs');
+    if (writeAutoSubs) args.add('--write-auto-subs');
+    args.addAll([
       '--sub-langs',
       language,
       '--sub-format',
@@ -58,7 +66,45 @@ class YtDlpDownloader implements Downloader {
       '--no-playlist',
       '--',
       url,
-    ];
+    ]);
+    return args;
+  }
+
+  /// Mencari file caption .json3 yang cocok dengan target bahasa yang diminta.
+  /// Tidak pernah memilih file sembarang (.first); jika tidak ada yang cocok -> return null.
+  static File? resolveCaptionFile(
+    Directory jobDir,
+    String targetLang, {
+    String? videoId,
+  }) {
+    if (!jobDir.existsSync()) return null;
+
+    final baseLang = targetLang.replaceAll('-orig', '').toLowerCase();
+    final files = jobDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.json3'))
+        .toList();
+
+    for (final file in files) {
+      final name = p.basename(file.path);
+      // Format nama yt-dlp: <id>.<lang>.json3
+      if (videoId != null && !name.startsWith(videoId)) {
+        continue;
+      }
+
+      final parts = name.split('.');
+      if (parts.length >= 3) {
+        final fileLang = parts[parts.length - 2].toLowerCase();
+        if (fileLang == targetLang.toLowerCase() ||
+            fileLang == baseLang ||
+            fileLang == '$baseLang-orig') {
+          return file;
+        }
+      }
+    }
+
+    return null;
   }
 
   /// Membangun argumen yt-dlp untuk mendownload video.
@@ -117,6 +163,7 @@ class YtDlpDownloader implements Downloader {
     required Directory jobDir,
     CancelToken? cancel,
     void Function(double fraction)? onProgress,
+    String? language,
   }) async {
     cancel?.throwIfCancelled();
 
@@ -128,10 +175,14 @@ class YtDlpDownloader implements Downloader {
       await jobDir.create(recursive: true);
     }
 
-    // 1. Ambil metadata (title, duration, heatmap) bila memungkinkan
+    // 1. Ambil metadata (title, duration, heatmap, videoId, subtitles) bila memungkinkan
     String title = 'Video_${DateTime.now().millisecondsSinceEpoch}';
     int duration = 0;
     List<HeatmapPoint>? heatmap;
+    String? videoId;
+    String? detectedLanguage;
+    String? originalCaptionLang;
+    bool hasManualSubForLang = false;
 
     try {
       final metaResult = await runner.run(
@@ -151,13 +202,31 @@ class YtDlpDownloader implements Downloader {
               final json = jsonDecode(trimmed) as Map<String, dynamic>;
               title = json['title'] as String? ?? title;
               duration = (json['duration'] as num?)?.toInt() ?? 0;
+              videoId = json['id'] as String?;
+              detectedLanguage = json['language'] as String?;
 
-              if (json.containsKey('heatmap') && json['heatmap'] is List) {
-                final rawHeatmap = json['heatmap'] as List;
-                heatmap = rawHeatmap
-                    .whereType<Map<String, dynamic>>()
-                    .map(HeatmapPoint.fromJson)
-                    .toList();
+              // Periksa automatic_captions untuk original language (-orig)
+              if (json['automatic_captions'] is Map) {
+                final autoMap = json['automatic_captions'] as Map<String, dynamic>;
+                for (final key in autoMap.keys) {
+                  if (key.endsWith('-orig')) {
+                    originalCaptionLang = key;
+                    break;
+                  }
+                }
+              }
+
+              // Periksa manual subtitles
+              if (json['subtitles'] is Map) {
+                final subMap = json['subtitles'] as Map<String, dynamic>;
+                if (subMap.isNotEmpty) {
+                  final candidateLang = (language != null && language != 'auto')
+                      ? language
+                      : (originalCaptionLang?.replaceAll('-orig', '') ?? detectedLanguage ?? 'id');
+                  if (subMap.containsKey(candidateLang) || subMap.containsKey('$candidateLang-orig')) {
+                    hasManualSubForLang = true;
+                  }
+                }
               }
               break;
             } catch (_) {}
@@ -173,8 +242,28 @@ class YtDlpDownloader implements Downloader {
     // 2. Coba unduh subtitle/caption YouTube terlebih dahulu (json3)
     String? captionPath;
     try {
+      // Tentukan satu bahasa spesifik yang diminta
+      String targetLang;
+      if (language != null && language != 'auto' && language.trim().isNotEmpty) {
+        targetLang = language.trim();
+      } else if (hasManualSubForLang) {
+        targetLang = originalCaptionLang?.replaceAll('-orig', '') ?? detectedLanguage ?? 'id';
+      } else if (originalCaptionLang != null) {
+        targetLang = originalCaptionLang;
+      } else if (detectedLanguage != null && detectedLanguage.isNotEmpty) {
+        targetLang = detectedLanguage;
+      } else {
+        targetLang = 'id';
+      }
+
       final subTemplate = p.join(jobDir.path, '%(id)s.%(ext)s');
-      final subArgs = buildSubtitlesArgs(url: url, outputTemplate: subTemplate);
+      final subArgs = buildSubtitlesArgs(
+        url: url,
+        outputTemplate: subTemplate,
+        language: targetLang,
+        writeManualSubs: true,
+        writeAutoSubs: true,
+      );
 
       await runner.run(
         ytDlpPath,
@@ -183,15 +272,13 @@ class YtDlpDownloader implements Downloader {
         cancel: cancel,
       );
 
-      // Cari file .json3 di dalam jobDir
-      final files = await jobDir.list().toList();
-      final json3Files = files.whereType<File>().where((f) => f.path.endsWith('.json3')).toList();
-      if (json3Files.isNotEmpty) {
-        // Ambil file subtitle yang paling relevan
-        captionPath = json3Files.first.path;
+      // Cari file caption yang cocok dengan bahasa target
+      final resolved = resolveCaptionFile(jobDir, targetLang, videoId: videoId);
+      if (resolved != null && resolved.existsSync()) {
+        captionPath = resolved.path;
       }
     } catch (_) {
-      // Subtitle opsional, Whisper akan jadi fallback jika tidak ada
+      // Subtitle opsional, Whisper akan jadi fallback jika tidak ada captionPath yang cocok
     }
 
     cancel?.throwIfCancelled();

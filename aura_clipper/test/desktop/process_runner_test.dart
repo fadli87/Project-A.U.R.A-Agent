@@ -98,5 +98,78 @@ void main() {
       final args = DesktopProcessRunner.buildKillTreeArgs(12345);
       expect(args, equals(['/PID', '12345', '/T', '/F']));
     });
+
+    test('DesktopProcessRunner: token cancelled after run() finishes does NOT call killer', () async {
+      final killedPids = <int>[];
+      final runner = DesktopProcessRunner(
+        killer: (pid, p) async => killedPids.add(pid),
+      );
+      final cancel = CancelToken();
+
+      // Quick command that finishes immediately
+      final res = await runner.run('cmd.exe', ['/c', 'echo', 'done'], cancel: cancel);
+      expect(res.exitCode, 0);
+
+      // Now cancel AFTER run() is finished (simulating user canceling later stage)
+      cancel.cancel();
+
+      // Killer MUST NOT be called!
+      expect(killedPids, isEmpty);
+    });
+
+    test('DesktopProcessRunner: token cancelled during run() calls killer once with correct pid', () async {
+      final killedPids = <int>[];
+      final runner = DesktopProcessRunner(
+        killer: (pid, p) async {
+          killedPids.add(pid);
+          p?.kill();
+        },
+      );
+      final cancel = CancelToken();
+
+      // Delayed command
+      final runFuture = runner.run(
+        'powershell.exe',
+        ['-Command', 'Start-Sleep -Seconds 10'],
+        cancel: cancel,
+      );
+
+      // Cancel after 100ms while running
+      await Future.delayed(const Duration(milliseconds: 100));
+      cancel.cancel();
+
+      try {
+        await runFuture;
+      } catch (_) {}
+
+      expect(killedPids.length, 1);
+      expect(killedPids.first, isPositive);
+    });
+
+    test('DesktopProcessRunner: timeout calls killer once', () async {
+      final killedPids = <int>[];
+      final runner = DesktopProcessRunner(
+        killer: (pid, p) async {
+          killedPids.add(pid);
+          p?.kill();
+        },
+      );
+
+      final runFuture = runner.run(
+        'powershell.exe',
+        ['-Command', 'Start-Sleep -Seconds 10'],
+        timeout: const Duration(milliseconds: 150),
+      );
+
+      try {
+        await runFuture;
+        fail('Should throw TimeoutException');
+      } catch (e) {
+        expect(e, isA<TimeoutException>());
+      }
+
+      expect(killedPids.length, 1);
+      expect(killedPids.first, isPositive);
+    });
   });
 }

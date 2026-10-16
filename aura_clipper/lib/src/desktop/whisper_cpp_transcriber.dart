@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../pipeline/interfaces.dart';
+import '../analysis/transcript_parsers.dart';
 import 'process_runner.dart';
 
 class WhisperCppTranscriber implements Transcriber {
@@ -63,69 +63,12 @@ class WhisperCppTranscriber implements Transcriber {
   }
 
   /// Parse output JSON whisper.cpp menjadi Transcript netral.
-  static Transcript parseWhisperJson(String jsonContent) {
-    final parsed = jsonDecode(jsonContent);
-    final segments = <TranscriptSegment>[];
-
-    if (parsed is Map && parsed.containsKey('transcription')) {
-      final list = parsed['transcription'] as List;
-      for (final item in list) {
-        if (item is Map) {
-          final startMs = (item['offsets']?['from'] as num?)?.toDouble() ?? 0.0;
-          final endMs = (item['offsets']?['to'] as num?)?.toDouble() ?? 0.0;
-          final text = (item['text'] as String? ?? '').trim();
-
-          segments.add(TranscriptSegment(
-            start: startMs / 1000.0,
-            end: endMs / 1000.0,
-            text: text,
-          ));
-        }
-      }
-    }
-
-    return Transcript(
-      segments: segments,
-      rawText: jsonContent,
-    );
-  }
+  static Transcript parseWhisperJson(String jsonContent) =>
+      TranscriptParsers.parseWhisperJson(jsonContent);
 
   /// Parse output JSON3 caption YouTube menjadi Transcript netral.
-  static Transcript parseJson3(String jsonContent) {
-    final parsed = jsonDecode(jsonContent);
-    final segments = <TranscriptSegment>[];
-
-    if (parsed is Map && parsed.containsKey('events')) {
-      final events = parsed['events'] as List;
-      for (final event in events) {
-        if (event is Map) {
-          final startMs = (event['tStartMs'] as num?)?.toDouble() ?? 0.0;
-          final durMs = (event['dDurationMs'] as num?)?.toDouble() ?? 0.0;
-          final endMs = startMs + durMs;
-
-          var text = '';
-          if (event.containsKey('segs') && event['segs'] is List) {
-            final segs = event['segs'] as List;
-            text = segs.whereType<Map>().map((s) => s['utf8']?.toString() ?? '').join();
-          }
-
-          final cleanText = text.replaceAll('\n', ' ').trim();
-          if (cleanText.isNotEmpty) {
-            segments.add(TranscriptSegment(
-              start: startMs / 1000.0,
-              end: endMs / 1000.0,
-              text: cleanText,
-            ));
-          }
-        }
-      }
-    }
-
-    return Transcript(
-      segments: segments,
-      rawText: jsonContent,
-    );
-  }
+  static Transcript parseJson3(String jsonContent) =>
+      TranscriptParsers.parseJson3(jsonContent);
 
   @override
   Future<Transcript> transcribe(

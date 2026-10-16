@@ -5,6 +5,7 @@ import 'package:aura_clipper/aura_clipper.dart';
 
 class FakeDownloader implements Downloader {
   bool shouldThrow = false;
+  String? returnCaptionPath;
 
   @override
   Future<DownloadResult> download(
@@ -12,15 +13,17 @@ class FakeDownloader implements Downloader {
     required Directory jobDir,
     CancelToken? cancel,
     void Function(double fraction)? onProgress,
+    String? language,
   }) async {
     cancel?.throwIfCancelled();
     if (shouldThrow) throw Exception('Simulasi gagal download');
     onProgress?.call(0.5);
     onProgress?.call(1.0);
-    return const DownloadResult(
+    return DownloadResult(
       videoPath: '/temp/video.mp4',
       durationSeconds: 120,
       title: 'Video Uji Coba',
+      captionPath: returnCaptionPath,
     );
   }
 }
@@ -194,7 +197,7 @@ void main() {
       expect(transcriber.lastLanguageReceived, 'id');
     });
 
-    test('pipeline bypasses whisper when json3 subtitle exists in jobDir', () async {
+    test('pipeline bypasses whisper when captionPath is provided in DownloadResult', () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_sub_test_');
       addTearDown(() {
         try {
@@ -216,6 +219,8 @@ void main() {
       }
       ''');
 
+      downloader.returnCaptionPath = subFile.path;
+
       final initialJob = VideoJob(
         id: 'job_sub_test',
         url: 'https://youtube.com/watch?v=abc',
@@ -227,8 +232,39 @@ void main() {
         jobDir: tempDir,
       )) {}
 
-      // Whisper transkripsi tidak dipanggil sama sekali karena subtitle json3 ditemukan!
+      // Whisper transkripsi tidak dipanggil sama sekali karena captionPath valid!
       expect(transcriber.transcribeCalled, isFalse);
+      expect(pipeline.candidates.isNotEmpty, isTrue);
+    });
+
+    test('pipeline falls back to Whisper when captionPath is null or does not exist', () async {
+      final tempDir = Directory.systemTemp.createTempSync('pipeline_whisper_fallback_');
+      addTearDown(() {
+        try {
+          tempDir.deleteSync(recursive: true);
+        } catch (_) {}
+      });
+
+      // Ada file json3 acak di folder, tapi downloader.returnCaptionPath == null
+      final randomFile = File('${tempDir.path}/random.other.json3');
+      randomFile.writeAsStringSync('{}');
+
+      downloader.returnCaptionPath = null;
+      transcriber.transcribeCalled = false;
+
+      final initialJob = VideoJob(
+        id: 'job_fallback_test',
+        url: 'https://youtube.com/watch?v=abc',
+        createdAt: DateTime.now(),
+      );
+
+      await for (final _ in pipeline.run(
+        initialJob,
+        jobDir: tempDir,
+      )) {}
+
+      // Whisper transkripsi WAJIB dipanggil (tidak sembarang mengambil .first)
+      expect(transcriber.transcribeCalled, isTrue);
       expect(pipeline.candidates.isNotEmpty, isTrue);
     });
 

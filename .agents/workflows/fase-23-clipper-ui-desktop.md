@@ -4,7 +4,7 @@ Baca `.agents/rules/19-aura-clipper.md` SEBELUM memulai.
 
 **Tujuan:** Clipper bisa dipakai dari aplikasi desktop: tempel link, atur rentang/fokus,
 lihat kandidat klip, pratinjau, export.
-**Prasyarat:** Fase 22 selesai dan terbukti jalan dengan video nyata.
+**Prasyarat:** Fase 22 **dan 22b** selesai, dengan bukti uji end-to-end nyata (caption + Whisper) dan uji batal nyata di laporan `CLIPPER_FASE_22B.md`.
 
 ## A. Integrasi host (`aura_desktop`)
 

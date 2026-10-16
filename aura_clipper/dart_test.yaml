@@ -1,0 +1,3 @@
+tags:
+  smoke:
+    skip: "Smoke tests are end-to-end tests requiring real external tools and network. Run with --tags smoke."

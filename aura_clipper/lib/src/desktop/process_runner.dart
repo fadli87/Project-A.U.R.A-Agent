@@ -32,9 +32,14 @@ abstract interface class ProcessRunner {
   });
 }
 
+typedef ProcessTreeKiller = Future<void> Function(int pid, Process? process);
+
 /// Implementasi nyata ProcessRunner untuk platform desktop menggunakan Process.start.
 class DesktopProcessRunner implements ProcessRunner {
-  const DesktopProcessRunner();
+  final ProcessTreeKiller _killer;
+
+  const DesktopProcessRunner({ProcessTreeKiller? killer})
+      : _killer = killer ?? killProcessTree;
 
   static const utf8Decoder = Utf8Decoder(allowMalformed: true);
 
@@ -79,6 +84,13 @@ class DesktopProcessRunner implements ProcessRunner {
       runInShell: false, // Wajib false: no shell injection
     );
 
+    var exited = false;
+
+    Future<void> safeKill() async {
+      if (exited) return;
+      await _killer(process.pid, process);
+    }
+
     final stdoutBuffer = StringBuffer();
     final stderrBuffer = StringBuffer();
 
@@ -117,17 +129,22 @@ class DesktopProcessRunner implements ProcessRunner {
 
     if (timeout != null) {
       timeoutTimer = Timer(timeout, () {
-        timedOut = true;
-        killProcessTree(process.pid, process);
+        if (!exited) {
+          timedOut = true;
+          safeKill();
+        }
       });
     }
 
-    cancel?.onCancel(() {
-      killProcessTree(process.pid, process);
+    final cancelDisposer = cancel?.onCancel(() {
+      if (!exited) {
+        safeKill();
+      }
     });
 
     try {
       final exitCode = await process.exitCode;
+      exited = true;
       timeoutTimer?.cancel();
       await Future.wait([stdoutDone.future, stderrDone.future]);
 
@@ -144,8 +161,14 @@ class DesktopProcessRunner implements ProcessRunner {
       );
     } catch (e) {
       timeoutTimer?.cancel();
-      await killProcessTree(process.pid, process);
+      if (!exited) {
+        await safeKill();
+      }
       rethrow;
+    } finally {
+      exited = true;
+      timeoutTimer?.cancel();
+      cancelDisposer?.call();
     }
   }
 }

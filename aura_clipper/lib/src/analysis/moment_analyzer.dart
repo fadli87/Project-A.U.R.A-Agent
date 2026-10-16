@@ -22,7 +22,7 @@ class AnalysisOptions {
     this.maxClips = 5,
     this.minLen = const Duration(seconds: 20),
     this.maxLen = const Duration(seconds: 60),
-    this.tokenBudget = 2500, // ~10.000 karakter
+    this.tokenBudget = 12000,
   });
 }
 
@@ -75,6 +75,103 @@ class MomentAnalyzer {
     }
 
     return Duration(milliseconds: (bestSec * 1000).round());
+  }
+
+  /// Menegakkan batasan waktu dan durasi klip:
+  /// - Berada di dalam [0, videoDuration]
+  /// - Berada di dalam [from, to] (jika ditentukan di options)
+  /// - Memaksa panjang ke [minLen, maxLen]:
+  ///   * Jika > maxLen: potong akhir ke maxLen lalu snap ke batas segmen.
+  ///   * Jika < minLen: coba perpanjang hingga minLen (jika ruang video/rentang mencukupi);
+  ///     buang (return null) jika di bawah minLen dan tidak bisa diperpanjang.
+  static ClipCandidate? enforceClipBounds(
+    ClipCandidate candidate, {
+    Duration? from,
+    Duration? to,
+    int? videoDurationSeconds,
+    Duration minLen = const Duration(seconds: 20),
+    Duration maxLen = const Duration(seconds: 60),
+    List<TranscriptSegment> segments = const [],
+  }) {
+    var start = candidate.startTime;
+    var end = candidate.endTime;
+
+    // 1. Validasi awal
+    if (start >= end) return null;
+
+    final lowerBound = from ?? Duration.zero;
+    Duration? upperBound;
+    if (videoDurationSeconds != null && videoDurationSeconds > 0) {
+      upperBound = Duration(seconds: videoDurationSeconds);
+    }
+    if (to != null) {
+      if (upperBound == null || to < upperBound) {
+        upperBound = to;
+      }
+    }
+
+    // 2. Tegakkan batas [0, videoDuration] & [from, to]
+    if (start < lowerBound) {
+      start = lowerBound;
+    }
+    if (upperBound != null && end > upperBound) {
+      end = upperBound;
+    }
+    if (start >= end) return null;
+
+    // 3. Batasi jika durasi > maxLen (potong akhir ke maxLen lalu snap ke batas segmen)
+    if ((end - start) > maxLen) {
+      end = start + maxLen;
+      if (segments.isNotEmpty) {
+        final snapped = snapToNearestSegment(end, segments, isStart: false);
+        if (snapped > start && (upperBound == null || snapped <= upperBound)) {
+          final newDuration = snapped - start;
+          if (newDuration <= maxLen && newDuration >= minLen) {
+            end = snapped;
+          }
+        }
+      }
+    }
+
+    // 4. Periksa jika durasi < minLen: coba perpanjang, buang jika tidak bisa
+    if ((end - start) < minLen) {
+      final neededEnd = start + minLen;
+      if (upperBound == null || neededEnd <= upperBound) {
+        end = neededEnd;
+        if (segments.isNotEmpty) {
+          final snapped = snapToNearestSegment(end, segments, isStart: false);
+          if (snapped - start >= minLen && (upperBound == null || snapped <= upperBound) && (snapped - start <= maxLen)) {
+            end = snapped;
+          }
+        }
+      } else {
+        final neededStart = end - minLen;
+        if (neededStart >= lowerBound) {
+          start = neededStart;
+          if (segments.isNotEmpty) {
+            final snapped = snapToNearestSegment(start, segments, isStart: true);
+            if (snapped >= lowerBound && (end - snapped >= minLen) && (end - snapped <= maxLen)) {
+              start = snapped;
+            }
+          }
+        } else {
+          return null;
+        }
+      }
+    }
+
+    final finalDur = end - start;
+    if (finalDur < minLen || finalDur > maxLen) {
+      return null;
+    }
+    if (start < lowerBound || (upperBound != null && end > upperBound)) {
+      return null;
+    }
+
+    return candidate.copyWith(
+      startTime: start,
+      endTime: end,
+    );
   }
 
   /// Menghilangkan duplikasi atau klip yang saling tumpang-tindih, memprioritaskan skor tertinggi.
@@ -166,6 +263,7 @@ class MomentAnalyzer {
     AnalysisOptions? options,
     CancelToken? cancel,
     Directory? jobDir,
+    int? videoDurationSeconds,
   }) async {
     cancel?.throwIfCancelled();
 
@@ -189,7 +287,7 @@ class MomentAnalyzer {
     final targetSegments = filteredSegments.isNotEmpty ? filteredSegments : allSegments;
 
     // 2. Chunking transkrip berdasarkan batas token (tokenBudget * 4 chars)
-    final tokenBudget = options?.tokenBudget ?? 2500;
+    final tokenBudget = options?.tokenBudget ?? 12000;
     final maxCharsPerChunk = tokenBudget * 4;
 
     final segmentChunks = chunkSegments(targetSegments, maxCharsPerChunk: maxCharsPerChunk);
@@ -200,6 +298,8 @@ class MomentAnalyzer {
 
     final allCandidates = <ClipCandidate>[];
     final rawResponses = <String>[];
+    final chunkErrors = <int, String>{};
+    bool anyChunkFailedOrEmpty = false;
 
     // 3. Analisis setiap chunk
     for (var chunkIndex = 0; chunkIndex < segmentChunks.length; chunkIndex++) {
@@ -256,91 +356,116 @@ Berikan output HANYA dalam format valid JSON array tanpa teks penjelasan lain di
         )
       ];
 
-      final stream = routerClient.streamGenerate(
-        messages: messages,
-        modelOrCombo: modelOrCombo,
-        apiKeys: apiKeys,
-        temperature: 0.25,
-        maxTokens: 2048,
-      );
-
-      final responseBuffer = StringBuffer();
-      await for (final event in stream) {
-        cancel?.throwIfCancelled();
-        if (event is RouterTextDelta) {
-          responseBuffer.write(event.text);
-        }
-      }
-
-      final responseText = responseBuffer.toString().trim();
-      rawResponses.add('--- CHUNK $chunkIndex ---\n$responseText');
-
-      String jsonString = responseText;
-      final jsonMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').firstMatch(responseText);
-      if (jsonMatch != null) {
-        jsonString = jsonMatch.group(1)!;
-      } else {
-        final startBracket = responseText.indexOf('[');
-        final endBracket = responseText.lastIndexOf(']');
-        if (startBracket != -1 && endBracket != -1 && endBracket > startBracket) {
-          jsonString = responseText.substring(startBracket, endBracket + 1);
-        }
-      }
-
       try {
-        final decoded = jsonDecode(jsonString);
-        if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map) {
-              final title = item['title']?.toString().trim() ?? 'Untitled Clip';
-              final startSec = (item['start_seconds'] as num?)?.toInt() ?? 0;
-              final endSec = (item['end_seconds'] as num?)?.toInt() ?? 0;
-              final score = ((item['score'] as num?)?.toInt() ?? 0).clamp(0, 100);
-              final reason = item['reason']?.toString().trim() ?? '';
+        final stream = routerClient.streamGenerate(
+          messages: messages,
+          modelOrCombo: modelOrCombo,
+          apiKeys: apiKeys,
+          temperature: 0.25,
+          maxTokens: 2048,
+        );
 
-              // Validasi durasi dan timestamp
-              if (startSec < endSec && (endSec - startSec) >= 5) {
-                // Snapping ke batas segmen transkrip terdekat
-                final rawStartTime = Duration(seconds: startSec);
-                final rawEndTime = Duration(seconds: endSec);
+        final responseBuffer = StringBuffer();
+        await for (final event in stream) {
+          cancel?.throwIfCancelled();
+          if (event is RouterTextDelta) {
+            responseBuffer.write(event.text);
+          }
+        }
 
-                final snappedStart = snapToNearestSegment(rawStartTime, chunk, isStart: true);
-                final snappedEnd = snapToNearestSegment(rawEndTime, chunk, isStart: false);
+        final responseText = responseBuffer.toString().trim();
+        rawResponses.add('--- CHUNK $chunkIndex ---\n$responseText');
 
-                // Pastikan snappedStart < snappedEnd
-                final finalStart = snappedStart < snappedEnd ? snappedStart : rawStartTime;
-                final finalEnd = snappedStart < snappedEnd ? snappedEnd : rawEndTime;
+        String jsonString = responseText;
+        final jsonMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').firstMatch(responseText);
+        if (jsonMatch != null) {
+          jsonString = jsonMatch.group(1)!;
+        } else {
+          final startBracket = responseText.indexOf('[');
+          final endBracket = responseText.lastIndexOf(']');
+          if (startBracket != -1 && endBracket != -1 && endBracket > startBracket) {
+            jsonString = responseText.substring(startBracket, endBracket + 1);
+          }
+        }
 
-                allCandidates.add(ClipCandidate(
-                  title: title,
-                  startTime: finalStart,
-                  endTime: finalEnd,
-                  score: score,
-                  reason: reason,
-                ));
+        var parsedInChunk = 0;
+        try {
+          final decoded = jsonDecode(jsonString);
+          if (decoded is List) {
+            for (final item in decoded) {
+              if (item is Map) {
+                final title = item['title']?.toString().trim() ?? 'Untitled Clip';
+                final startSec = (item['start_seconds'] as num?)?.toInt() ?? 0;
+                final endSec = (item['end_seconds'] as num?)?.toInt() ?? 0;
+                final score = ((item['score'] as num?)?.toInt() ?? 0).clamp(0, 100);
+                final reason = item['reason']?.toString().trim() ?? '';
+
+                if (startSec < endSec) {
+                  final rawStartTime = Duration(seconds: startSec);
+                  final rawEndTime = Duration(seconds: endSec);
+
+                  final candidate = ClipCandidate(
+                    title: title,
+                    startTime: rawStartTime,
+                    endTime: rawEndTime,
+                    score: score,
+                    reason: reason,
+                  );
+
+                  final bounded = enforceClipBounds(
+                    candidate,
+                    from: options?.from,
+                    to: options?.to,
+                    videoDurationSeconds: videoDurationSeconds,
+                    minLen: options?.minLen ?? const Duration(seconds: 20),
+                    maxLen: options?.maxLen ?? const Duration(seconds: 60),
+                    segments: chunk,
+                  );
+
+                  if (bounded != null) {
+                    allCandidates.add(bounded);
+                    parsedInChunk++;
+                  }
+                }
               }
             }
           }
+        } catch (e) {
+          anyChunkFailedOrEmpty = true;
+          chunkErrors[chunkIndex] = 'Gagal parse JSON: $e';
         }
-      } catch (_) {
-        // Error parse chunk dicatat di rawResponses, lanjut ke chunk lain jika ada
+
+        if (parsedInChunk == 0) {
+          anyChunkFailedOrEmpty = true;
+          chunkErrors.putIfAbsent(chunkIndex, () => 'Tidak ada klip valid yang dihasilkan di chunk ini.');
+        }
+      } catch (e) {
+        if (e is OperationCancelledException) rethrow;
+        anyChunkFailedOrEmpty = true;
+        chunkErrors[chunkIndex] = 'Kesalahan router: $e';
+        rawResponses.add('--- CHUNK $chunkIndex ERROR ---\n$e');
       }
+    }
+
+    // Tulis analysis_raw.log jika jobDir disediakan DAN ada chunk yang gagal/kosong atau allCandidates kosong
+    if (jobDir != null && (anyChunkFailedOrEmpty || allCandidates.isEmpty)) {
+      try {
+        final logFile = File('${jobDir.path}/analysis_raw.log');
+        logFile.writeAsStringSync(rawResponses.join('\n\n'));
+      } catch (_) {}
     }
 
     // 4. Deduplikasi dan seleksi top candidates
     final deduped = deduplicateCandidates(allCandidates);
 
     if (deduped.isEmpty) {
-      // Simpan log mentah jika jobDir disediakan
-      if (jobDir != null) {
-        try {
-          final logFile = File('${jobDir.path}/analysis_raw.log');
-          logFile.writeAsStringSync(rawResponses.join('\n\n'));
-        } catch (_) {}
-      }
-
+      final summary = chunkErrors.entries
+          .map((e) => 'Chunk ${e.key}: ${e.value}')
+          .join('; ');
       throw LlmAnalysisException(
-        'Tidak ada kandidat klip valid yang dihasilkan oleh LLM. Respons mentah disimpan di analysis_raw.log.',
+        'Tidak ada kandidat klip valid yang dihasilkan oleh LLM. '
+        '${summary.isNotEmpty ? "Alasan per chunk: $summary. " : ""}'
+        'Respons mentah disimpan di analysis_raw.log.',
       );
     }
 
