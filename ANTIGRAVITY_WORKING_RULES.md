@@ -1,7 +1,7 @@
 # 🤖 AURA Trading Assistant — Panduan & Aturan Kerja Antigravity (Agy)
 
 > **Untuk**: Antigravity (Agy) — AI Coding Executor  
-> **Dari**: Shin & Fadli Santoso  
+> **Dari**: Shin & Fadli  
 > **Proyek**: AURA Trading Assistant (Forex/Gold & Saham IDX)  
 > **Lokasi Berkas**: `ANTIGRAVITY_WORKING_RULES.md` (di root `AURA_MonoRepo/`)
 

@@ -134,6 +134,33 @@ void main() {
       expect(transcript.segments[1].text, 'Ini caption otomatis.');
     });
 
+    test('WhisperCppTranscriber parseJson3 fixes overlapping visual caption durations', () {
+      const json3Str = '''
+      {
+        "events": [
+          {
+            "tStartMs": 200,
+            "dDurationMs": 8000,
+            "segs": [{"utf8": "Baris pertama caption"}]
+          },
+          {
+            "tStartMs": 3000,
+            "dDurationMs": 7000,
+            "segs": [{"utf8": "Baris kedua yang overlapping"}]
+          }
+        ]
+      }
+      ''';
+
+      final transcript = WhisperCppTranscriber.parseJson3(json3Str);
+      expect(transcript.segments.length, 2);
+      expect(transcript.segments[0].start, 0.2);
+      // Durasi 8.0s (end 8.2s) dipotong ke start baris kedua (3.0s)
+      expect(transcript.segments[0].end, 3.0);
+      expect(transcript.segments[1].start, 3.0);
+      expect(transcript.segments[1].end, 10.0);
+    });
+
     test('WhisperCppTranscriber parseWhisperJson converts whisper.cpp offsets', () {
       const whisperJsonStr = '''
       {

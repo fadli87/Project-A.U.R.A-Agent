@@ -63,5 +63,22 @@ void main() {
       expect(formatted, contains('[00:05] Segmen biasa'));
       expect(formatted, contains('[00:20] Segmen viral ▲'));
     });
+
+    test('prevents overlapping segment timestamps when unmerged segments overlap in time', () {
+      const raw = Transcript(
+        segments: [
+          TranscriptSegment(start: 0.0, end: 10.0, text: 'Segmen sangat panjang pertama yang melebihi batas penggabungan agar tidak digabung dengan segmen berikutnya...............................................................................................................................'),
+          TranscriptSegment(start: 5.0, end: 15.0, text: 'Segmen kedua yang tumpang tindih waktunya dengan segmen pertama.'),
+        ],
+      );
+
+      final enriched = TranscriptEnricher.enrich(raw);
+      expect(enriched.segments.length, 2);
+      expect(enriched.segments[0].start, 0.0);
+      // End segmen pertama dipotong ke start segmen kedua
+      expect(enriched.segments[0].end, 5.0);
+      expect(enriched.segments[1].start, 5.0);
+      expect(enriched.segments[1].end, 15.0);
+    });
   });
 }

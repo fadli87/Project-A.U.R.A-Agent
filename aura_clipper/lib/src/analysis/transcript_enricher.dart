@@ -37,6 +37,14 @@ class TranscriptEnricher {
           text: '${current.text} ${seg.text}'.trim(),
         );
       } else {
+        if (current.end > seg.start && seg.start > current.start) {
+          current = TranscriptSegment(
+            start: current.start,
+            end: seg.start,
+            text: current.text,
+            heat: current.heat,
+          );
+        }
         mergedSegments.add(current);
         current = seg;
       }

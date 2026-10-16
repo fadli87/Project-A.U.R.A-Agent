@@ -72,7 +72,7 @@ Fase 22 menyelesaikan seluruh implementasi pipeline sungguhan untuk AURA Clipper
 ## 4. Hasil Verifikasi Alat Lokal (Windows 11)
 
 ### 1. yt-dlp
-- **Path:** `C:\Users\Fadli Santoso\AppData\Roaming\Python\Python314\Scripts\yt-dlp.exe`
+- **Path:** `<user>\AppData\Roaming\Python\Python314\Scripts\yt-dlp.exe`
 - **Versi:** `2026.08.19`
 - **Heatmap Format:** Terbukti menghasilkan array `{start_time, end_time, value}` pada video YouTube yang memiliki retensi penonton.
 

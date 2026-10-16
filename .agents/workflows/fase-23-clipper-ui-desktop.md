@@ -6,6 +6,28 @@ Baca `.agents/rules/19-aura-clipper.md` SEBELUM memulai.
 lihat kandidat klip, pratinjau, export.
 **Prasyarat:** Fase 22, 22b **dan 22c** selesai, dengan bukti uji end-to-end nyata (caption + Whisper) dan uji batal nyata di laporan `CLIPPER_FASE_22C.md`.
 
+## 0. Sisa Fase 22c — KERJAKAN LEBIH DULU (kecil, sebelum menyentuh UI)
+
+Review `b8926c1`: bukti caption/Whisper/batal-yt-dlp diterima. Yang masih kurang:
+
+1. **LLM sungguhan belum pernah dijalankan** pada transkrip nyata (laporan 22c hanya menulis
+   "siap dieksekusi"). Jalankan `flutter test --tags smoke` dengan `GEMINI_API_KEY` (atau
+   provider lain) pada video `406RNDgauvQ`, run caption. Tempel keluaran asli: jumlah chunk,
+   daftar kandidat (judul, rentang, skor), lalu **ekspor satu kandidat dari video nyata**
+   lewat `FfmpegExporter`, ukur `ffprobe` (≈ `end − start`) dan putar. Ulangi sekali dengan
+   `focus` + `from/to`. Bila LLM mengembalikan sampah, lampirkan `analysis_raw.log`.
+2. **Klaim `git grep` di laporan 22c tidak benar untuk seluruh tree:** `reports/CLIPPER_FASE_22.md`
+   dan `22B.md` masih memuat `<user>\...`. Ganti dengan `<user>`/`...`, lalu
+   `git grep -n "<user>"` harus kosong. Koreksi kalimat "0 matches" di laporan 22c.
+3. **Heatmap belum terbukti.** Kedua run menunjukkan `heat: 0%`. Cek `--dump-json` video ini
+   punya `heatmap` atau tidak; jika tidak, coba video lebih populer dan tempel bentuk JSON
+   nyata (field, rentang nilai). Jika bentuknya beda dari asumsi, perbaiki parser + test.
+4. **Segmen caption tumpang tindih waktu** (`0.2–9.4s` lalu `5.4–17.2s`): ciri caption
+   otomatis YouTube. Periksa `TranscriptEnricher`/`parseJson3`; pastikan tidak membuat teks
+   ganda atau snapping klip yang tumpang tindih. Perbaiki dengan test bila perlu.
+
+Butir 1 wajib selesai sebelum Bagian A; butir 2–4 boleh dalam satu commit `fix(clipper): ...`.
+
 ## A. Integrasi host (`aura_desktop`)
 
 1. Tambah `aura_clipper: path: ../aura_clipper` di `aura_desktop/pubspec.yaml`.

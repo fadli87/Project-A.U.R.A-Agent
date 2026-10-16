@@ -22,7 +22,7 @@ dari ingatan.
 ## Tugas
 
 ### 1. Bersihkan `smoke_test.dart`
-- Hapus path pribadi (`C:\Users\Fadli Santoso\...`) — repo publik. Path tool **hanya** dari
+- Hapus path pribadi (`<user>\...`) — repo publik. Path tool **hanya** dari
   environment (`YT_DLP_PATH`, `FFMPEG_PATH`, `WHISPER_PATH`, `FFPROBE_PATH`).
 - Variabel wajib tidak ada → `markTestSkipped(...)` (muncul sebagai *skipped*), bukan `return`.
 - Tambah `FORCE_WHISPER` benar-benar diteruskan ke pipeline/opsi (cek bahwa jalurnya ada).

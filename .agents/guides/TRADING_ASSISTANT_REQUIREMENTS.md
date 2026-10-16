@@ -2,7 +2,7 @@
 
 > **Kategori**: Acuan Utama Target Spesifikasi & Requirements Proyek  
 > **Status Progress Terkini**: 📊 [TRADING_ASSISTANT_PROGRESS.md](file:///c:/DevApp/AURA_MonoRepo/Project-A.U.R.A-Agent/TRADING_ASSISTANT_PROGRESS.md)  
-> **Target User:** Fadli Santoso (solo developer, kembali ke trading Forex/Gold + belajar Saham IDX)  
+> **Target User:** Fadli (solo developer, kembali ke trading Forex/Gold + belajar Saham IDX)  
 > **Mode:** Hybrid (local AI + cloud data APIs)  
 > **Platforms:** Flutter Mobile (monitoring) + Desktop (analysis lab)  
 

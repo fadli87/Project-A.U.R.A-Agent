@@ -133,7 +133,7 @@ File: `aura_clipper/test/desktop/ffmpeg_exporter_real_test.dart`
 ### C. Uji Download Caption YouTube Nyata (yt-dlp)
 * **Eksekusi:**
   ```powershell
-  & "C:\Users\Fadli Santoso\AppData\Roaming\Python\Python314\Scripts\yt-dlp.exe" `
+  & "<user>\AppData\Roaming\Python\Python314\Scripts\yt-dlp.exe" `
     --skip-download --write-auto-subs --sub-langs en --sub-format json3 `
     -o "L:\dev_app\aura_monorepo\Project-A.U.R.A-Agent\aura_clipper\.test_run\test_caps\%(id)s.%(ext)s" `
     -- "https://youtu.be/dQw4w9WgXcQ"

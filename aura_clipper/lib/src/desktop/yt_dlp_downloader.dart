@@ -205,6 +205,15 @@ class YtDlpDownloader implements Downloader {
               videoId = json['id'] as String?;
               detectedLanguage = json['language'] as String?;
 
+              // Periksa dan parse heatmap jika tersedia di dump-json
+              if (json['heatmap'] is List) {
+                final rawHeatmap = json['heatmap'] as List;
+                heatmap = rawHeatmap
+                    .whereType<Map>()
+                    .map((item) => HeatmapPoint.fromJson(Map<String, dynamic>.from(item)))
+                    .toList();
+              }
+
               // Periksa automatic_captions untuk original language (-orig)
               if (json['automatic_captions'] is Map) {
                 final autoMap = json['automatic_captions'] as Map<String, dynamic>;

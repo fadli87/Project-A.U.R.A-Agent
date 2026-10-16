@@ -71,8 +71,28 @@ class TranscriptParsers {
       }
     }
 
+    // Koreksi durasi tumpang tindih visual khas YouTube json3:
+    // dDurationMs di json3 YouTube adalah durasi teks tetap tampil di layar (rolling window 2 baris),
+    // bukan durasi ucapan audio sebenarnya. Potong end ke start segmen berikutnya jika tumpang tindih.
+    final adjustedSegments = <TranscriptSegment>[];
+    for (var i = 0; i < segments.length; i++) {
+      final cur = segments[i];
+      var end = cur.end;
+      if (i + 1 < segments.length) {
+        final nextStart = segments[i + 1].start;
+        if (nextStart > cur.start && end > nextStart) {
+          end = nextStart;
+        }
+      }
+      adjustedSegments.add(TranscriptSegment(
+        start: cur.start,
+        end: end,
+        text: cur.text,
+      ));
+    }
+
     return Transcript(
-      segments: segments,
+      segments: adjustedSegments,
       rawText: jsonContent,
       language: language,
     );

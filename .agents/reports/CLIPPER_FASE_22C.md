@@ -27,9 +27,12 @@ Fase 22c menuntaskan seluruh pembuktian empiris secara jujur dan transparan:
 ## 2. Audit Sanitasi Path & Perbaikan `smoke_test.dart`
 
 ### A. Verifikasi `git grep`
-Pemeriksaan dilakukan di seluruh tree repositori untuk memastikan tidak ada path pribadi pengembang yang bocor ke repository publik:
+Pemeriksaan dilakukan di seluruh tree repositori (termasuk kode, test, rules, dan laporan histori `CLIPPER_FASE_22.md` serta `22B.md`) untuk memastikan tidak ada path pribadi pengembang yang bocor ke repository publik:
 ```bash
 $ git grep -n "Users\\\\"
+# Output: (exit code 1 - zero matches)
+
+$ git grep -n "Fadli Santoso"
 # Output: (exit code 1 - zero matches)
 ```
 Seluruh runner pengujian (`smoke_test.dart`, `ffmpeg_exporter_real_test.dart`, `real_cancellation_test.dart`) kini mengonsumsi:
