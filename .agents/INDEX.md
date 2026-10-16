@@ -125,14 +125,18 @@ python mt5_service.py
 
 ## 🎬 AURA Clipper
 
-- **Brief utama**: [.agents/AGY_TASK_CLIPPER_BRIEF.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/AGY_TASK_CLIPPER_BRIEF.md)
-- **Rules**: [.agents/rules/19-aura-clipper.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/rules/19-aura-clipper.md)
+- **Handover & Panduan Agent (Lengkap)**: [AURA_CLIPPER_AGENT_HANDOVER.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/AURA_CLIPPER_AGENT_HANDOVER.md) ← **BACA INI PERTAMA KALI UNTUK LANJUT DI LAPTOP/AGENT LAIN**
+- **Brief utama**: [AGY_TASK_CLIPPER_BRIEF.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/AGY_TASK_CLIPPER_BRIEF.md)
+- **Rules**: [19-aura-clipper.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/rules/19-aura-clipper.md)
+- **Reports**:
+  - [CLIPPER_FASE_21.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/reports/CLIPPER_FASE_21.md) (Fondasi Package) — ✅ Selesai
+  - [CLIPPER_FASE_22.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/reports/CLIPPER_FASE_22.md) (Pipeline Sungguhan & Review Fixes) — ✅ Selesai
 - **Workflows**:
-  - [fase-21-clipper-foundation.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-21-clipper-foundation.md) (Fondasi)
-  - [fase-22-clipper-pipeline.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-22-clipper-pipeline.md) (Pipeline)
-  - [fase-23-clipper-ui-desktop.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-23-clipper-ui-desktop.md) (UI Desktop)
-  - [fase-24-clipper-android.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-24-clipper-android.md) (Android, DIBLOKIR)
-- **PRD**: [.agents/PRD_AURA_Clipper.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/PRD_AURA_Clipper.md)
+  - [fase-21-clipper-foundation.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-21-clipper-foundation.md) (Fondasi) — ✅ Selesai
+  - [fase-22-clipper-pipeline.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-22-clipper-pipeline.md) (Pipeline) — ✅ Selesai
+  - [fase-23-clipper-ui-desktop.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-23-clipper-ui-desktop.md) (UI Desktop) — ⏳ **TASK BERIKUTNYA**
+  - [fase-24-clipper-android.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/workflows/fase-24-clipper-android.md) (Android, Terjadwal)
+- **PRD**: [PRD_AURA_Clipper.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/PRD_AURA_Clipper.md)
 
 ---
 
