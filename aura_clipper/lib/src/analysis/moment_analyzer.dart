@@ -14,6 +14,7 @@ class AnalysisOptions {
   final Duration minLen;
   final Duration maxLen;
   final int tokenBudget; // Estimasi token per chunk (karakter / 4)
+  final bool forceWhisper;
 
   const AnalysisOptions({
     this.from,
@@ -23,6 +24,7 @@ class AnalysisOptions {
     this.minLen = const Duration(seconds: 20),
     this.maxLen = const Duration(seconds: 60),
     this.tokenBudget = 12000,
+    this.forceWhisper = false,
   });
 }
 

@@ -68,9 +68,17 @@ class TranscriptEnricher {
         );
       }).toList();
 
-      return Transcript(segments: enrichedWithHeat, rawText: transcript.rawText);
+      return Transcript(
+        segments: enrichedWithHeat,
+        rawText: transcript.rawText,
+        language: transcript.language,
+      );
     }
 
-    return Transcript(segments: mergedSegments, rawText: transcript.rawText);
+    return Transcript(
+      segments: mergedSegments,
+      rawText: transcript.rawText,
+      language: transcript.language,
+    );
   }
 }

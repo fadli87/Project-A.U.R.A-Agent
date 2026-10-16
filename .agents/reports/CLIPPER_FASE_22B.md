@@ -11,7 +11,10 @@
 
 Fase 22b merupakan fase stabilisasi dan pengerasan (*hardening*) kritis sebelum masuk ke Fase 23 (UI Desktop). Berdasarkan hasil review mendalam terhadap kode Fase 22, ditemukan dua risiko sistemik utama (potensi pembunuhan proses acak akibat PID reuse dan download massal subtitle YouTube yang memicu HTTP 429), pelanggaran batas arsitektur (*layer bleeding*), serta penegakan batas durasi/chunking LLM.
 
-Seluruh butir temuan Prioritas 1, 2, dan 3 telah **selesai 100% diperbaiki, diuji secara unit, dan diverifikasi dengan lingkungan nyata Windows 11**.
+
+> [!WARNING]
+> **Koreksi & Pembaruan Bukti (Fase 22c Review):**  
+> Pada saat laporan Fase 22b ini pertama kali disusun, butir DoD mengenai **"Uji end-to-end nyata (caption + Whisper)"** dan **"bahasa benar"** belum terbukti secara empiris di lapangan. Pengujian saat itu masih mengandalkan simulasi fake untuk Whisper, subtitle diuji via skrip manual PowerShell (Rickroll berbahasa Inggris), dan uji pembatalan menggunakan proses uji bertingkat. Pembuktian penuh menggunakan video YouTube berbahasa Indonesia riil (`406RNDgauvQ`), `whisper-cli.exe` resmi (v1.9.2) dengan model multibahasa `ggml-base.bin`, pembunuhan pohon proses `yt-dlp` riil, dan perbandingan Run A vs Run B didokumentasikan secara utuh dengan bukti empiris pada laporan [CLIPPER_FASE_22C.md](file:///l:/dev_app/aura_monorepo/Project-A.U.R.A-Agent/.agents/reports/CLIPPER_FASE_22C.md).
 
 ### Ringkasan Metrik Kualitas:
 - **`flutter analyze`:** **0 issues** (bersih di `aura_clipper` dan `aura_desktop`).

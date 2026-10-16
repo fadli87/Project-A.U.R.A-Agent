@@ -147,10 +147,12 @@ class TranscriptSegment {
 class Transcript {
   final List<TranscriptSegment> segments;
   final String? rawText;
+  final String? language;
 
   const Transcript({
     required this.segments,
     this.rawText,
+    this.language,
   });
 
   String toFormattedText() {

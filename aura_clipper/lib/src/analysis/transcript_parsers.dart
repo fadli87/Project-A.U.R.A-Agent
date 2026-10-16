@@ -27,14 +27,21 @@ class TranscriptParsers {
       }
     }
 
+    String? language;
+    if (parsed is Map) {
+      language = parsed['result']?['language'] as String? ??
+          parsed['params']?['language'] as String?;
+    }
+
     return Transcript(
       segments: segments,
       rawText: jsonContent,
+      language: language,
     );
   }
 
   /// Parse output JSON3 caption YouTube menjadi Transcript netral.
-  static Transcript parseJson3(String jsonContent) {
+  static Transcript parseJson3(String jsonContent, {String? language}) {
     final parsed = jsonDecode(jsonContent);
     final segments = <TranscriptSegment>[];
 
@@ -67,6 +74,7 @@ class TranscriptParsers {
     return Transcript(
       segments: segments,
       rawText: jsonContent,
+      language: language,
     );
   }
 }

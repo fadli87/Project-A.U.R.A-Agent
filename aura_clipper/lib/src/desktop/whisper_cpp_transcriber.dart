@@ -108,7 +108,9 @@ class WhisperCppTranscriber implements Transcriber {
 
       // 2. Tentukan lokasi model whisper
       String modelPath;
-      if (whisperModelsDir != null && whisperModelsDir!.isNotEmpty) {
+      if (p.isAbsolute(whisperModelName)) {
+        modelPath = whisperModelName;
+      } else if (whisperModelsDir != null && whisperModelsDir!.isNotEmpty) {
         modelPath = p.join(whisperModelsDir!, whisperModelName);
       } else {
         final whisperDir = File(whisperPath).parent.path;

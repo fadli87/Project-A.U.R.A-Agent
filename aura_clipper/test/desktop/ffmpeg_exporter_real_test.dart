@@ -8,10 +8,20 @@ void main() {
     test('FfmpegExporter cuts video with exact duration verifiable via ffprobe', () async {
       if (!Platform.isWindows) return;
 
-      final ffmpegPath = 'C:\\Users\\Fadli Santoso\\AppData\\Local\\Microsoft\\WinGet\\Links\\ffmpeg.exe';
-      final ffprobePath = 'C:\\Users\\Fadli Santoso\\AppData\\Local\\Microsoft\\WinGet\\Links\\ffprobe.exe';
+      final ffmpegPath = Platform.environment['FFMPEG_PATH'] ?? 'ffmpeg';
+      final ffprobePath = Platform.environment['FFPROBE_PATH'] ?? 'ffprobe';
 
-      if (!File(ffmpegPath).existsSync() || !File(ffprobePath).existsSync()) {
+      bool toolsAvailable = false;
+      try {
+        final resFfmpeg = Process.runSync(ffmpegPath, ['-version']);
+        final resFfprobe = Process.runSync(ffprobePath, ['-version']);
+        toolsAvailable = resFfmpeg.exitCode == 0 && resFfprobe.exitCode == 0;
+      } catch (_) {
+        toolsAvailable = false;
+      }
+
+      if (!toolsAvailable) {
+        markTestSkipped('ffmpeg atau ffprobe tidak tersedia.');
         return;
       }
 

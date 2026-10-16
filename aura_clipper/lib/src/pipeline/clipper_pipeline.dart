@@ -17,6 +17,7 @@ class ClipperPipeline {
 
   List<ClipCandidate> _candidates = [];
   VideoJob? _currentJob;
+  Transcript? _transcript;
 
   ClipperPipeline({
     required this.downloader,
@@ -28,6 +29,7 @@ class ClipperPipeline {
 
   List<ClipCandidate> get candidates => List.unmodifiable(_candidates);
   VideoJob? get currentJob => _currentJob;
+  Transcript? get transcript => _transcript;
 
   /// Menjalankan pipeline pembuatan klip secara utuh (download -> transcribe -> analyze).
   /// Mengalirkan progres secara real-time via `Stream<JobProgress>`.
@@ -42,6 +44,7 @@ class ClipperPipeline {
 
     () async {
       _candidates = [];
+      _transcript = null;
       var job = initialJob.copyWith(
         status: VideoJobStatus.pending,
         progress: 0.0,
@@ -116,17 +119,18 @@ class ClipperPipeline {
 
         Transcript rawTranscript;
 
-        // Gunakan YouTube caption (json3) jika ada; bypass Whisper untuk efisiensi.
+        // Gunakan YouTube caption (json3) jika ada dan tidak dipaksa Whisper; bypass Whisper untuk efisiensi.
         // Hanya menggunakan captionPath terverifikasi dari downloader, tanpa mengambil file sembarang (.first).
+        final forceWhisper = options?.forceWhisper ?? false;
         File? captionFile;
-        if (downloadResult.captionPath != null && File(downloadResult.captionPath!).existsSync()) {
+        if (!forceWhisper && downloadResult.captionPath != null && File(downloadResult.captionPath!).existsSync()) {
           captionFile = File(downloadResult.captionPath!);
         }
 
         if (captionFile != null) {
           try {
             final jsonContent = await captionFile.readAsString();
-            rawTranscript = TranscriptParsers.parseJson3(jsonContent);
+            rawTranscript = TranscriptParsers.parseJson3(jsonContent, language: language ?? 'id');
             job = job.copyWith(transcriptPath: captionFile.path, updatedAt: DateTime.now());
             controller.add(const JobProgress(
               stage: VideoJobStatus.transcribing,
@@ -157,6 +161,7 @@ class ClipperPipeline {
           rawTranscript,
           heatmap: downloadResult.heatmap,
         );
+        _transcript = enrichedTranscript;
 
         job = job.copyWith(progress: 0.66, updatedAt: DateTime.now());
         _currentJob = job;
