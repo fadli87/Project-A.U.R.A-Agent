@@ -201,6 +201,11 @@ class ClipDatabase {
     }).toList();
   }
 
+  /// Menghapus semua riwayat job dan seluruh kandidatnya.
+  void clearAllJobs() {
+    _db.execute('DELETE FROM video_jobs;');
+  }
+
   /// Menutup koneksi database.
   void dispose() {
     _db.dispose();

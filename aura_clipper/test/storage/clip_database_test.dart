@@ -125,5 +125,15 @@ void main() {
       // Kandidat harus otomatis terhapus karena ON DELETE CASCADE
       expect(db.getCandidates('job_to_delete'), isEmpty);
     });
+
+    test('clearAllJobs removes all jobs and candidates', () {
+      final now = DateTime.now();
+      db.saveJob(VideoJob(id: 'j1', url: 'https://youtube.com', createdAt: now));
+      db.saveJob(VideoJob(id: 'j2', url: 'https://youtube.com', createdAt: now));
+      expect(db.getJobs().length, 2);
+
+      db.clearAllJobs();
+      expect(db.getJobs(), isEmpty);
+    });
   });
 }

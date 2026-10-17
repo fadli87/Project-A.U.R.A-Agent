@@ -47,8 +47,6 @@ dependencies:
     path: ../aura_core
   aura_trading:
     path: ../aura_trading
-  video_player: ^2.9.2
-  fvp: ^0.39.1
   aura_clipper:
     path: ../aura_clipper
 

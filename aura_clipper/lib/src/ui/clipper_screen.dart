@@ -382,6 +382,15 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
                               'Riwayat Video (${state.historyJobs.length})',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                             ),
+                            const Spacer(),
+                            if (state.historyJobs.isNotEmpty && !state.isRunning)
+                              IconButton(
+                                icon: const Icon(Icons.delete_sweep, size: 16, color: Colors.white38),
+                                tooltip: 'Bersihkan Riwayat & Cache Job',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => notifier.clearJobCache(),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 8),

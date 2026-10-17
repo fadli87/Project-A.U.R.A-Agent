@@ -381,7 +381,7 @@ class ClipperNotifier extends StateNotifier<ClipperState> {
   }
 
   /// Mengekspor klip terpilih ke format MP4 menggunakan FFmpeg.
-  Future<void> exportSelected({String? targetFolder}) async {
+  Future<void> exportSelected({String? targetFolder, Exporter? customExporter}) async {
     final selectedTitles = state.checkedCandidateTitles;
     if (selectedTitles.isEmpty) {
       state = state.copyWith(errorMessage: 'Pilih minimal satu klip untuk diekspor.');
@@ -424,7 +424,7 @@ class ClipperNotifier extends StateNotifier<ClipperState> {
       clearError: true,
     );
 
-    final exporter = FfmpegExporter(ffmpegPath: state.settings.ffmpegPath);
+    final exporter = customExporter ?? FfmpegExporter(ffmpegPath: state.settings.ffmpegPath);
     final results = <String>[];
 
     try {
@@ -484,6 +484,28 @@ class ClipperNotifier extends StateNotifier<ClipperState> {
       );
     } catch (_) {
       state = state.copyWith(isCheckingTools: false);
+    }
+  }
+
+  /// Membersihkan seluruh cache folder `jobs/` dan riwayat database job.
+  Future<void> clearJobCache() async {
+    try {
+      final jobsDir = Directory(p.join(hostConfig.workDir.path, 'jobs'));
+      if (jobsDir.existsSync()) {
+        jobsDir.deleteSync(recursive: true);
+        jobsDir.createSync(recursive: true);
+      }
+      _database?.clearAllJobs();
+      state = state.copyWith(
+        historyJobs: const [],
+        currentJob: null,
+        candidates: const [],
+        clearSelectedCandidate: true,
+        checkedCandidateTitles: const {},
+        progressMessage: 'Seluruh riwayat dan cache video job berhasil dibersihkan.',
+      );
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Gagal membersihkan cache job: $e');
     }
   }
 
