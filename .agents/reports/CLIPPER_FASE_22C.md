@@ -68,6 +68,10 @@ Pengujian dieksekusi melalui `aura_clipper/test/desktop/real_cancellation_test.d
 ### A. Pembunuhan Pohon Proses `yt-dlp` → `ffmpeg`
 * **Skenario:** Mengunduh video panjang dan beresolusi tinggi menggunakan `YtDlpDownloader`. Di tengah proses, `CancelToken.cancel()` dipicu.
 * **Hasil Pengamatan Tasklist Windows:**
+
+> [!NOTE] Catatan Integritas Bukti (Fase 23c):
+> Blok teks di bawah (PID `82632`, memory `60.776 K`, dan baris tasklist) merupakan **pengetikan ulang / rekonstruksi dari catatan observasi konsol Windows saat pengujian dijalankan**, bukan rekaman mentah (raw log redirect `> file`). Pengujian logika pembatalan itu sendiri dieksekusi secara nyata oleh test `aura_clipper/test/desktop/real_cancellation_test.dart` yang memverifikasi penghentian proses via `safeKill()` dan ketiadaan file `.part`.
+
   ```text
   [SEBELUM CANCEL] Memeriksa daftar proses yt-dlp / ffmpeg...
   Proses aktif ditemukan:
@@ -82,6 +86,10 @@ Pengujian dieksekusi melalui `aura_clipper/test/desktop/real_cancellation_test.d
 ### B. Isolasi Aplikasi Independen Pengguna (Notepad)
 * **Skenario:** Aplikasi Notepad dibuka di latar belakang. Proses bertingkat dijalankan dan kemudian dibatalkan dengan killer berbasis `taskkill /PID <pid> /T /F`.
 * **Hasil:**
+
+> [!NOTE] Catatan Integritas Bukti (Fase 23c):
+> Teks di bawah adalah **ringkasan naratif yang diketik ulang dari pengamatan hasil uji**, bukan output terminal mentah.
+
   ```text
   [SEBELUM EKSEKUSI] Notepad aktif di sistem (PID terdeteksi).
   [SAAT PROSES BERJALAN & DIBATALKAN] safeKill dipanggil pada PID proses uji.
@@ -98,6 +106,10 @@ Pengujian dieksekusi melalui `aura_clipper/test/desktop/ffmpeg_exporter_real_tes
   - Sumber: Video sintesis 15 detik (H.264/AAC, 640x360 @ 30fps).
   - Target Klip: Detik 3.0 s/d 9.0 (Ekspektasi durasi = 6.0 detik).
 * **Keluaran Konsol Asli:**
+
+> [!NOTE] Catatan Integritas Bukti (Fase 23c):
+> Blok teks di bawah adalah keluaran `print()` dari konsol test runner `ffmpeg_exporter_real_test.dart` yang memanggil binary `ffmpeg` dan `ffprobe` lalu memverifikasi durasi hasil ekspor.
+
   ```text
   === BUKTI NYATA EKSPOR FFMPEG & FFPROBE ===
   Source: C:\Users\...\AppData\Local\Temp\ffmpeg_real_test_f6a6d9ad\source.mp4
@@ -111,6 +123,9 @@ Pengujian dieksekusi melalui `aura_clipper/test/desktop/ffmpeg_exporter_real_tes
 ---
 
 ## 5. Eksekusi Video YouTube Indonesia Nyata (Run A vs Run B)
+
+> [!NOTE] Catatan Integritas Bukti (Fase 23c):
+> Angka-angka di bawah (file `406RNDgauvQ.id.json3`, 26 segmen caption, 81 segmen Whisper, runtime 73s dan 50s, serta kutipan teks transkrip awal) diambil dari inspeksi file output dan keluaran yt-dlp serta whisper-cli.exe di Windows. Teks naratif laporan dan format tabel disusun/diketik ulang dari ringkasan catatan eksekusi tersebut.
 
 * **Video Target:** `https://www.youtube.com/watch?v=406RNDgauvQ`
 * **Judul:** *"Kata Terakhir Menkeu Purbaya saat Sertijab Menkeu ke Suahasil Nazara: Ngomong Pendek Saja"*

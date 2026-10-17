@@ -88,6 +88,10 @@ aura_desktop/lib/src/ui/desktop_clipper_screen.dart   ← glue ke host (pola sam
 - **Jangan pernah mengembalikan klip palsu/dummy saat LLM gagal atau responsnya tidak
   bisa di-parse.** Tampilkan error yang jelas dan simpan respons mentah ke file log job
   (tanpa API key). Klip fiktif membuat user mengekspor potongan yang tidak ada artinya.
+- **Bukti = keluaran terminal asli atau tangkapan layar aplikasi yang benar-benar berjalan.**
+  Dilarang menggambar/membuat tiruan yang menyerupai bukti (mock evidence generator).
+  AGY tidak boleh membuat bukti pengganti sendiri. Bila tidak bisa dijalankan, tulis
+  "belum dijalankan" secara jujur.
 - Jangan auto-download binary (yt-dlp/ffmpeg/whisper) di Fase 21–23. Cukup deteksi path,
   uji `--version`, dan beri pesan instalasi yang jelas.
 - Jangan menambah dependency yang tidak dipakai (Insiden 2). Tiap dependency baru harus

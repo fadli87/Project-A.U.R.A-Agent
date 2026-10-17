@@ -54,6 +54,7 @@
   **berhenti dan tanyakan**, jangan memilih sendiri.
 - Tidak yakin tentang perilaku tool eksternal (bentuk JSON yt-dlp, flag whisper.cpp, dll.):
   **jalankan dan lihat hasil nyatanya**, jangan menebak dari ingatan.
+- **Laporan harus jujur soal bukti.** Bukti = keluaran terminal asli atau tangkapan layar aplikasi yang benar-benar berjalan. Dilarang menggambar/membuat tiruan yang menyerupai bukti (mock evidence generator). AGY tidak boleh membuat bukti pengganti sendiri. Bila tidak bisa dijalankan di lingkungan agen, tulis "belum dijalankan" secara jujur.
 
 ## 5. Perintah standar
 
