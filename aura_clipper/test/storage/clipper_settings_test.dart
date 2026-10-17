@@ -50,5 +50,22 @@ void main() {
       expect(loaded.outputDir, '/custom/output');
       expect(loaded.ytDlpPath, 'yt-dlp');
     });
+
+    test('customModel serializes and deserializes properly', () async {
+      final store = ClipperSettingsStore.fromDirectory(tempDir);
+      final initial = await store.load();
+      expect(initial.customModel, isNull);
+
+      final withModel = initial.copyWith(customModel: 'gemini/gemini-3.8-flash');
+      await store.save(withModel);
+
+      final reloadedStore = ClipperSettingsStore.fromDirectory(tempDir);
+      final loaded = await reloadedStore.load();
+      expect(loaded.customModel, 'gemini/gemini-3.8-flash');
+
+      // Test clearing customModel
+      final cleared = loaded.copyWith(clearCustomModel: true);
+      expect(cleared.customModel, isNull);
+    });
   });
 }

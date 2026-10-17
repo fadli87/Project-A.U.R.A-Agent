@@ -1,5 +1,6 @@
 // aura_desktop/test/resolve_desktop_model_test.dart
 import 'package:flutter_test/flutter_test.dart';
+import 'package:aura_desktop/src/providers/desktop_model_defaults.dart';
 import 'package:aura_desktop/src/providers/desktop_settings_provider.dart';
 import 'package:aura_desktop/src/providers/resolve_desktop_model.dart';
 
@@ -11,7 +12,7 @@ void main() {
       final result = resolveDesktopModelOrCombo(
         const DesktopSettingsState(activeCloudProvider: 'gemini'),
       );
-      expect(result, 'gemini/gemini-2.5-flash');
+      expect(result, 'gemini/gemini-3.8-flash');
     });
 
     test('#2 openai + model set → prefixed correctly', () {
@@ -57,7 +58,7 @@ void main() {
           comboModel: 'gemini,openai',
         ),
       );
-      expect(result, 'gemini/gemini-2.5-flash,openai/gpt-4o');
+      expect(result, 'gemini/gemini-3.8-flash,openai/gpt-4o');
     });
 
     test('#7 combo mixed (bare + full) → normalized', () {
@@ -67,7 +68,7 @@ void main() {
           comboModel: 'gemini,openai/gpt-4o-mini',
         ),
       );
-      expect(result, 'gemini/gemini-2.5-flash,openai/gpt-4o-mini');
+      expect(result, 'gemini/gemini-3.8-flash,openai/gpt-4o-mini');
     });
 
     test('#8 combo with empty string → fallback default chain', () {
@@ -77,17 +78,27 @@ void main() {
           comboModel: '',
         ),
       );
-      expect(result, 'gemini/gemini-2.5-flash,openai/gpt-4o');
+      expect(result, 'gemini/gemini-3.8-flash,openai/gpt-4o');
     });
 
-    test('#9 combo full paths → passthrough unchanged', () {
+    test('#9 combo full paths → passthrough unchanged or migrated', () {
       final result = resolveDesktopModelOrCombo(
         const DesktopSettingsState(
           activeCloudProvider: 'combo',
-          comboModel: 'gemini/gemini-2.5-flash,anthropic/claude-3-5-sonnet-20241022',
+          comboModel: 'gemini/gemini-3.8-flash,anthropic/claude-3-5-sonnet-20241022',
         ),
       );
-      expect(result, 'gemini/gemini-2.5-flash,anthropic/claude-3-5-sonnet-20241022');
+      expect(result, 'gemini/gemini-3.8-flash,anthropic/claude-3-5-sonnet-20241022');
+    });
+
+    test('#9b legacy gemini-2.5-flash in combo → auto-migrated to gemini-3.8-flash', () {
+      final result = resolveDesktopModelOrCombo(
+        const DesktopSettingsState(
+          activeCloudProvider: 'combo',
+          comboModel: 'gemini/gemini-2.5-flash,openai/gpt-4o',
+        ),
+      );
+      expect(result, 'gemini/gemini-3.8-flash,openai/gpt-4o');
     });
 
     // ── Passthrough / Unknown ────────────────────────────────────────────────
@@ -104,6 +115,15 @@ void main() {
         const DesktopSettingsState(activeCloudProvider: 'custom-llm'),
       );
       expect(result, 'custom-llm/custom-llm');
+    });
+
+    test('#12 DesktopModelDefaults constants and migrateCombo', () {
+      expect(DesktopModelDefaults.geminiModel, 'gemini-3.8-flash');
+      expect(DesktopModelDefaults.comboModel, contains('gemini-3.8-flash'));
+      expect(
+        DesktopModelDefaults.migrateCombo('gemini/gemini-2.5-flash,openai/gpt-4o'),
+        'gemini/gemini-3.8-flash,openai/gpt-4o',
+      );
     });
   });
 }

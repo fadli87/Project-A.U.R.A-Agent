@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import 'src/providers/desktop_chat_provider.dart';
 import 'src/providers/desktop_knowledge_provider.dart';
 import 'src/providers/desktop_trusted_folders_provider.dart';
+import 'src/providers/desktop_model_defaults.dart';
 import 'src/providers/desktop_settings_provider.dart';
 import 'src/services/desktop_platform_service.dart';
 import 'src/services/desktop_secure_storage.dart';
@@ -138,8 +139,12 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
       final anthropicK = await SecureStorageService.instance.read('anthropic_api_key') ?? '';
       final groqKey    = await SecureStorageService.instance.read('groq_api_key')      ?? '';
       final provider   = await SecureStorageService.instance.read('desktop_active_cloud_provider') ?? 'gemini';
-      final model      = await SecureStorageService.instance.read('desktop_openai_model') ?? 'gpt-4o-mini';
-      final combo      = await SecureStorageService.instance.read('desktop_combo_model') ?? 'gemini/gemini-2.5-flash,openai/gpt-4o';
+      final model      = await SecureStorageService.instance.read('desktop_openai_model') ?? DesktopModelDefaults.openaiModel;
+      final rawCombo   = await SecureStorageService.instance.read('desktop_combo_model') ?? DesktopModelDefaults.comboModel;
+      final combo      = DesktopModelDefaults.migrateCombo(rawCombo);
+      if (combo != rawCombo) {
+        await SecureStorageService.instance.write('desktop_combo_model', combo);
+      }
       setDialogState(() {
         geminiKeyController.text    = geminiKey;
         openaiKeyController.text    = openaiKey;
@@ -906,10 +911,10 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                           children: [
                                             ChoiceChip(
                                               label: const Text('Gemini → OpenAI', style: TextStyle(fontSize: 11)),
-                                              selected: comboController.text == 'gemini/gemini-2.5-flash,openai/gpt-4o',
+                                              selected: comboController.text == 'gemini/gemini-3.8-flash,openai/gpt-4o',
                                               onSelected: (selected) {
                                                 if (selected) {
-                                                  const val = 'gemini/gemini-2.5-flash,openai/gpt-4o';
+                                                  const val = 'gemini/gemini-3.8-flash,openai/gpt-4o';
                                                   setDialogState(() => comboController.text = val);
                                                   ref.read(desktopSettingsProvider.notifier).setComboModel(val);
                                                 }
@@ -917,10 +922,10 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                             ),
                                             ChoiceChip(
                                               label: const Text('OpenAI → Gemini', style: TextStyle(fontSize: 11)),
-                                              selected: comboController.text == 'openai/gpt-4o,gemini/gemini-2.5-flash',
+                                              selected: comboController.text == 'openai/gpt-4o,gemini/gemini-3.8-flash',
                                               onSelected: (selected) {
                                                 if (selected) {
-                                                  const val = 'openai/gpt-4o,gemini/gemini-2.5-flash';
+                                                  const val = 'openai/gpt-4o,gemini/gemini-3.8-flash';
                                                   setDialogState(() => comboController.text = val);
                                                   ref.read(desktopSettingsProvider.notifier).setComboModel(val);
                                                 }
@@ -931,7 +936,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                               selected: comboController.text.contains('anthropic') && comboController.text.contains('groq'),
                                               onSelected: (selected) {
                                                 if (selected) {
-                                                  const val = 'gemini/gemini-2.5-flash,openai/gpt-4o,anthropic/claude-3-5-sonnet-20241022,groq/llama-3.3-70b-versatile';
+                                                  const val = 'gemini/gemini-3.8-flash,openai/gpt-4o,anthropic/claude-3-5-sonnet-20241022,groq/llama-3.3-70b-versatile';
                                                   setDialogState(() => comboController.text = val);
                                                   ref.read(desktopSettingsProvider.notifier).setComboModel(val);
                                                 }
@@ -947,7 +952,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                             ref.read(desktopSettingsProvider.notifier).setComboModel(val);
                                           },
                                           decoration: InputDecoration(
-                                            hintText: 'contoh: gemini/gemini-2.5-flash,openai/gpt-4o',
+                                            hintText: 'contoh: gemini/gemini-3.8-flash,openai/gpt-4o',
                                             hintStyle: const TextStyle(color: Colors.grey, fontSize: 11),
                                             fillColor: const Color(0xFF13131A),
                                             filled: true,
@@ -1453,7 +1458,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                 
                 // Navigation Section Tabs
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
                       Expanded(
@@ -1461,7 +1466,7 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           onTap: () => setState(() => _activeNavIndex = 0),
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                             decoration: BoxDecoration(
                               color: _activeNavIndex == 0
                                   ? const Color(0xFF7C4DFF).withValues(alpha: 0.2)
@@ -1481,17 +1486,21 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                   color: _activeNavIndex == 0
                                       ? const Color(0xFF7C4DFF)
                                       : Colors.grey,
-                                  size: 16,
+                                  size: 14,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'AI Chat',
-                                  style: TextStyle(
-                                    color: _activeNavIndex == 0
-                                        ? Colors.white
-                                        : Colors.grey,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'AI Chat',
+                                    style: TextStyle(
+                                      color: _activeNavIndex == 0
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -1499,13 +1508,13 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: InkWell(
                           onTap: () => setState(() => _activeNavIndex = 1),
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                             decoration: BoxDecoration(
                               color: _activeNavIndex == 1
                                   ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
@@ -1525,17 +1534,21 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                   color: _activeNavIndex == 1
                                       ? const Color(0xFF6C63FF)
                                       : Colors.grey,
-                                  size: 16,
+                                  size: 14,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Trading Lab',
-                                  style: TextStyle(
-                                    color: _activeNavIndex == 1
-                                        ? Colors.white
-                                        : Colors.grey,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Trading Lab',
+                                    style: TextStyle(
+                                      color: _activeNavIndex == 1
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -1543,13 +1556,13 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: InkWell(
                           onTap: () => setState(() => _activeNavIndex = 2),
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                             decoration: BoxDecoration(
                               color: _activeNavIndex == 2
                                   ? const Color(0xFF7C4DFF).withValues(alpha: 0.2)
@@ -1569,17 +1582,21 @@ class _DesktopChatScreenState extends ConsumerState<DesktopChatScreen> {
                                   color: _activeNavIndex == 2
                                       ? const Color(0xFF7C4DFF)
                                       : Colors.grey,
-                                  size: 16,
+                                  size: 14,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Clipper',
-                                  style: TextStyle(
-                                    color: _activeNavIndex == 2
-                                        ? Colors.white
-                                        : Colors.grey,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Clipper',
+                                    style: TextStyle(
+                                      color: _activeNavIndex == 2
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],

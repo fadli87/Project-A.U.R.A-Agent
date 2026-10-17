@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:aura_core/storage/secure_storage_service.dart';
+import 'desktop_model_defaults.dart';
 
 /// Keys yang dipakai untuk menyimpan cloud settings desktop di SecureStorage.
 /// Dipisah dari mobile (aura_mobile pakai SharedPreferences dengan key berbeda).
@@ -18,13 +19,13 @@ class DesktopSettingsState {
   /// Model OpenAI yang dipilih, mis. 'gpt-4o' atau 'gpt-4o-mini'.
   final String openaiModel;
 
-  /// String chain model untuk mode combo, mis. 'gemini/gemini-2.5-flash,openai/gpt-4o'.
+  /// String chain model untuk mode combo, mis. 'gemini/gemini-3.8-flash,openai/gpt-4o'.
   final String comboModel;
 
   const DesktopSettingsState({
     this.activeCloudProvider = 'gemini',
-    this.openaiModel = 'gpt-4o-mini',
-    this.comboModel = 'gemini/gemini-2.5-flash,openai/gpt-4o',
+    this.openaiModel = DesktopModelDefaults.openaiModel,
+    this.comboModel = DesktopModelDefaults.comboModel,
   });
 
   DesktopSettingsState copyWith({
@@ -55,11 +56,21 @@ class DesktopSettingsNotifier extends StateNotifier<DesktopSettingsState> {
     final model = await SecureStorageService.instance.read(
           _DesktopSettingsKeys.openaiModel,
         ) ??
-        'gpt-4o-mini';
-    final combo = await SecureStorageService.instance.read(
+        DesktopModelDefaults.openaiModel;
+    var combo = await SecureStorageService.instance.read(
           _DesktopSettingsKeys.comboModel,
         ) ??
-        'gemini/gemini-2.5-flash,openai/gpt-4o';
+        DesktopModelDefaults.comboModel;
+
+    // Migrasi ringan: ganti model yang pensiun (mis. gemini-2.5-flash) jika ada di storage
+    final migrated = DesktopModelDefaults.migrateCombo(combo);
+    if (migrated != combo) {
+      combo = migrated;
+      await SecureStorageService.instance.write(
+        _DesktopSettingsKeys.comboModel,
+        combo,
+      );
+    }
 
     state = DesktopSettingsState(
       activeCloudProvider: provider,

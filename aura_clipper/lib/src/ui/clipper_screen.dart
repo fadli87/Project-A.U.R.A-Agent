@@ -9,6 +9,7 @@ import 'clip_preview_player.dart';
 import 'clip_list_view.dart';
 import 'export_panel.dart';
 import 'clipper_settings_dialog.dart';
+import 'clipper_error_formatter.dart';
 import '../models/video_job.dart';
 
 /// Layar utama AURA Clipper dengan tata letak dua kolom:
@@ -31,6 +32,7 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
   late final TextEditingController _focusController;
   late final TextEditingController _fromSecController;
   late final TextEditingController _toSecController;
+  late final ScrollController _leftScrollController;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
     _focusController = TextEditingController();
     _fromSecController = TextEditingController();
     _toSecController = TextEditingController();
+    _leftScrollController = ScrollController();
   }
 
   @override
@@ -47,6 +50,7 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
     _focusController.dispose();
     _fromSecController.dispose();
     _toSecController.dispose();
+    _leftScrollController.dispose();
     super.dispose();
   }
 
@@ -148,6 +152,7 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
                 // Form Input & Opsi Analisis
                 Expanded(
                   child: SingleChildScrollView(
+                    controller: _leftScrollController,
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,42 +336,125 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
 
                         // Error Banner jika ada
                         if (state.errorMessage != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                          Builder(
+                            builder: (context) {
+                              final errorInfo = ClipperErrorFormatter.format(state.errorMessage!);
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
-                                    const SizedBox(width: 8),
-                                    const Expanded(
-                                      child: Text(
-                                        'Gagal Memproses',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent, fontSize: 13),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            errorInfo.category,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent, fontSize: 13),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy, size: 14, color: Colors.white70),
+                                          tooltip: 'Salin Seluruh Error',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () {
+                                            Clipboard.setData(ClipboardData(text: state.errorMessage!));
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Detail error disalin ke clipboard.'),
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      errorInfo.advice,
+                                      style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.3),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      constraints: const BoxConstraints(maxHeight: 120),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black45,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.white10),
+                                      ),
+                                      child: SingleChildScrollView(
+                                        child: SelectableText(
+                                          errorInfo.detail,
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
                                       ),
                                     ),
+                                    if (state.rawLogPath != null) ...[
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.description_outlined, size: 14, color: Colors.white54),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: SelectableText(
+                                              state.rawLogPath!,
+                                              style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        children: [
+                                          OutlinedButton.icon(
+                                            onPressed: () => ClipperErrorFormatter.openLogFile(state.rawLogPath!),
+                                            icon: const Icon(Icons.folder_open, size: 14),
+                                            label: const Text('Buka File Log', style: TextStyle(fontSize: 11)),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: Colors.white70,
+                                              side: const BorderSide(color: Colors.white24),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () {
+                                              Clipboard.setData(ClipboardData(text: state.rawLogPath!));
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Path log disalin ke clipboard.'),
+                                                  duration: Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.copy, size: 13),
+                                            label: const Text('Salin Path', style: TextStyle(fontSize: 11)),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: Colors.white54,
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  state.errorMessage!,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                ),
-                                if (state.rawLogPath != null) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Log mentah: ${state.rawLogPath}',
-                                    style: const TextStyle(color: Colors.white38, fontSize: 11, fontFamily: 'monospace'),
-                                  ),
-                                ],
-                              ],
-                            ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -475,7 +563,11 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF1A1A24),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                      border: Border.all(
+                        color: state.activeStage == VideoJobStatus.error
+                            ? Colors.redAccent.withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.05),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,11 +577,19 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
                             Icon(
                               state.isRunning
                                   ? Icons.sync
-                                  : (state.activeStage == VideoJobStatus.done ? Icons.task_alt : Icons.info_outline),
+                                  : (state.activeStage == VideoJobStatus.done
+                                      ? Icons.task_alt
+                                      : (state.activeStage == VideoJobStatus.error
+                                          ? Icons.error_outline
+                                          : Icons.info_outline)),
                               size: 18,
                               color: state.isRunning
                                   ? const Color(0xFF7C4DFF)
-                                  : (state.activeStage == VideoJobStatus.done ? const Color(0xFF00E676) : Colors.white60),
+                                  : (state.activeStage == VideoJobStatus.done
+                                      ? const Color(0xFF00E676)
+                                      : (state.activeStage == VideoJobStatus.error
+                                          ? Colors.redAccent
+                                          : Colors.white60)),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -525,7 +625,51 @@ class _ClipperScreenState extends ConsumerState<ClipperScreen> {
                         const SizedBox(height: 6),
                         Text(
                           state.progressMessage,
-                          style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: state.activeStage == VideoJobStatus.error ? Colors.redAccent : Colors.white70,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Tag Model LLM yang Aktif Digunakan
+                        Builder(
+                          builder: (_) {
+                            final effectiveModel = (state.settings.customModel != null && state.settings.customModel!.trim().isNotEmpty)
+                                ? state.settings.customModel!.trim()
+                                : widget.config.modelOrCombo;
+                            return Row(
+                              children: [
+                                const Icon(Icons.psychology_outlined, size: 14, color: Colors.white38),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Model LLM: $effectiveModel${state.settings.customModel != null && state.settings.customModel!.trim().isNotEmpty ? " (kustom)" : ""}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.white38),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (state.activeStage == VideoJobStatus.error) ...[
+                                  TextButton(
+                                    onPressed: () {
+                                      _leftScrollController.animateTo(
+                                        0,
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                      );
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      foregroundColor: const Color(0xFF7C4DFF),
+                                    ),
+                                    child: const Text('Lihat Rincian', style: TextStyle(fontSize: 11)),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),

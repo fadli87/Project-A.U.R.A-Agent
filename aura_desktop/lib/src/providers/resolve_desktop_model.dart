@@ -1,3 +1,4 @@
+import 'desktop_model_defaults.dart';
 import 'desktop_settings_provider.dart';
 
 /// Resolves [DesktopSettingsState] menjadi model string yang siap dikirim ke
@@ -17,7 +18,7 @@ String resolveDesktopModelOrCombo(DesktopSettingsState settings) {
     final rawCombo = settings.comboModel.trim();
     final target = rawCombo.isNotEmpty
         ? rawCombo
-        : 'gemini/gemini-2.5-flash,openai/gpt-4o';
+        : DesktopModelDefaults.comboModel;
 
     return target
         .split(',')
@@ -33,7 +34,7 @@ String resolveDesktopModelOrCombo(DesktopSettingsState settings) {
     return m.contains('/') ? m : 'openai/$m';
   }
   if (provider == 'gemini' || provider == 'gc') {
-    return 'gemini/gemini-2.5-flash';
+    return 'gemini/${DesktopModelDefaults.geminiModel}';
   }
   if (provider == 'anthropic' || provider == 'claude') {
     return 'anthropic/claude-3-5-sonnet-20241022';
@@ -44,7 +45,7 @@ String resolveDesktopModelOrCombo(DesktopSettingsState settings) {
 
   // Passthrough: sudah berformat 'provider/model' atau 'p1/m1,p2/m2'
   if (provider.contains('/') || provider.contains(',')) {
-    return provider;
+    return DesktopModelDefaults.migrateCombo(provider);
   }
 
   // Unknown provider → fail-fast: biarkan router melempar FormatException
@@ -52,15 +53,17 @@ String resolveDesktopModelOrCombo(DesktopSettingsState settings) {
 }
 
 /// Normalisasi satu elemen combo: bare provider name → default model konkret.
-/// Elemen yang sudah memiliki slash '/' dikembalikan utuh.
+/// Elemen yang sudah memiliki slash '/' dikembalikan utuh (dengan migrasi model pensiun).
 String _normalizeProviderPart(String part) {
   if (part.isEmpty) return '';
-  if (part.contains('/')) return part;
+  if (part.contains('/')) {
+    return DesktopModelDefaults.migrateCombo(part);
+  }
 
   switch (part.toLowerCase()) {
     case 'gemini':
     case 'gc':
-      return 'gemini/gemini-2.5-flash';
+      return 'gemini/${DesktopModelDefaults.geminiModel}';
     case 'openai':
     case 'oa':
       return 'openai/gpt-4o';

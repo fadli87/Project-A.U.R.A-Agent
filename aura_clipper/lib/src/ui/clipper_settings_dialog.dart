@@ -26,6 +26,7 @@ class _ClipperSettingsDialogState extends State<ClipperSettingsDialog> {
   late final TextEditingController _whisperModelController;
   late final TextEditingController _languageController;
   late final TextEditingController _outputDirController;
+  late final TextEditingController _customModelController;
 
   Map<String, ToolCheckResult>? _toolResults;
   bool _isChecking = false;
@@ -40,6 +41,7 @@ class _ClipperSettingsDialogState extends State<ClipperSettingsDialog> {
     _whisperModelController = TextEditingController(text: s.whisperModelName);
     _languageController = TextEditingController(text: s.language);
     _outputDirController = TextEditingController(text: s.outputDir ?? '');
+    _customModelController = TextEditingController(text: s.customModel ?? '');
     _toolResults = widget.initialCheckResults;
   }
 
@@ -51,10 +53,12 @@ class _ClipperSettingsDialogState extends State<ClipperSettingsDialog> {
     _whisperModelController.dispose();
     _languageController.dispose();
     _outputDirController.dispose();
+    _customModelController.dispose();
     super.dispose();
   }
 
   ClipperSettings _buildSettings() {
+    final customM = _customModelController.text.trim();
     return widget.currentSettings.copyWith(
       ytDlpPath: _ytDlpController.text.trim().isNotEmpty ? _ytDlpController.text.trim() : 'yt-dlp',
       ffmpegPath: _ffmpegController.text.trim().isNotEmpty ? _ffmpegController.text.trim() : 'ffmpeg',
@@ -64,6 +68,8 @@ class _ClipperSettingsDialogState extends State<ClipperSettingsDialog> {
           : 'ggml-base.bin',
       language: _languageController.text.trim().isNotEmpty ? _languageController.text.trim() : 'auto',
       outputDir: _outputDirController.text.trim().isNotEmpty ? _outputDirController.text.trim() : null,
+      customModel: customM.isNotEmpty ? customM : null,
+      clearCustomModel: customM.isEmpty,
     );
   }
 
@@ -314,6 +320,26 @@ class _ClipperSettingsDialogState extends State<ClipperSettingsDialog> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Section: Model LLM Khusus Clipper (Opsional)
+                      const Text(
+                        'Konfigurasi Model LLM (Opsional)',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _customModelController,
+                        style: const TextStyle(fontSize: 13, color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Model LLM (Opsional)',
+                          hintText: 'mis. gemini/gemini-3.8-flash atau combo: gemini/gemini-3.8-flash,openai/gpt-4o',
+                          helperText: 'Bila diisi, mengalahkan pengaturan model host saat menganalisis video.',
+                          helperStyle: TextStyle(fontSize: 11, color: Colors.white54),
+                          prefixIcon: Icon(Icons.psychology, size: 18),
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ],
                   ),

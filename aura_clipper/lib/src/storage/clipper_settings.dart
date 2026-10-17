@@ -14,6 +14,10 @@ class ClipperSettings {
   final List<String> allowedHosts;
   final int tokenBudget;
 
+  /// Model LLM khusus untuk Clipper (opsional, mis. 'gemini/gemini-3.8-flash' atau 'combo').
+  /// Jika diisi, mengalahkan model default yang dikirim host.
+  final String? customModel;
+
   const ClipperSettings({
     this.ytDlpPath = 'yt-dlp',
     this.ffmpegPath = 'ffmpeg',
@@ -29,6 +33,7 @@ class ClipperSettings {
       'm.youtube.com',
     ],
     this.tokenBudget = 12000,
+    this.customModel,
   });
 
   ClipperSettings copyWith({
@@ -41,6 +46,8 @@ class ClipperSettings {
     String? outputDir,
     List<String>? allowedHosts,
     int? tokenBudget,
+    String? customModel,
+    bool clearCustomModel = false,
   }) {
     return ClipperSettings(
       ytDlpPath: ytDlpPath ?? this.ytDlpPath,
@@ -52,6 +59,7 @@ class ClipperSettings {
       outputDir: outputDir ?? this.outputDir,
       allowedHosts: allowedHosts ?? this.allowedHosts,
       tokenBudget: tokenBudget ?? this.tokenBudget,
+      customModel: clearCustomModel ? null : (customModel ?? this.customModel),
     );
   }
 
@@ -65,6 +73,7 @@ class ClipperSettings {
     'output_dir': outputDir,
     'allowed_hosts': allowedHosts,
     'token_budget': tokenBudget,
+    'custom_model': customModel,
   };
 
   factory ClipperSettings.fromJson(Map<String, dynamic> json) {
@@ -79,6 +88,7 @@ class ClipperSettings {
       allowedHosts: (json['allowed_hosts'] as List?)?.map((e) => e.toString()).toList() ??
           const ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'],
       tokenBudget: json['token_budget'] as int? ?? 12000,
+      customModel: json['custom_model'] as String?,
     );
   }
 }

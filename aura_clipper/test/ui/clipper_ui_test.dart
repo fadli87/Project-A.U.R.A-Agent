@@ -204,7 +204,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Gagal Memproses'), findsOneWidget);
+      expect(find.textContaining('Tool Sistem Gagal Dijalankan'), findsOneWidget);
       expect(find.textContaining('Tool eksternal yt-dlp gagal dijalankan'), findsOneWidget);
       expect(find.textContaining('analysis_raw.log'), findsOneWidget);
     });
@@ -303,6 +303,106 @@ void main() {
       await tester.tap(find.text('Ekspor 3 Klip Terpilih'));
       await tester.pumpAndSettle();
       expect(exportTriggered, isTrue);
+    });
+
+    testWidgets('ClipperScreen renders error banner without overflow and with SelectableText', (tester) async {
+      final config = ClipperHostConfig(
+        modelOrCombo: 'gemini/gemini-3.8-flash',
+        apiKeys: const {'gemini': 'test_key'},
+        workDir: Directory.systemTemp,
+      );
+
+      // Sesuai kasus nyata Fadli di jendela 720px:
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const longError =
+          'LocalFallbackException(All models in combo failed): ☁️ -> 💈 Seluruh layanan cloud sibuk/gagal, beralih ke model lokal '
+          '(original: HttpException: Gemini HTTP 404 NOT_FOUND: { "error": { "code": 404, "message": "This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash..." } })';
+
+      final errorState = ClipperState(
+        config: config,
+        activeStage: VideoJobStatus.error,
+        errorMessage: longError,
+        rawLogPath: 'C:/temp/aura_clipper/analysis_raw.log',
+        progressMessage: 'Model tidak ditemukan / pensiun (HTTP 404)',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            clipperControllerProvider(config).overrideWith(
+              (ref) => _MockNotifier(config, initialState: errorState),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: ClipperScreen(config: config),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Cek kategori 404 muncul di banner
+      expect(find.textContaining('HTTP 404'), findsWidgets);
+      // Cek SelectableText ada di dalam error detail box
+      expect(find.byType(SelectableText), findsWidgets);
+      // Cek tombol Buka File Log & Salin Path ada
+      expect(find.text('Buka File Log'), findsOneWidget);
+      expect(find.text('Salin Path'), findsOneWidget);
+      // Cek tidak ada exception layout overflow
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ClipperScreen displays custom model tag in progress card', (tester) async {
+      final config = ClipperHostConfig(
+        modelOrCombo: 'gemini/gemini-3.8-flash',
+        apiKeys: const {'gemini': 'test_key'},
+        workDir: Directory.systemTemp,
+      );
+
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final customModelState = ClipperState(
+        config: config,
+        settings: const ClipperSettings(customModel: 'openai/gpt-4o'),
+        isRunning: true,
+        progressFraction: 0.5,
+        activeStage: VideoJobStatus.analyzing,
+        progressMessage: 'Menganalisis klip...',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            clipperControllerProvider(config).overrideWith(
+              (ref) => _MockNotifier(config, initialState: customModelState),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: ClipperScreen(config: config),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Menampilkan model kustom
+      expect(find.textContaining('openai/gpt-4o (kustom)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

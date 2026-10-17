@@ -16,6 +16,7 @@ import '../pipeline/interfaces.dart';
 import '../pipeline/clipper_pipeline.dart';
 import 'package:aura_core/aura_core.dart';
 import 'clipper_host_config.dart';
+import 'clipper_error_formatter.dart';
 
 /// State lengkap UI AURA Clipper.
 class ClipperState {
@@ -343,12 +344,14 @@ class ClipperNotifier extends StateNotifier<ClipperState> {
           errText = 'Tool gagal dijalankan: ${e.message} (executable: ${e.executable}). Cek Pengaturan Tool.';
         }
 
+        final errorInfo = ClipperErrorFormatter.format(errText);
+
         state = state.copyWith(
           isRunning: false,
           activeStage: VideoJobStatus.error,
           errorMessage: errText,
           rawLogPath: rawLog,
-          progressMessage: 'Terjadi kesalahan saat memproses video.',
+          progressMessage: errorInfo.shortSummary,
         );
       }
     } finally {
@@ -519,9 +522,13 @@ class ClipperNotifier extends StateNotifier<ClipperState> {
       whisperModelsDir: settings.whisperModelsDir,
     );
     final router = LlmRouterClient();
+    final effectiveModel = (settings.customModel != null && settings.customModel!.trim().isNotEmpty)
+        ? settings.customModel!.trim()
+        : hostConfig.modelOrCombo;
+
     final analyzer = MomentAnalyzer(
       routerClient: router,
-      modelOrCombo: hostConfig.modelOrCombo,
+      modelOrCombo: effectiveModel,
       apiKeys: hostConfig.apiKeys,
     );
     final exporter = FfmpegExporter(ffmpegPath: settings.ffmpegPath);
